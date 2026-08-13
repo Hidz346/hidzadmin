@@ -1,0 +1,3501 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no,viewport-fit=cover">
+    <title>HIDZ | PANEL</title>
+    <meta name="theme-color" content="#09090f">
+    <link rel="icon" href="https://www.gobox.my.id/file/vVUoB.png">
+    <link rel="apple-touch-icon" href="https://www.gobox.my.id/file/vVUoB.png">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700;800;900&family=Orbitron:wght@500;700;900&display=swap" rel="stylesheet">
+    <!-- Firebase SDK (shared user database cross-domain) -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    <style>
+        *, *::before, *::after {
+            margin: 0; padding: 0; box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+        input, select { -webkit-user-select: auto !important; user-select: auto !important; }
+
+        :root {
+            --bg:   #09090f;
+            --sur:  #111120;
+            --sur2: #1a1a2e;
+            --bd:   #e5e7eb;
+            --sh:   4px 4px 0px #e5e7eb;
+            --shlg: 6px 6px 0px #e5e7eb;
+            --cyan:   #00e5ff;
+            --green:  #00e676;
+            --lime:   #b8ff00;
+            --yellow: #fbbf24;
+            --pink:   #ff69b4;
+            --purple: #7c3aed;
+            --red:    #ef4444;
+            --text:   #f0ede8;
+            --tsec:   #9ca3af;
+            --tmut:   #6b7280;
+        }
+
+        body {
+            font-family: 'Space Grotesk', system-ui, sans-serif;
+            background: var(--bg);
+            min-height: 100vh;
+            color: var(--text);
+            overflow-x: hidden;
+            user-select: none;
+        }
+        body::before {
+            content: '';
+            position: fixed; inset: 0; z-index: 0; pointer-events: none;
+            background-image:
+                radial-gradient(circle, var(--cyan) 1px, transparent 1px),
+                radial-gradient(circle, var(--pink) .5px, transparent .5px);
+            background-size: 45px 45px, 28px 28px;
+            background-position: 0 0, 14px 14px;
+            opacity: .025;
+        }
+
+        @keyframes gradSlide {
+            0%   { background-position: 0% 0; }
+            100% { background-position: 200% 0; }
+        }
+        @keyframes sparkle {
+            0%,100% { opacity:1; transform:scale(1); }
+            50%      { opacity:.3; transform:scale(.8); }
+        }
+        @keyframes btnShine {
+            0%  { left:-100%; }
+            50% { left:120%; }
+            100%{ left:120%; }
+        }
+        @keyframes pulseDot {
+            0%,100% { transform:scale(1); opacity:1; }
+            50%      { transform:scale(1.4); opacity:.6; }
+        }
+        @keyframes slideUp {
+            from { opacity:0; transform:translateY(14px); }
+            to   { opacity:1; transform:translateY(0); }
+        }
+
+        /* ===== LAYOUT ===== */
+        .wrap { max-width:480px; margin:0 auto; padding:14px; position:relative; z-index:1; }
+
+        /* ===== PANEL HEADER ===== */
+        .panel-hdr {
+            background: var(--sur);
+            border: 3px solid var(--bd); box-shadow: var(--shlg);
+            padding: 22px 20px; text-align: center;
+            margin-bottom: 14px; position: relative; overflow: hidden;
+        }
+        .panel-hdr::before {
+            content: ''; position: absolute;
+            bottom:0; left:0; right:0; height:3px;
+            background: linear-gradient(90deg, var(--lime),var(--pink),var(--cyan),var(--lime));
+            background-size: 200% 100%;
+            animation: gradSlide 3s linear infinite;
+        }
+        .panel-logo {
+            width:68px; height:68px;
+            background: linear-gradient(135deg,var(--purple),#4f46e5);
+            border:3px solid var(--bd); box-shadow:4px 4px 0 var(--bd);
+            display:flex; align-items:center; justify-content:center;
+            margin:0 auto 12px; font-size:28px; overflow:hidden;
+        }
+        .panel-logo img { width:100%; height:100%; object-fit:cover; }
+        .panel-title {
+            font-family:'Orbitron',sans-serif;
+            font-size:20px; font-weight:900;
+            text-transform:uppercase; letter-spacing:.5px; margin-bottom:4px;
+        }
+        .panel-desc { font-size:12px; color:var(--tsec); margin-bottom:12px; }
+        .badge-res {
+            display:inline-block; padding:5px 16px;
+            font-size:11px; font-weight:800;
+            text-transform:uppercase; letter-spacing:1px;
+            background:var(--purple); color:white;
+            border:2px solid var(--bd); box-shadow:3px 3px 0 var(--bd);
+        }
+
+        /* ===== SERVER ===== */
+        .server-card {
+            background:var(--sur); border:3px solid var(--bd); box-shadow:var(--sh);
+            padding:16px; margin-bottom:14px;
+        }
+        .server-row { display:flex; align-items:center; gap:12px; margin-bottom:10px; }
+        .srv-lbl { font-size:10px; font-weight:800; color:var(--tsec); text-transform:uppercase; letter-spacing:1px; }
+        .srv-status {
+            font-family:'Orbitron',sans-serif; font-size:18px; font-weight:700;
+            color:var(--green); display:flex; align-items:center; gap:8px;
+        }
+        .srv-dot {
+            width:10px; height:10px; background:var(--green);
+            border:2px solid var(--bd); border-radius:50%;
+            animation:pulseDot 1.5s ease-in-out infinite;
+        }
+        .srv-clock {
+            background:var(--sur2); border:2px solid var(--bd);
+            padding:10px 16px; text-align:center;
+            font-family:'Orbitron',sans-serif; font-size:20px; font-weight:700;
+            color:var(--cyan); letter-spacing:3px;
+        }
+
+        /* ===== STATS ===== */
+        /* 2x2: Total, Active (sudah login), Belum Login (created tapi belum pernah
+           login), Expired — 4 kartu supaya muat rapi di layar mobile (480px). */
+        .stats-row { display:grid; grid-template-columns:repeat(2,1fr); gap:10px; margin-bottom:14px; }
+        .stat-card {
+            background:var(--sur); border:2.5px solid var(--bd); box-shadow:3px 3px 0 var(--bd);
+            padding:12px 8px; text-align:center;
+        }
+        .stat-lbl { font-size:9px; font-weight:800; color:var(--tsec); text-transform:uppercase; letter-spacing:.5px; margin-bottom:5px; }
+        .stat-val { font-family:'Orbitron',sans-serif; font-size:26px; font-weight:700; color:var(--cyan); }
+        .stat-val.g { color:var(--green); }
+        .stat-val.y { color:var(--yellow); }
+        .stat-val.r { color:var(--red); }
+
+        /* ===== DIVIDER ===== */
+        .divider { height:2px; background:linear-gradient(90deg,transparent,var(--bd),transparent); margin:4px 0 16px; }
+
+        /* ===== SECTION TITLE ===== */
+        .sec-hdr { display:flex; align-items:center; justify-content:space-between; margin-bottom:13px; }
+        .sec-title {
+            font-family:'Orbitron',sans-serif; font-size:13px; font-weight:700;
+            color:var(--cyan); text-transform:uppercase; letter-spacing:1px;
+            border-left:4px solid var(--cyan); padding-left:9px;
+            display:flex; align-items:center; gap:7px;
+        }
+        .sec-spark { color:var(--pink); font-size:11px; animation:sparkle 2s ease-in-out infinite; }
+        .cnt-badge {
+            background:var(--sur2); border:2px solid var(--bd); box-shadow:2px 2px 0 var(--bd);
+            width:28px; height:28px; display:flex; align-items:center; justify-content:center;
+            font-family:'Orbitron',sans-serif; font-size:12px; font-weight:700; color:var(--cyan);
+        }
+        .icon-sm-btn {
+            background:var(--sur2); border:2px solid var(--bd); box-shadow:2px 2px 0 var(--bd);
+            width:28px; height:28px; display:flex; align-items:center; justify-content:center;
+            color:var(--cyan); font-size:12px; cursor:pointer; transition:transform .12s, box-shadow .12s;
+        }
+        .icon-sm-btn:active { transform: translate(2px,2px); box-shadow:0 0 0; }
+        .user-search-wrap { position:relative; margin-bottom:13px; }
+        .user-search-wrap i {
+            position:absolute; left:14px; top:50%; transform:translateY(-50%);
+            color:var(--tmut); font-size:13px; pointer-events:none;
+        }
+        .user-search-wrap input {
+            width:100%; padding:12px 14px 12px 38px;
+            background:var(--sur2); border:2.5px solid var(--bd); box-shadow:3px 3px 0 var(--bd);
+            color:var(--text); font-family:'Space Grotesk',sans-serif; font-size:13px; font-weight:600;
+            outline:none;
+            transition:border-color .15s, box-shadow .15s;
+        }
+        .user-search-wrap input:focus { border-color:var(--cyan); box-shadow:3px 3px 0 var(--cyan); }
+        .user-search-wrap input::placeholder { color:var(--tmut); }
+
+        /* ===== CARDS ===== */
+        .card {
+            background:var(--sur); border:3px solid var(--bd); box-shadow:var(--shlg);
+            padding:18px; margin-bottom:14px;
+        }
+
+        /* ===== ADMIN GATE ===== */
+        .admin-gate-overlay {
+            position:fixed; inset:0; z-index:999999;
+            background:var(--bg); display:none;
+            align-items:center; justify-content:center; padding:20px;
+        }
+        .admin-gate-overlay.show { display:flex; }
+        .admin-gate-card { width:100%; max-width:380px; margin-bottom:0; }
+        .admin-gate-icon {
+            width:56px; height:56px; margin:0 auto 16px;
+            background:var(--sur2); border:3px solid var(--bd); box-shadow:3px 3px 0 var(--bd);
+            display:flex; align-items:center; justify-content:center;
+            font-size:22px; color:var(--cyan);
+        }
+        .admin-gate-title {
+            font-family:'Orbitron',sans-serif; font-weight:700; font-size:15px;
+            text-align:center; margin-bottom:4px; letter-spacing:.5px;
+        }
+        .admin-gate-sub {
+            font-size:12px; color:var(--tsec); text-align:center; margin-bottom:18px;
+        }
+        .admin-gate-err {
+            color:var(--red); font-size:12px; font-weight:700;
+            margin:-6px 0 13px; display:none;
+        }
+
+        /* ===== FORM ===== */
+        .f-lbl { font-size:10px; font-weight:800; color:var(--tsec); text-transform:uppercase; letter-spacing:1px; margin-bottom:6px; }
+        .f-inp {
+            width:100%; padding:12px 14px;
+            background:var(--sur2); border:2.5px solid var(--bd); box-shadow:3px 3px 0 var(--bd);
+            color:var(--text); font-family:'Space Grotesk',sans-serif; font-size:14px; font-weight:600;
+            outline:none; margin-bottom:13px;
+            transition:border-color .15s, box-shadow .15s;
+        }
+        .f-inp:focus { border-color:var(--cyan); box-shadow:3px 3px 0 var(--cyan); }
+        .f-inp:disabled { opacity:.4; cursor:not-allowed; }
+        .f-inp::placeholder { color:var(--tmut); }
+        .f-pw-wrap { position:relative; margin-bottom:13px; }
+        .f-pw-wrap .f-inp { margin-bottom:0; padding-right:42px; }
+        .f-pw-toggle {
+            position:absolute; right:12px; top:50%; transform:translateY(-50%);
+            background:none; border:none; color:var(--tmut);
+            cursor:pointer; font-size:14px; padding:4px; line-height:1;
+            transition:color .15s;
+        }
+        .f-pw-toggle:active { color:var(--cyan); }
+        .dur-row { display:grid; grid-template-columns:1fr 125px; gap:10px; margin-bottom:13px; }
+        .dur-row .f-inp { margin-bottom:0; }
+        .f-sel {
+            padding:12px 30px 12px 14px;
+            background:var(--sur2); border:2.5px solid var(--bd); box-shadow:3px 3px 0 var(--bd);
+            color:var(--text); font-family:'Space Grotesk',sans-serif; font-size:14px; font-weight:700;
+            outline:none; cursor:pointer; appearance:none; -webkit-appearance:none;
+            background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23e5e7eb' stroke-width='2' fill='none'/%3E%3C/svg%3E");
+            background-repeat:no-repeat; background-position:right 10px center;
+            transition:border-color .15s;
+        }
+        .f-sel:focus { border-color:var(--cyan); box-shadow:3px 3px 0 var(--cyan); }
+        .progress-slider {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 100%;
+            height: 14px;
+            background: var(--sur2);
+            border: 2.5px solid var(--bd);
+            box-shadow: 3px 3px 0 var(--bd);
+            outline: none;
+            cursor: pointer;
+        }
+        .progress-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px; height: 20px;
+            background: var(--cyan);
+            border: 2px solid var(--bd);
+            box-shadow: 2px 2px 0 var(--bd);
+            cursor: pointer;
+        }
+        .progress-slider::-moz-range-thumb {
+            width: 20px; height: 20px; border-radius: 0;
+            background: var(--cyan);
+            border: 2px solid var(--bd);
+            box-shadow: 2px 2px 0 var(--bd);
+            cursor: pointer;
+        }
+        .progress-slider::-moz-range-track { background: var(--sur2); height: 14px; }
+
+        /* ===== BUTTONS ===== */
+        .btn-create {
+            width:100%; padding:15px;
+            background:linear-gradient(135deg,var(--cyan),#0891b2);
+            border:3px solid var(--bd); box-shadow:var(--shlg);
+            color:#09090f; font-family:'Orbitron',sans-serif;
+            font-size:13px; font-weight:700; text-transform:uppercase; letter-spacing:1px;
+            cursor:pointer; position:relative; overflow:hidden;
+            transition:transform .15s, box-shadow .15s;
+        }
+        .btn-create::before {
+            content:''; position:absolute; top:0; left:-100%; width:100%; height:100%;
+            background:linear-gradient(90deg,transparent,rgba(255,255,255,.2),transparent);
+            animation:btnShine 2.5s ease-in-out infinite;
+        }
+        .btn-create:active { transform:translate(5px,5px); box-shadow:0 0 0 var(--bd); }
+
+        /* ===== USER ITEMS ===== */
+        .user-item {
+            background:var(--sur2); border:2.5px solid var(--bd); box-shadow:3px 3px 0 var(--bd);
+            padding:13px 12px; margin-top:11px; position:relative;
+            animation:slideUp .25s ease;
+        }
+        .user-item.exp { opacity:.65; }
+        /* Border status akun: hijau = aktif/sudah login, kuning = menunggu
+           login (baru dibuat / logout / baru di-reset), merah = expired.
+           Diterapkan berdasarkan status yang sama dengan badge di atasnya
+           (lihat renderUsers), jadi selalu konsisten satu sama lain. */
+        .user-item.st-active  { border-color: var(--green); }
+        .user-item.st-pending { border-color: var(--yellow); }
+        .user-item.st-expired { border-color: var(--red); }
+        .user-top { display:flex; align-items:center; gap:8px; margin-bottom:6px; }
+        .u-name { font-weight:800; font-size:15px; }
+        .u-role {
+            display:inline-block; padding:2px 8px;
+            font-size:9px; font-weight:800; text-transform:uppercase;
+            border:1.5px solid currentColor;
+        }
+        .u-role.admin { color:#a78bfa; border-color:#a78bfa; background:rgba(124,58,237,.12); }
+        .u-role.vip   { color:#fbbf24; border-color:#fbbf24; background:rgba(251,191,36,.12); }
+        .u-role.user  { color:#60a5fa; border-color:#60a5fa; background:rgba(30,64,175,.12); }
+        .u-status {
+            display:inline-flex; align-items:center; gap:4px;
+            padding:2px 7px; font-size:9px; font-weight:800;
+            text-transform:uppercase; border:1.5px solid currentColor;
+        }
+        .u-ok  { color:var(--green); background:rgba(0,230,118,.08); }
+        .u-exp { color:var(--red);   background:rgba(239,68,68,.08); }
+        .u-pending { color:var(--lime); background:rgba(184,255,0,.08); }
+        .u-remain { font-size:12px; color:var(--tsec); font-weight:600; }
+        .u-expiry  { font-size:11px; color:var(--tmut); font-weight:600; margin-top:3px; }
+        .u-pw      { font-size:10px; color:var(--tmut); font-weight:600; margin-top:2px; }
+        .btn-del {
+            position:absolute; top:10px; right:10px;
+            width:28px; height:28px; background:rgba(239,68,68,.12);
+            border:1.5px solid var(--red); color:#fca5a5; font-size:11px;
+            cursor:pointer; display:flex; align-items:center; justify-content:center;
+            transition:transform .12s;
+        }
+        .btn-del:active { transform:translate(2px,2px); }
+        .btn-copy {
+            position:absolute; top:10px; right:44px;
+            width:28px; height:28px; background:rgba(0,229,255,.12);
+            border:1.5px solid var(--cyan); color:#67e8f9; font-size:11px;
+            cursor:pointer; display:flex; align-items:center; justify-content:center;
+            transition:transform .12s;
+        }
+        .btn-copy:active { transform:translate(2px,2px); }
+        .empty-state { text-align:center; padding:22px; color:var(--tmut); font-size:12px; font-weight:600; }
+
+        /* ===== TOAST ===== */
+        .toast {
+            position:fixed; bottom:26px; left:50%;
+            transform:translateX(-50%) translateY(120px);
+            background:var(--sur); border:3px solid var(--bd); box-shadow:var(--sh);
+            padding:11px 20px; font-size:13px; font-weight:700;
+            z-index:9999; white-space:nowrap; pointer-events:none;
+            transition:transform .3s cubic-bezier(.34,1.2,.64,1);
+        }
+        .toast.show { transform:translateX(-50%) translateY(0); }
+        .toast.ok  { border-color:var(--green); color:#86efac; }
+        .toast.err { border-color:var(--red);   color:#fca5a5; }
+
+        /* ===== SITE MAINTENANCE CONTROL ===== */
+        .maint-status-bar {
+            display:flex; align-items:center; justify-content:center; gap:8px;
+            width:100%; padding:9px 14px; margin-bottom:13px;
+            font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:1px;
+            border:2.5px solid var(--bd); box-shadow:3px 3px 0 var(--bd);
+            transition: all .25s;
+        }
+        .maint-status-bar.s-online {
+            background:rgba(0,230,118,.09); color:var(--green);
+            border-color:var(--green); box-shadow:3px 3px 0 var(--green);
+        }
+        .maint-status-bar.s-maint {
+            background:rgba(239,68,68,.09); color:var(--red);
+            border-color:var(--red); box-shadow:3px 3px 0 var(--red);
+        }
+        .maint-pulse-dot {
+            width:8px; height:8px; border-radius:50%; border:1.5px solid currentColor;
+            background:currentColor; animation:pulseDot 1.5s ease-in-out infinite;
+        }
+        .btn-site {
+            padding:14px 6px;
+            border:3px solid var(--bd);
+            font-family:'Orbitron',sans-serif; font-size:11px; font-weight:700;
+            text-transform:uppercase; letter-spacing:.5px; cursor:pointer;
+            position:relative; overflow:hidden;
+            transition:transform .15s, box-shadow .15s, opacity .2s;
+        }
+        .btn-site::before {
+            content:''; position:absolute; top:0; left:-100%; width:100%; height:100%;
+            background:linear-gradient(90deg,transparent,rgba(255,255,255,.2),transparent);
+            animation:btnShine 2.5s ease-in-out infinite;
+        }
+        .btn-site:active { transform:translate(4px,4px); box-shadow:0 0 0 var(--bd); }
+        .btn-s-on    { background:linear-gradient(135deg,var(--green),#059669); color:#09090f; box-shadow:var(--sh); }
+        .btn-s-maint { background:linear-gradient(135deg,#f97316,#b91c1c); color:#fff; box-shadow:var(--sh); }
+        .btn-site.is-active   { opacity:1; box-shadow:var(--shlg); pointer-events:none; cursor:default; }
+        .btn-site.is-inactive { opacity:.55; box-shadow:1px 1px 0 var(--bd); }
+
+        /* ===== DEVICE LIMIT ===== */
+        .dev-limit-row {
+            display: grid; grid-template-columns: repeat(3,1fr);
+            gap: 8px; margin-bottom: 13px;
+        }
+        .dev-btn {
+            padding: 11px 6px;
+            background: var(--sur2); border: 2px solid var(--bd); box-shadow: 2px 2px 0 var(--bd);
+            color: var(--tsec); font-family:'Space Grotesk',sans-serif;
+            font-size: 12px; font-weight: 700; cursor: pointer; text-align: center;
+            transition: all .15s;
+        }
+        .dev-btn.active {
+            background: var(--cyan); color: #09090f;
+            border-color: var(--cyan); box-shadow: 2px 2px 0 var(--cyan);
+        }
+        .dev-btn:active { transform: translate(2px,2px); box-shadow: 0 0 0; }
+
+        /* ===== USER BANNED / WARNING ===== */
+        .u-device { font-size:11px; color:var(--tsec); font-weight:600; margin-top:3px; }
+        .u-warn-badge {
+            display:inline-flex; align-items:center; gap:5px;
+            padding:3px 8px; font-size:10px; font-weight:800;
+            text-transform:uppercase; letter-spacing:.5px;
+            color:#ef4444; background:rgba(239,68,68,.1);
+            border:1.5px solid #ef4444; margin-top:5px;
+            animation: warnPulse 1.5s ease-in-out infinite;
+        }
+        @keyframes warnPulse {
+            0%,100% { opacity:1; } 50% { opacity:.5; }
+        }
+        .btn-unband {
+            margin-top:8px; width:100%; padding:9px;
+            background:rgba(251,191,36,.08); border:2px solid #fbbf24;
+            color:#fbbf24; font-family:'Space Grotesk',sans-serif;
+            font-size:11px; font-weight:800; text-transform:uppercase;
+            letter-spacing:.5px; cursor:pointer;
+            transition:transform .12s, box-shadow .12s;
+            box-shadow: 2px 2px 0 #fbbf24;
+        }
+        .btn-unband:active { transform:translate(2px,2px); box-shadow:0 0 0; }
+        .btn-extend {
+            margin-top:8px; width:100%; padding:9px;
+            background:rgba(0,229,255,.08); border:2px solid var(--cyan);
+            color:var(--cyan); font-family:'Space Grotesk',sans-serif;
+            font-size:11px; font-weight:800; text-transform:uppercase;
+            letter-spacing:.5px; cursor:pointer;
+            transition:transform .12s, box-shadow .12s;
+            box-shadow: 2px 2px 0 var(--cyan);
+        }
+        .btn-extend:active { transform:translate(2px,2px); box-shadow:0 0 0; }
+
+        /* ===== SECURITY ALERTS ===== */
+        .sec-alert-card {
+            background: rgba(239,68,68,.06);
+            border: 3px solid var(--red);
+            box-shadow: 6px 6px 0px var(--red);
+            padding: 18px;
+            margin-bottom: 14px;
+        }
+        .alert-item {
+            background: rgba(239,68,68,.08);
+            border: 2px solid rgba(239,68,68,.35);
+            padding: 12px 14px;
+            margin-top: 10px;
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 10px;
+            animation: slideUp .25s ease;
+        }
+        .alert-icon { color: var(--red); font-size: 15px; flex-shrink: 0; margin-top: 3px; }
+        .alert-time { font-size: 12px; color: #fca5a5; font-weight: 700; }
+        .alert-ago  { font-size: 11px; color: var(--tsec); font-weight: 600; margin-top: 3px; }
+        .alert-msg  { font-size: 11px; color: var(--red); font-weight: 700; margin-top: 5px; }
+        .btn-dismiss {
+            width: 26px; height: 26px;
+            background: rgba(239,68,68,.1);
+            border: 1.5px solid var(--red);
+            color: #fca5a5; font-size: 11px;
+            cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0;
+            transition: transform .12s;
+        }
+        .btn-dismiss:active { transform: translate(2px,2px); }
+        .btn-clear-all {
+            margin-top: 12px; width: 100%; padding: 10px;
+            background: rgba(239,68,68,.06);
+            border: 2px solid rgba(239,68,68,.35);
+            color: #fca5a5;
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 11px; font-weight: 800;
+            text-transform: uppercase; letter-spacing: .5px;
+            cursor: pointer;
+            transition: transform .12s, box-shadow .12s;
+            box-shadow: 2px 2px 0 rgba(239,68,68,.35);
+        }
+        .btn-clear-all:active { transform: translate(2px,2px); box-shadow: 0 0 0; }
+        .no-alerts {
+            text-align: center; padding: 18px;
+            color: var(--tsec); font-size: 12px; font-weight: 600;
+        }
+        @keyframes alertPulse {
+            0%,100% { border-color: rgba(239,68,68,.35); }
+            50%      { border-color: rgba(239,68,68,.8); }
+        }
+        .alert-item { animation: slideUp .25s ease, alertPulse 2s ease-in-out 3; }
+
+        /* ===== DELETE ALL USERS — DANGER MODAL ===== */
+        .danger-modal-overlay {
+            position: fixed; inset: 0; z-index: 100002;
+            background: rgba(0,0,0,.78);
+            display: flex; align-items: center; justify-content: center;
+            padding: 20px;
+            opacity: 0; pointer-events: none;
+            transition: opacity .25s ease;
+        }
+        .danger-modal-overlay.show { opacity: 1; pointer-events: auto; }
+        .danger-modal-box {
+            width: 100%; max-width: 380px;
+            background: var(--sur); border: 3px solid var(--red);
+            box-shadow: 7px 7px 0px var(--red);
+            padding: 22px 20px; text-align: center;
+            transform: translateY(10px) scale(.97);
+            transition: transform .25s ease;
+        }
+        .danger-modal-overlay.show .danger-modal-box { transform: translateY(0) scale(1); }
+        .danger-modal-icon {
+            font-size: 36px; color: var(--red); margin-bottom: 10px;
+            animation: warnPulse 1.5s ease-in-out infinite;
+        }
+        .danger-modal-title {
+            font-family: 'Orbitron', sans-serif; font-size: 14px; font-weight: 900;
+            color: var(--red); text-transform: uppercase; letter-spacing: .5px;
+            margin-bottom: 12px;
+        }
+        .danger-modal-desc {
+            font-size: 12px; color: var(--tsec); line-height: 1.7;
+            margin-bottom: 16px; text-align: left;
+        }
+        .danger-modal-desc b { color: var(--text); }
+        .danger-modal-check {
+            display: flex; align-items: center; gap: 9px;
+            background: var(--sur2); border: 2px solid var(--bd);
+            padding: 11px 12px; margin-bottom: 14px;
+            text-align: left; cursor: pointer;
+            font-size: 11px; font-weight: 700; color: var(--text);
+        }
+        .danger-modal-check input {
+            width: 17px; height: 17px; accent-color: var(--red);
+            cursor: pointer; flex-shrink: 0;
+        }
+        .danger-modal-backup {
+            width: 100%; padding: 11px 6px; margin-bottom: 14px;
+            background: rgba(0,229,255,.06); border: 2px solid rgba(0,229,255,.4);
+            color: var(--cyan); font-family: 'Space Grotesk', sans-serif;
+            font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .5px;
+            cursor: pointer; transition: transform .12s, box-shadow .12s;
+            box-shadow: 2px 2px 0 rgba(0,229,255,.4);
+        }
+        .danger-modal-backup:active { transform: translate(2px,2px); box-shadow: 0 0 0; }
+        .danger-modal-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .danger-modal-cancel {
+            padding: 13px 6px;
+            background: var(--sur2); border: 2.5px solid var(--bd); box-shadow: 3px 3px 0 var(--bd);
+            color: var(--text); font-family: 'Space Grotesk', sans-serif;
+            font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .5px;
+            cursor: pointer; transition: transform .12s;
+        }
+        .danger-modal-cancel:active { transform: translate(2px,2px); box-shadow: 0 0 0; }
+        .danger-modal-confirm {
+            padding: 13px 6px;
+            background: linear-gradient(135deg,#dc2626,#7f1d1d);
+            border: 2.5px solid var(--bd); box-shadow: 3px 3px 0 var(--bd);
+            color: #fff; font-family: 'Orbitron', sans-serif;
+            font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px;
+            cursor: pointer; transition: transform .12s, opacity .2s;
+        }
+        .danger-modal-confirm:active:not(:disabled) { transform: translate(2px,2px); box-shadow: 0 0 0; }
+        .danger-modal-confirm:disabled { opacity: .35; cursor: not-allowed; }
+
+        /* ===== PERPANJANG DURASI — MODAL (aksen cyan, bukan aksi berbahaya) ===== */
+        .extend-modal-overlay {
+            position: fixed; inset: 0; z-index: 100000;
+            background: rgba(0,0,0,.78);
+            display: flex; align-items: center; justify-content: center;
+            padding: 20px;
+            opacity: 0; pointer-events: none;
+            transition: opacity .25s ease;
+        }
+        .extend-modal-overlay.show { opacity: 1; pointer-events: auto; }
+        .extend-modal-box {
+            width: 100%; max-width: 380px;
+            background: var(--sur); border: 3px solid var(--cyan);
+            box-shadow: 7px 7px 0px var(--cyan);
+            padding: 22px 20px; text-align: center;
+            transform: translateY(10px) scale(.97);
+            transition: transform .25s ease;
+        }
+        .extend-modal-overlay.show .extend-modal-box { transform: translateY(0) scale(1); }
+        .extend-modal-icon { font-size: 36px; color: var(--cyan); margin-bottom: 10px; }
+        .extend-modal-title {
+            font-family: 'Orbitron', sans-serif; font-size: 14px; font-weight: 900;
+            color: var(--cyan); text-transform: uppercase; letter-spacing: .5px;
+            margin-bottom: 12px;
+        }
+        .extend-modal-desc {
+            font-size: 12px; color: var(--tsec); line-height: 1.7;
+            margin-bottom: 14px; text-align: left;
+        }
+        .extend-modal-desc b { color: var(--text); }
+        .extend-modal-dur-row {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px;
+        }
+        .extend-modal-dur-row .f-inp,
+        .extend-modal-dur-row .f-sel { margin-bottom: 0; }
+        .extend-modal-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .extend-modal-cancel {
+            padding: 13px 6px;
+            background: var(--sur2); border: 2.5px solid var(--bd); box-shadow: 3px 3px 0 var(--bd);
+            color: var(--text); font-family: 'Space Grotesk', sans-serif;
+            font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .5px;
+            cursor: pointer; transition: transform .12s;
+        }
+        .extend-modal-cancel:active { transform: translate(2px,2px); box-shadow: 0 0 0; }
+        .extend-modal-confirm {
+            padding: 13px 6px;
+            background: linear-gradient(135deg,var(--cyan),#0891b2);
+            border: 2.5px solid var(--cyan); box-shadow: 3px 3px 0 var(--bd);
+            color: #04252c; font-family: 'Orbitron', sans-serif;
+            font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px;
+            cursor: pointer; transition: transform .12s;
+        }
+        .extend-modal-confirm:active { transform: translate(2px,2px); box-shadow: 0 0 0; }
+
+        /* ===== PENGUMUMAN: PROMO BANNER ===== */
+        .promo-status-bar {
+            display:flex; align-items:center; justify-content:center; gap:8px;
+            width:100%; padding:9px 14px; margin-bottom:13px;
+            font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:1px;
+            border:2.5px solid var(--bd); box-shadow:3px 3px 0 var(--bd);
+            transition: all .25s;
+        }
+        .promo-status-bar.p-on {
+            background:rgba(0,230,118,.09); color:var(--green);
+            border-color:var(--green); box-shadow:3px 3px 0 var(--green);
+        }
+        .promo-status-bar.p-off {
+            background:rgba(107,114,128,.12); color:var(--tsec);
+            border-color:var(--bd); box-shadow:3px 3px 0 var(--bd);
+        }
+        .promo-status-bar.p-expired {
+            background:rgba(251,191,36,.12); color:var(--yellow);
+            border-color:var(--yellow); box-shadow:3px 3px 0 var(--yellow);
+        }
+        textarea.f-inp { resize:vertical; min-height:70px; font-family:'Space Grotesk',sans-serif; line-height:1.5; }
+        .btn-p-on  { background:linear-gradient(135deg,var(--green),#059669); color:#09090f; box-shadow:var(--sh); }
+        .btn-p-off { background:linear-gradient(135deg,#6b7280,#374151);      color:#fff;    box-shadow:var(--sh); }
+
+        /* ===== PENGUMUMAN: INFO & UPDATE FEED ===== */
+        .ann-feed-item {
+            background:var(--sur2); border:2.5px solid var(--bd); box-shadow:3px 3px 0 var(--bd);
+            padding:13px 12px; margin-top:11px; position:relative;
+            animation:slideUp .25s ease;
+        }
+        .ann-feed-title   { font-weight:800; font-size:14px; margin-bottom:5px; padding-right:66px; }
+        .ann-feed-content {
+            font-size:12px; color:var(--tsec); line-height:1.6; margin-bottom:7px;
+            overflow:hidden; text-overflow:ellipsis;
+            display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical;
+            white-space:pre-wrap;
+        }
+        .ann-feed-date { font-size:10px; color:var(--tmut); font-weight:700; }
+        .btn-edit {
+            position:absolute; top:10px; right:44px;
+            width:28px; height:28px; background:rgba(0,229,255,.12);
+            border:1.5px solid var(--cyan); color:#67e8f9; font-size:11px;
+            cursor:pointer; display:flex; align-items:center; justify-content:center;
+            transition:transform .12s;
+        }
+        .btn-edit:active { transform:translate(2px,2px); }
+
+        /* ═══════════════════════════════════════════════════════════
+           KONSELING — daftar percakapan + jendela chat full-screen
+           ═══════════════════════════════════════════════════════════ */
+        .kons-conv-item { cursor:pointer; }
+        .kons-conv-item.unread { border-color:var(--cyan); }
+        .kons-unread-pill {
+            margin-left:auto; background:var(--red); color:#fff;
+            font-size:10px; font-weight:800; padding:2px 7px;
+            border:1.5px solid var(--bd); flex-shrink:0;
+        }
+        .kons-conv-preview {
+            font-size:12px; color:var(--tsec); font-weight:600;
+            white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-top:4px;
+        }
+        .kons-conv-time { font-size:10px; color:var(--tmut); font-weight:600; margin-top:3px; }
+
+        .kons-chat-overlay {
+            position:fixed; inset:0; z-index:100000;
+            background:var(--bg); display:none; flex-direction:column;
+        }
+        .kons-chat-overlay.show { display:flex; }
+        .kons-chat-hdr {
+            display:flex; align-items:center; gap:12px;
+            padding:14px 16px; border-bottom:3px solid var(--bd);
+            background:var(--sur); flex-shrink:0;
+        }
+        .kons-back-btn {
+            width:36px; height:36px; flex-shrink:0;
+            background:var(--sur2); border:2px solid var(--bd); color:var(--text);
+            font-size:14px; cursor:pointer; display:flex; align-items:center; justify-content:center;
+        }
+        .kons-back-btn:active { transform:translate(2px,2px); }
+        .kons-trash-btn {
+            width:36px; height:36px; flex-shrink:0; margin-left:auto;
+            background:rgba(239,68,68,.12); border:2px solid var(--red); color:#fca5a5;
+            font-size:14px; cursor:pointer; display:flex; align-items:center; justify-content:center;
+        }
+        .kons-trash-btn:active { transform:translate(2px,2px); }
+        .kons-chat-hdr-name { font-family:'Orbitron',sans-serif; font-size:14px; font-weight:800; }
+        .kons-chat-hdr-sub { font-size:10px; color:var(--tsec); font-weight:600; }
+
+        .kons-messages { flex:1; overflow-y:auto; padding:16px 14px; display:flex; flex-direction:column; gap:10px; }
+        .kons-empty { margin:auto; text-align:center; color:var(--tmut); padding:30px 20px; }
+        .kons-empty i { font-size:30px; opacity:.35; margin-bottom:10px; display:block; }
+        .kons-empty p { font-size:12px; font-weight:600; line-height:1.7; }
+        .kons-day-sep { text-align:center; font-size:10px; font-weight:800; color:var(--tsec); text-transform:uppercase; letter-spacing:.5px; margin:6px 0; }
+
+        .kons-row { display:flex; }
+        .kons-row.me { justify-content:flex-end; }
+        .kons-row.them { justify-content:flex-start; }
+        .kons-bubble-wrap { max-width:78%; display:flex; flex-direction:column; }
+        .kons-row.me .kons-bubble-wrap { align-items:flex-end; }
+        .kons-row.them .kons-bubble-wrap { align-items:flex-start; }
+
+        .kons-bubble {
+            border:2px solid var(--bd); box-shadow:2px 2px 0px var(--bd);
+            padding:10px 12px; font-size:13px; font-weight:600; line-height:1.55;
+            word-break:break-word;
+        }
+        .kons-row.me .kons-bubble { background:var(--purple); color:#fff; }
+        .kons-row.them .kons-bubble { background:var(--sur2); color:var(--text); }
+        .kons-bubble.deleted { opacity:.6; font-style:italic; box-shadow:none; border-style:dashed; background:var(--sur2) !important; color:var(--tsec) !important; }
+        .kons-bubble.sticker-bubble { border:none; box-shadow:none; background:none !important; padding:0; font-size:46px; line-height:1; }
+
+        .kons-bubble-meta { display:flex; align-items:center; flex-wrap:wrap; gap:6px; margin-top:4px; }
+        .kons-bubble-time { font-size:10px; color:var(--tmut); font-weight:700; }
+        .kons-ticks { font-size:10.5px; color:var(--tmut); }
+        .kons-ticks.read { color:var(--cyan); }
+        .kons-bubble-more { background:none; border:none; color:var(--tmut); font-size:11px; cursor:pointer; padding:2px 4px; }
+
+        .kons-typing-row { display:none; padding:0 12px 6px; }
+        .kons-typing-bubble {
+            display:inline-block; border:2px solid var(--bd); box-shadow:2px 2px 0 var(--bd);
+            background:var(--sur2); color:var(--tmut);
+            padding:7px 12px; font-size:11.5px; font-weight:700; font-style:italic;
+        }
+
+        .kons-img { max-width:100%; max-height:260px; display:block; border:2px solid var(--bd); cursor:pointer; margin-bottom:6px; }
+        .kons-video { max-width:100%; max-height:260px; display:block; border:2px solid var(--bd); margin-bottom:6px; background:#000; }
+        .kons-caption { margin-top:2px; }
+        .kons-file-card { display:flex; align-items:center; gap:10px; text-decoration:none; color:inherit; min-width:180px; }
+        .kons-file-ico { width:38px; height:38px; flex-shrink:0; background:var(--bg); border:2px solid var(--bd); display:flex; align-items:center; justify-content:center; font-size:16px; color:var(--cyan); }
+        .kons-file-info { min-width:0; }
+        .kons-file-name { font-size:12.5px; font-weight:800; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:160px; }
+        .kons-file-size { font-size:10.5px; opacity:.75; font-weight:600; }
+
+        .kons-chat-input-bar {
+            display:flex; align-items:center; gap:8px;
+            padding:10px 12px; border-top:3px solid var(--bd);
+            background:var(--sur); flex-shrink:0;
+        }
+        .kons-chat-text-input {
+            flex:1; min-width:0; background:var(--sur2);
+            border:2.5px solid var(--bd); box-shadow:3px 3px 0 var(--bd);
+            padding:10px 12px; font-size:13px; font-weight:600; color:var(--text); outline:none;
+            font-family:'Space Grotesk',sans-serif;
+        }
+        .kons-chat-text-input:focus { border-color:var(--cyan); box-shadow:3px 3px 0 var(--cyan); }
+        .kons-chat-send-btn {
+            flex-shrink:0; width:40px; height:40px;
+            background:var(--cyan); border:2px solid var(--bd); box-shadow:2px 2px 0 var(--bd);
+            color:#09090f; font-size:15px; cursor:pointer; display:flex; align-items:center; justify-content:center;
+        }
+        .kons-chat-send-btn:active { transform:translate(2px,2px); box-shadow:0 0 0 var(--bd); }
+
+        .kons-msg-menu {
+            display:none; flex-direction:column; gap:8px;
+            position:fixed; left:14px; right:14px; bottom:14px;
+            background:var(--sur); border:3px solid var(--bd); box-shadow:var(--shlg);
+            padding:10px; z-index:100001;
+        }
+        .kons-msg-menu.show { display:flex; }
+        .kons-msg-menu button {
+            width:100%; padding:13px; background:var(--sur2);
+            border:2px solid var(--bd); font-weight:800; font-size:13px;
+            color:var(--text); cursor:pointer; display:flex; align-items:center; gap:8px;
+            font-family:'Space Grotesk',sans-serif;
+        }
+        .kons-msg-menu button:last-child { background:none; border:none; justify-content:center; color:var(--tsec); }
+        .kons-msg-menu button:active { transform:translate(2px,2px); }
+
+        /* ═══════════════════════════════════════════════════════════
+           HIASAN LAMPU KOTAK NEOBRUTALISM (ringan)
+           Cincin outline warna-warni yang pelan-pelan gonta-ganti
+           warna — cuma outline-color, bukan mask/filter, biar ringan.
+           ═══════════════════════════════════════════════════════════ */
+        @keyframes lampuPendar {
+            0%     { outline-color: var(--red); }
+            16.6%  { outline-color: var(--yellow); }
+            33.3%  { outline-color: var(--lime); }
+            50%    { outline-color: var(--green); }
+            66.6%  { outline-color: var(--cyan); }
+            83.3%  { outline-color: var(--purple); }
+            100%   { outline-color: var(--pink); }
+        }
+
+        .panel-hdr, .panel-logo, .badge-res, .server-card, .stat-card, .cnt-badge,
+        .user-search-wrap input, .card, .f-inp, .f-sel, .progress-slider, .btn-create,
+        .user-item, .toast, .maint-status-bar, .dev-btn, .btn-unband, .btn-extend,
+        .sec-alert-card, .btn-clear-all, .danger-modal-box, .danger-modal-cancel,
+        .danger-modal-confirm, .extend-modal-box, .extend-modal-cancel,
+        .extend-modal-confirm, .promo-status-bar, .ann-feed-item {
+            outline: 2px solid var(--red);
+            outline-offset: 2px;
+        }
+        .panel-hdr, .panel-logo, .badge-res, .server-card, .stat-card, .cnt-badge,
+        .user-search-wrap input, .card, .f-inp, .f-sel, .progress-slider, .btn-create,
+        .toast, .maint-status-bar, .dev-btn, .btn-unband, .btn-extend,
+        .sec-alert-card, .btn-clear-all, .danger-modal-box, .danger-modal-cancel,
+        .danger-modal-confirm, .extend-modal-box, .extend-modal-cancel,
+        .extend-modal-confirm, .promo-status-bar {
+            animation: lampuPendar 6s ease-in-out infinite;
+        }
+        .panel-hdr:nth-child(even), .panel-logo:nth-child(even), .badge-res:nth-child(even),
+        .server-card:nth-child(even), .stat-card:nth-child(even), .cnt-badge:nth-child(even),
+        .card:nth-child(even), .f-inp:nth-child(even), .f-sel:nth-child(even),
+        .btn-create:nth-child(even), .toast:nth-child(even), .dev-btn:nth-child(even),
+        .btn-unband:nth-child(even), .btn-extend:nth-child(even), .sec-alert-card:nth-child(even),
+        .danger-modal-cancel:nth-child(even), .extend-modal-cancel:nth-child(even) {
+            animation-delay: -3s;
+        }
+        .f-inp:focus, .f-sel:focus, .user-search-wrap input:focus, .progress-slider:focus {
+            animation-play-state: paused;
+        }
+        /* Elemen yang sudah punya animasi sendiri — digabung, bukan ditimpa */
+        .user-item { animation: slideUp .25s ease, lampuPendar 6s ease-in-out infinite; }
+        .ann-feed-item { animation: slideUp .25s ease, lampuPendar 6s ease-in-out infinite; }
+
+        @media (prefers-reduced-motion: reduce) {
+            .panel-hdr, .panel-logo, .badge-res, .server-card, .stat-card, .cnt-badge,
+            .user-search-wrap input, .card, .f-inp, .f-sel, .progress-slider, .btn-create,
+            .user-item, .toast, .maint-status-bar, .dev-btn, .btn-unband, .btn-extend,
+            .sec-alert-card, .btn-clear-all, .danger-modal-box, .danger-modal-cancel,
+            .danger-modal-confirm, .extend-modal-box, .extend-modal-cancel,
+            .extend-modal-confirm, .promo-status-bar, .ann-feed-item {
+                animation: none !important;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div class="toast" id="toast"></div>
+
+<!-- ADMIN GATE: dibuka begitu admin secret yang dimasukkan terverifikasi
+     lewat /api/admin-users. Sebelum ini terbuka, konten panel di bawahnya
+     sudah ke-render di DOM tapi tertutup total oleh overlay ini. -->
+<div class="admin-gate-overlay show" id="adminGateOverlay">
+    <div class="card admin-gate-card">
+        <div class="admin-gate-icon"><i class="fas fa-lock"></i></div>
+        <div class="admin-gate-title">PANEL ADMIN TERKUNCI</div>
+        <div class="admin-gate-sub">Masukkan admin secret untuk melanjutkan</div>
+        <div class="f-pw-wrap">
+            <input type="password" class="f-inp" id="adminGateInput" placeholder="Admin secret" autocomplete="off" onkeydown="if(event.key==='Enter')submitAdminGate();">
+            <button type="button" class="f-pw-toggle" onclick="toggleAdminGateVis()" title="Lihat"><i class="fas fa-eye" id="adminGateEyeIcon"></i></button>
+        </div>
+        <div class="admin-gate-err" id="adminGateError"></div>
+        <button class="btn-create" id="adminGateBtn" onclick="submitAdminGate()">
+            <i class="fas fa-lock-open" style="margin-right:8px;"></i>MASUK
+        </button>
+    </div>
+</div>
+
+<div class="wrap">
+
+    <!-- HEADER -->
+    <div class="panel-hdr">
+        <div class="panel-logo">
+            <img src="https://www.gobox.my.id/file/vVUoB.png" alt="HidzProject" onerror="this.style.display='none';this.parentElement.textContent='👑'">
+        </div>
+        <div class="panel-title">HIDZ - DEV</div>
+        <div class="panel-desc">Panel khusus reseller &mdash; Generate user access</div>
+        <span class="badge-res">RESELLER</span>
+    </div>
+
+    <!-- SERVER STATUS -->
+    <div class="server-card">
+        <div class="server-row">
+            <i class="fas fa-server" style="font-size:22px;color:var(--cyan);"></i>
+            <div>
+                <div class="srv-lbl">Server Status</div>
+                <div class="srv-status"><div class="srv-dot"></div>ONLINE</div>
+            </div>
+        </div>
+        <div class="srv-clock" id="clock">00.00.00</div>
+    </div>
+
+    <!-- STATS -->
+    <div class="stats-row">
+        <div class="stat-card">
+            <div class="stat-lbl">Total Akun</div>
+            <div class="stat-val" id="stTotal">0</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-lbl">Active</div>
+            <div class="stat-val g" id="stActive">0</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-lbl">Belum Login</div>
+            <div class="stat-val y" id="stPending">0</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-lbl">Expired</div>
+            <div class="stat-val r" id="stExpired">0</div>
+        </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- GENERATE ACCESS -->
+    <div class="card">
+        <div class="sec-hdr">
+            <div class="sec-title">Generate Access <span class="sec-spark">&#9734;</span></div>
+        </div>
+
+        <div class="f-lbl">Username</div>
+        <input type="text"     class="f-inp" id="newUser" placeholder="Masukkan username baru" autocomplete="off">
+
+        <div class="f-lbl">Password</div>
+        <div class="f-pw-wrap">
+            <input type="password" class="f-inp" id="newPass" placeholder="Masukkan password" autocomplete="new-password">
+            <button type="button" class="f-pw-toggle" onclick="toggleNewPassVis()" title="Lihat password"><i class="fas fa-eye" id="newPassEyeIcon"></i></button>
+        </div>
+
+        <div class="f-lbl">Durasi Akses</div>
+        <div class="dur-row">
+            <input type="number" class="f-inp" id="durVal" value="1" min="1" placeholder="1">
+            <select class="f-sel" id="durUnit" onchange="toggleDurVal()">
+                <option value="detik">DETIK</option>
+                <option value="menit">MENIT</option>
+                <option value="jam">JAM</option>
+                <option value="hari" selected>HARI</option>
+                <option value="minggu">MINGGU</option>
+                <option value="bulan">BULAN</option>
+                <option value="tahun">TAHUN</option>
+                <option value="unlimited">UNLIMITED</option>
+            </select>
+        </div>
+
+        <div class="f-lbl">Limit Device</div>
+        <div class="dev-limit-row" id="devLimitRow">
+            <button type="button" class="dev-btn active" data-val="1" onclick="setDevLimit(1)">1 Device</button>
+            <button type="button" class="dev-btn" data-val="2" onclick="setDevLimit(2)">2 Device</button>
+            <button type="button" class="dev-btn" data-val="0" onclick="setDevLimit(0)">Unlimited</button>
+        </div>
+
+        <div class="f-lbl">Role</div>
+        <div class="dev-limit-row" id="roleLimitRow" style="grid-template-columns:1fr 1fr;">
+            <button type="button" class="dev-btn active" data-role="user" onclick="setRole('user')">USER</button>
+            <button type="button" class="dev-btn" data-role="vip" onclick="setRole('vip')">VIP</button>
+        </div>
+
+        <button class="btn-create" onclick="createAccess()">
+            <i class="fas fa-user-plus" style="margin-right:8px;"></i>CREATE ACCESS
+        </button>
+    </div>
+
+    <!-- DATABASE USERS -->
+    <div class="card">
+        <div class="sec-hdr">
+            <div class="sec-title">Database Users <span class="sec-spark">&#9734;</span></div>
+            <div style="display:flex;align-items:center;gap:8px;">
+                <button type="button" class="icon-sm-btn" onclick="exportUsersCSV()" title="Export CSV"><i class="fas fa-file-export"></i></button>
+                <div class="cnt-badge" id="userCount">0</div>
+            </div>
+        </div>
+        <div class="user-search-wrap">
+            <i class="fas fa-search"></i>
+            <input type="text" id="userSearchInput" placeholder="Cari username / role..." oninput="filterUsers(this.value)" autocomplete="off">
+        </div>
+        <select id="userSortSelect" class="f-sel" style="width:100%;margin-bottom:13px;" onchange="setUserSort(this.value)">
+            <option value="newest">Urutkan: Terbaru Dibuat</option>
+            <option value="oldest">Urutkan: Terlama Dibuat</option>
+            <option value="name">Urutkan: Nama (A-Z)</option>
+            <option value="expiry">Urutkan: Durasi Tersisa (Terdekat)</option>
+        </select>
+        <div id="userList">
+            <div class="empty-state">
+                <i class="fas fa-user-slash" style="font-size:22px;margin-bottom:8px;display:block;opacity:.35;"></i>
+                Belum ada user terdaftar.
+            </div>
+        </div>
+    </div>
+
+    <!-- KONSELING -->
+    <div class="card">
+        <div class="sec-hdr">
+            <div class="sec-title">Konseling <span class="sec-spark">&#128172;</span></div>
+            <div class="cnt-badge" id="konsAdminBadge">0</div>
+        </div>
+        <p style="font-size:11px;color:var(--tsec);line-height:1.7;margin-bottom:13px;">
+            Chat real-time dari halaman Konseling di <b style="color:var(--text);">HidzProject</b>. Ketuk salah satu akun buat baca &amp; balas pesannya.
+        </p>
+        <div id="konsConvList">
+            <div class="empty-state">
+                <i class="fas fa-comments" style="font-size:22px;margin-bottom:8px;display:block;opacity:.35;"></i>
+                Belum ada percakapan konseling.
+            </div>
+        </div>
+    </div>
+
+    <!-- SITE MAINTENANCE CONTROL -->
+    <div class="card">
+        <div class="sec-hdr">
+            <div class="sec-title">Site Control <span class="sec-spark">&#9889;</span></div>
+        </div>
+        <div class="maint-status-bar s-online" id="maintStatusBar">
+            <div class="maint-pulse-dot"></div>
+            <span id="maintStatusTxt">ONLINE</span>
+        </div>
+        <p style="font-size:11px;color:var(--tsec);line-height:1.7;margin-bottom:13px;">
+            Kontrol mode tampilan <b style="color:var(--text);">HidzProject</b> secara real-time via Firebase.<br>
+            <span style="color:var(--green);font-weight:800;">&#9632; ON</span> &nbsp;= Halaman berjalan normal &nbsp;|&nbsp;
+            <span style="color:var(--red);font-weight:800;">&#9632; MAINTENANCE</span> = Halaman perbaikan tampil.
+        </p>
+
+        <div class="f-lbl" style="margin-bottom:6px;">Durasi Maintenance</div>
+        <div class="dur-row" style="margin-bottom:13px;">
+            <input type="number" class="f-inp" id="maintDurVal" value="1" min="1" placeholder="1">
+            <select class="f-sel" id="maintDurUnit" onchange="toggleMaintDurVal()">
+                <option value="menit">MENIT</option>
+                <option value="jam" selected>JAM</option>
+                <option value="hari">HARI</option>
+                <option value="minggu">MINGGU</option>
+                <option value="unlimited">UNLIMITED</option>
+            </select>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+            <button class="btn-site btn-s-on is-active" id="btnSiteOn" onclick="setSiteMode(false)">
+                <i class="fas fa-circle-dot" style="margin-right:6px;"></i>ON
+            </button>
+            <button class="btn-site btn-s-maint is-inactive" id="btnSiteMaint" onclick="setSiteMode(true)">
+                <i class="fas fa-wrench" style="margin-right:6px;"></i>MAINTENANCE
+            </button>
+        </div>
+        <div style="margin-top:14px;">
+            <div class="f-lbl" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                <span>Progress Perbaikan</span>
+                <span id="maintProgressLabel" style="color:var(--cyan);font-size:13px;">72%</span>
+            </div>
+            <input type="range" min="0" max="100" value="72" id="maintProgressSlider" class="progress-slider" oninput="setMaintProgress(this.value)">
+            <p style="font-size:10px;color:var(--tmut);line-height:1.6;margin-top:6px;">
+                Tersinkron real-time ke halaman maintenance yang dilihat user.
+            </p>
+        </div>
+        <div style="margin-top:10px;">
+            <button class="btn-create" style="background:linear-gradient(135deg,#f59e0b,#d97706);box-shadow:6px 6px 0 var(--bd);" onclick="forceReloginAll()">
+                <i class="fas fa-key" style="margin-right:8px;"></i>FORCE RESET
+            </button>
+            <p style="font-size:10px;color:var(--tsec);line-height:1.6;margin-top:8px;">
+                <i class="fas fa-info-circle" style="color:var(--lime);margin-right:4px;"></i>
+                Semua pengguna yang sedang login akan otomatis logut dan wajib login ulang. Username & password mereka tetap sama.
+            </p>
+        </div>
+        <div style="margin-top:14px;">
+            <button class="btn-create" style="background:linear-gradient(135deg,#dc2626,#7f1d1d);box-shadow:6px 6px 0 var(--bd);" onclick="openDeleteAllModal()">
+                <i class="fas fa-trash-alt" style="margin-right:8px;"></i>DELETE ALL USER &amp; DATABASE
+            </button>
+            <p style="font-size:10px;color:var(--tsec);line-height:1.6;margin-top:8px;">
+                <i class="fas fa-info-circle" style="color:var(--red);margin-right:4px;"></i>
+                Menghapus SEMUA akun user (aktif maupun belum aktif) dari database & Firebase. Akun admin tidak terhapus. Tindakan ini tidak bisa dibatalkan.
+            </p>
+        </div>
+    </div>
+
+    <!-- PROMO ANNOUNCEMENT CONTROL -->
+    <div class="card">
+        <div class="sec-hdr">
+            <div class="sec-title">Promo Banner <span class="sec-spark">&#127881;</span></div>
+        </div>
+        <div class="promo-status-bar p-off" id="promoStatusBar">
+            <div class="maint-pulse-dot"></div>
+            <span id="promoStatusTxt">NONAKTIF</span>
+        </div>
+        <p style="font-size:11px;color:var(--tsec);line-height:1.7;margin-bottom:13px;">
+            Banner promo muncul di <b style="color:var(--text);">HidzProject</b> setiap kali user buka web, login, atau login ulang &mdash; hilang otomatis begitu waktu di bawah habis.
+        </p>
+
+        <div class="f-lbl">Judul Promo</div>
+        <input type="text" class="f-inp" id="promoTitleInp" placeholder="mis. Diskon 50% Hari Ini!" maxlength="60">
+
+        <div class="f-lbl">Deskripsi</div>
+        <textarea class="f-inp" id="promoDescInp" rows="3" placeholder="Tuliskan detail promonya di sini..." maxlength="300"></textarea>
+
+        <div class="f-lbl">URL Logo/Gambar <span style="text-transform:none;opacity:.6;">(kosongkan utk logo default)</span></div>
+        <input type="text" class="f-inp" id="promoImageInp" placeholder="https://...">
+
+        <div class="f-lbl">Teks Tombol</div>
+        <input type="text" class="f-inp" id="promoBtnTextInp" placeholder="Lanjut" maxlength="20">
+
+        <div class="f-lbl">Link Tombol <span style="text-transform:none;opacity:.6;">(opsional)</span></div>
+        <input type="text" class="f-inp" id="promoBtnLinkInp" placeholder="https://...">
+
+        <div class="f-lbl">Promo Berakhir Pada</div>
+        <input type="datetime-local" class="f-inp" id="promoEndsInp" step="1">
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:2px;">
+            <button class="btn-site btn-p-on is-inactive" id="btnPromoOn" onclick="setPromoActive(true)">
+                <i class="fas fa-bullhorn" style="margin-right:6px;"></i>AKTIFKAN
+            </button>
+            <button class="btn-site btn-p-off is-active" id="btnPromoOff" onclick="setPromoActive(false)">
+                <i class="fas fa-eye-slash" style="margin-right:6px;"></i>NONAKTIFKAN
+            </button>
+        </div>
+        <button class="btn-create" style="margin-top:12px;" onclick="savePromoAnnouncement()">
+            <i class="fas fa-save" style="margin-right:8px;"></i>SIMPAN PROMO
+        </button>
+    </div>
+
+    <!-- INFO & UPDATE PENGUMUMAN (Feed) -->
+    <div class="card">
+        <div class="sec-hdr">
+            <div class="sec-title">Info &amp; Update <span class="sec-spark">&#128226;</span></div>
+            <div class="cnt-badge" id="annFeedCount">0</div>
+        </div>
+        <p style="font-size:11px;color:var(--tsec);line-height:1.7;margin-bottom:13px;">
+            Daftar pengumuman update, fitur, atau project baru. Muncul lewat icon logo di header HidzProject secara real-time.
+        </p>
+
+        <div class="f-lbl">Judul</div>
+        <input type="text" class="f-inp" id="annFeedTitleInp" placeholder="mis. Fitur Baru: Mode Gelap" maxlength="80">
+
+        <div class="f-lbl">Isi Pengumuman</div>
+        <textarea class="f-inp" id="annFeedContentInp" rows="4" placeholder="Tuliskan detail update/fitur/project barunya..." maxlength="1000"></textarea>
+
+        <button class="btn-create" id="annFeedSubmitBtn" onclick="submitAnnFeed()">
+            <i class="fas fa-plus" style="margin-right:8px;"></i>TAMBAHKAN PENGUMUMAN
+        </button>
+        <button class="danger-modal-cancel" id="annFeedCancelBtn" style="display:none;width:100%;margin-top:10px;padding:13px 6px;" onclick="cancelEditAnnFeed()">
+            BATAL EDIT
+        </button>
+
+        <div id="annFeedList" style="margin-top:14px;">
+            <div class="empty-state">
+                <i class="fas fa-bullhorn" style="font-size:22px;margin-bottom:8px;display:block;opacity:.35;"></i>
+                Belum ada pengumuman.
+            </div>
+        </div>
+    </div>
+
+    <!-- SECURITY ALERTS -->
+    <div class="sec-alert-card">
+        <div class="sec-hdr">
+            <div class="sec-title" style="border-color:var(--red);color:var(--red);">
+                <i class="fas fa-shield-alt"></i>
+                Security Alerts <span class="sec-spark">&#9888;</span>
+            </div>
+            <div class="cnt-badge" id="alertCount" style="color:var(--red);border-color:rgba(239,68,68,.4);box-shadow:2px 2px 0 rgba(239,68,68,.4);">0</div>
+        </div>
+        <div id="alertList">
+            <div class="no-alerts">
+                <i class="fas fa-check-circle" style="color:var(--green);margin-right:6px;"></i>
+                Tidak ada percobaan login mencurigakan.
+            </div>
+        </div>
+    </div>
+
+</div><!-- /wrap -->
+
+<!-- KONFIRMASI TINDAKAN BERBAHAYA (dipakai utk hapus 1 user & hapus semua) -->
+<div class="danger-modal-overlay" id="dangerModal">
+    <div class="danger-modal-box">
+        <div class="danger-modal-icon"><i class="fas fa-triangle-exclamation"></i></div>
+        <div class="danger-modal-title" id="dangerModalTitle">Hapus Semua User &amp; Database</div>
+        <div class="danger-modal-desc" id="dangerModalDesc">
+            Tindakan ini akan <b>menghapus PERMANEN</b> seluruh akun user (aktif maupun belum aktif) dari database &amp; Firebase.<br><br>
+            Akun admin <b>tidak akan terhapus</b>.<br><br>
+            User yang sedang login di HidzProject akan <b>otomatis ter-logout seketika</b> tanpa perlu refresh.<br><br>
+            <span style="color:var(--red);font-weight:800;">Tindakan ini TIDAK BISA DIBATALKAN.</span>
+        </div>
+        <button type="button" class="danger-modal-backup" id="dangerModalBackupBtn" style="display:none;" onclick="_dangerDoBackup()">
+            <i class="fas fa-download" style="margin-right:6px;"></i>Download Backup Dulu (JSON)
+        </button>
+        <label class="danger-modal-check">
+            <input type="checkbox" id="dangerModalCheck" onchange="toggleDangerConfirmBtn()">
+            <span>Saya mengerti risikonya dan ingin melanjutkan</span>
+        </label>
+        <div class="danger-modal-actions">
+            <button class="danger-modal-cancel" onclick="closeDangerModal()">BATAL</button>
+            <button class="danger-modal-confirm" id="dangerModalConfirmBtn" disabled onclick="confirmDangerAction()">
+                <i class="fas fa-trash-alt" style="margin-right:6px;"></i>HAPUS SEMUA
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- PERPANJANG DURASI AKUN — MODAL -->
+<div class="extend-modal-overlay" id="extendModal">
+    <div class="extend-modal-box">
+        <div class="extend-modal-icon"><i class="fas fa-calendar-plus"></i></div>
+        <div class="extend-modal-title">Perpanjang Durasi</div>
+        <div class="extend-modal-desc">
+            Tambah durasi untuk akun <b id="extendModalUsername">-</b>. Sisa durasi yang berjalan sekarang <b>tidak hilang</b>, cuma ditambah dari sisa waktu yang ada.
+        </div>
+        <div class="extend-modal-dur-row">
+            <input type="number" class="f-inp" id="extendVal" value="1" min="1">
+            <select class="f-sel" id="extendUnit">
+                <option value="menit">MENIT</option>
+                <option value="jam">JAM</option>
+                <option value="hari" selected>HARI</option>
+                <option value="minggu">MINGGU</option>
+                <option value="bulan">BULAN</option>
+                <option value="tahun">TAHUN</option>
+            </select>
+        </div>
+        <div class="extend-modal-actions">
+            <button class="extend-modal-cancel" onclick="closeExtendModal()">BATAL</button>
+            <button class="extend-modal-confirm" id="extendConfirmBtn" onclick="confirmExtendDuration()">
+                <i class="fas fa-calendar-plus" style="margin-right:6px;"></i>PERPANJANG
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- HAPUS PENGUMUMAN — MODAL -->
+<div class="danger-modal-overlay" id="annDeleteModal">
+    <div class="danger-modal-box">
+        <div class="danger-modal-icon"><i class="fas fa-trash-alt"></i></div>
+        <div class="danger-modal-title">Hapus Pengumuman</div>
+        <div class="danger-modal-desc">
+            Pengumuman <b id="annDeleteModalTitle">-</b> akan dihapus permanen dan langsung hilang dari HidzProject.
+        </div>
+        <div class="danger-modal-actions">
+            <button class="danger-modal-cancel" onclick="closeAnnDeleteModal()">BATAL</button>
+            <button class="danger-modal-confirm" onclick="confirmDeleteAnnFeed()">
+                <i class="fas fa-trash-alt" style="margin-right:6px;"></i>HAPUS
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- KONSELING — jendela chat full-screen -->
+<div class="kons-chat-overlay" id="konsChatOverlay">
+    <div class="kons-chat-hdr">
+        <button type="button" class="kons-back-btn" onclick="window.closeKonsChat()" title="Kembali">
+            <i class="fas fa-arrow-left"></i>
+        </button>
+        <div>
+            <div class="kons-chat-hdr-name" id="konsChatName">-</div>
+            <div class="kons-chat-hdr-sub">Konseling &mdash; HidzProject</div>
+        </div>
+        <button type="button" class="kons-trash-btn" onclick="window.requestClearKonsChat()" title="Hapus semua chat akun ini">
+            <i class="fas fa-trash-can"></i>
+        </button>
+    </div>
+    <div class="kons-messages" id="konsChatMessages">
+        <div class="kons-empty">
+            <i class="fas fa-comments"></i>
+            <p>Belum ada pesan.</p>
+        </div>
+    </div>
+    <div class="kons-typing-row" id="konsChatTypingRow">
+        <span class="kons-typing-bubble"><i class="fas fa-ellipsis"></i> User sedang mengetik...</span>
+    </div>
+    <div class="kons-chat-input-bar">
+        <input type="text" class="kons-chat-text-input" id="konsChatTextInput" placeholder="Balas pesan..." autocomplete="off" oninput="window._konsAdminHandleTyping()" onkeydown="if(event.key==='Enter'){event.preventDefault();window._konsAdminSendText();}">
+        <button type="button" class="kons-chat-send-btn" title="Kirim" onclick="window._konsAdminSendText()">
+            <i class="fas fa-paper-plane"></i>
+        </button>
+    </div>
+    <div class="kons-msg-menu" id="konsAdminMsgMenu">
+        <button type="button" onclick="window._konsAdminDeleteForMe()"><i class="fas fa-trash"></i> Hapus untuk saya</button>
+        <button type="button" id="konsAdminDeleteAllBtn" onclick="window._konsAdminDeleteForEveryone()"><i class="fas fa-trash-can"></i> Hapus untuk semua</button>
+        <button type="button" onclick="window._konsAdminCloseMsgMenu()">Batal</button>
+    </div>
+</div>
+
+<script>
+    /* ===== CONFIG ===== */
+    var DB_KEY      = 'hidz_access_db';
+    /* Admin secret yang sudah lolos verifikasi lewat gate — dipakai di semua
+       request ke /api/admin-users & /api/admin-save-users. Tetap null
+       selama gate belum terbuka. */
+    var _adminSecret = null;
+    /* Akun admin yang TIDAK BISA dihapus */
+    var PROTECTED   = ['hidz'];   /* lowercase username yang dilindungi */
+    /* Device limit yang dipilih saat create access */
+    var _selectedDevLimit = 1;
+    /* Role yang dipilih saat create access */
+    var _selectedRole = 'user';
+    /* Map banned status { userId: true } dari Firebase */
+    var _bannedMap = {};
+    var _userSearchQuery = '';
+    var _userSortMode = 'newest';
+
+    /* ===== FIREBASE INIT (sesi/banned/blocked/promo/konseling, dll — DI LUAR
+       hidz_access_db, lihat bagian ADMIN GATE + SYNC tepat di bawah ini) ===== */
+    (function _fbInit() {
+        try {
+            var _fbConfig = {
+                apiKey:            "AIzaSyDbe8tKXpzRwPfYCmh9ycYJKBsVnlV7qU8",
+                authDomain:        "hidzproject-8f335.firebaseapp.com",
+                databaseURL:       "https://hidzproject-8f335-default-rtdb.asia-southeast1.firebasedatabase.app",
+                projectId:         "hidzproject-8f335",
+                storageBucket:     "hidzproject-8f335.firebasestorage.app",
+                messagingSenderId: "541350396047",
+                appId:             "1:541350396047:web:63cb065c77a682dc5730fa"
+            };
+            if (!firebase.apps.length) firebase.initializeApp(_fbConfig);
+        } catch(e) {}
+    })();
+
+    /* ===== ADMIN GATE + SYNC hidz_access_db =====
+       Dulu bagian ini baca/tulis hidz_access_db LANGSUNG dari browser lewat
+       Firebase client SDK (listener realtime + transaction) — dan admin.html
+       sendiri sebelumnya TIDAK punya gerbang akses sama sekali, jadi siapa
+       pun yang tahu config Firebase publiknya bisa baca/tulis SELURUH tabel
+       user (termasuk semua password) tanpa hambatan apa pun.
+
+       Sekarang: admin.html minta admin secret dulu lewat overlay gate, lalu
+       SEMUA baca/tulis hidz_access_db lewat /api/admin-users &
+       /api/admin-save-users (Firebase Admin SDK di server) — rule Firebase
+       untuk hidz_access_db sendiri dikunci total. Karena sudah tidak ada
+       listener realtime dari Firebase, data user ditarik ulang tiap
+       beberapa detik (polling) — sedikit lebih lambat dari realtime, tapi
+       tetap sinkron otomatis tanpa perlu refresh manual. ===== */
+    function _fetchUsersWithSecret(secret, cb) {
+        fetch('/api/admin-users', { headers: { 'x-admin-secret': secret || '' } })
+            .then(function(res) {
+                return res.json().catch(function(){ return null; }).then(function(data) {
+                    return { status: res.status, data: data };
+                });
+            })
+            .then(function(r) {
+                if (r.data && r.data.ok && Array.isArray(r.data.users)) {
+                    cb(r.data.users, null);
+                } else {
+                    var err = new Error((r.data && r.data.message) || 'Gagal mengambil data.');
+                    err.unauthorized = (r.status === 401 || r.status === 403);
+                    cb(null, err);
+                }
+            })
+            .catch(function(err) { cb(null, err); });
+    }
+
+    function fetchAdminUsersFresh(cb) {
+        _fetchUsersWithSecret(_adminSecret, cb);
+    }
+
+    function _applyFreshUsers(users) {
+        if (Array.isArray(users) && users.length > 0) {
+            localStorage.setItem(DB_KEY, JSON.stringify(users));
+        }
+    }
+
+    function pollAdminUsers() {
+        fetchAdminUsersFresh(function(users, err) {
+            if (err) return; /* koneksi bermasalah sesaat, data lama tetap tampil, dicoba lagi di interval berikutnya */
+            _applyFreshUsers(users);
+            renderUsers();
+        });
+    }
+
+    function toggleAdminGateVis() {
+        var inp  = document.getElementById('adminGateInput');
+        var icon = document.getElementById('adminGateEyeIcon');
+        if (!inp || !icon) return;
+        var show = inp.type === 'password';
+        inp.type = show ? 'text' : 'password';
+        icon.className = show ? 'fas fa-eye-slash' : 'fas fa-eye';
+    }
+
+    function showAdminGate() {
+        var overlay = document.getElementById('adminGateOverlay');
+        if (overlay) overlay.classList.add('show');
+        var inp = document.getElementById('adminGateInput');
+        if (inp) setTimeout(function() { inp.focus(); }, 50);
+    }
+
+    function unlockAdminPanel(initialUsers) {
+        var overlay = document.getElementById('adminGateOverlay');
+        if (overlay) overlay.classList.remove('show');
+        startClock();
+        _applyFreshUsers(initialUsers);
+        ensureAdminAccount();
+        renderUsers();
+        watchBannedStatus();
+        watchLoginAttempts();
+        setInterval(pollAdminUsers, 4000);
+    }
+
+    function submitAdminGate() {
+        var inp    = document.getElementById('adminGateInput');
+        var errEl  = document.getElementById('adminGateError');
+        var btn    = document.getElementById('adminGateBtn');
+        var secret = inp ? inp.value : '';
+        if (!secret) return;
+
+        if (errEl) errEl.style.display = 'none';
+        if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin" style="margin-right:8px;"></i>MEMERIKSA...'; }
+
+        _fetchUsersWithSecret(secret, function(users, err) {
+            if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-lock-open" style="margin-right:8px;"></i>MASUK'; }
+            if (err) {
+                if (errEl) {
+                    errEl.textContent = err.unauthorized ? 'Admin secret salah.' : 'Gagal terhubung ke server. Coba lagi.';
+                    errEl.style.display = 'block';
+                }
+                return;
+            }
+            _adminSecret = secret;
+            try { sessionStorage.setItem('hidz_admin_secret', secret); } catch(e) {}
+            unlockAdminPanel(users);
+        });
+    }
+
+    /* Coba pakai admin secret yang tersimpan di sessionStorage tab ini dulu
+       (supaya refresh halaman tidak perlu ketik ulang tiap kali), baru
+       tampilkan gate kalau memang belum ada / ternyata sudah tidak valid. */
+    (function _adminGateAutoInit() {
+        var cached = null;
+        try { cached = sessionStorage.getItem('hidz_admin_secret'); } catch(e) {}
+        if (!cached) { showAdminGate(); return; }
+        _fetchUsersWithSecret(cached, function(users, err) {
+            if (err) {
+                try { sessionStorage.removeItem('hidz_admin_secret'); } catch(e) {}
+                showAdminGate();
+                return;
+            }
+            _adminSecret = cached;
+            unlockAdminPanel(users);
+        });
+    })();
+
+
+    /* Pastikan akun admin Hidz selalu ada, passwordnya benar, dan selalu unlimited */
+    function ensureAdminAccount() {
+        var users = getUsers();
+        var idx   = -1;
+        for (var i = 0; i < users.length; i++) {
+            /* Cari berdasarkan id terlebih dahulu (lebih tepat),
+               fallback ke username jika id belum ada (data lama) */
+            if (users[i].id === 'admin_hidz_protected' ||
+                (users[i].username && users[i].username.toLowerCase() === 'hidz')) {
+                idx = i; break;
+            }
+        }
+        if (idx === -1) {
+            users.unshift({
+                id:            'admin_hidz_protected',
+                username:      'Hidz',
+                password:      '2012',
+                role:          'admin',
+                createdAt:     Date.now(),
+                expiresAt:     null,
+                durationLabel: 'UNLIMITED',
+                deviceLimit:   1,
+                /* Sama seperti akun VIP/USER (lihat createAccess): akun admin WAJIB
+                   mulai dari status "belum aktif" supaya tanda/badge-nya di daftar
+                   user (BELUM AKTIF/Menunggu login pertama -> ACTIVE, riwayat
+                   Login/Logout, dst) konsisten dengan role lain, dan supaya status
+                   ACTIVE di sini benar-benar berarti "sudah pernah login di
+                   hidzproject.html" — bukan otomatis aktif sejak dibuat. */
+                activated:     false,
+                logoutAt:      null,
+                loginAt:       null,
+                loggedOut:     false
+            });
+            saveUsers(users);
+        } else {
+            var _changed = false;
+            if (users[idx].id            !== 'admin_hidz_protected') { users[idx].id            = 'admin_hidz_protected'; _changed = true; }
+            if (users[idx].password !== '2012')           { users[idx].password      = '2012';      _changed = true; }
+            if (users[idx].role     !== 'admin')           { users[idx].role          = 'admin';     _changed = true; }
+            if (users[idx].expiresAt !== null)             { users[idx].expiresAt     = null;        _changed = true; }
+            if (users[idx].durationLabel !== 'UNLIMITED') { users[idx].durationLabel = 'UNLIMITED'; _changed = true; }
+            if (users[idx].deviceLimit   !== 1)           { users[idx].deviceLimit   = 1;           _changed = true; }
+            /* Migrasi satu kali untuk akun admin lama yang dibuat SEBELUM field-field
+               ini ada: HANYA diisi jika memang belum pernah ada (undefined), supaya
+               status login admin yang sudah sungguhan aktif TIDAK ikut ter-reset
+               tiap kali data ini disinkronkan ulang. Ini yang memperbaiki bug akun
+               admin selalu tampil "ACTIVE" di panel padahal belum pernah login sama
+               sekali di hidzproject.html. */
+            if (users[idx].activated  === undefined) { users[idx].activated  = false; _changed = true; }
+            if (users[idx].logoutAt   === undefined) { users[idx].logoutAt   = null;  _changed = true; }
+            if (users[idx].loginAt    === undefined) { users[idx].loginAt    = null;  _changed = true; }
+            if (users[idx].loggedOut  === undefined) { users[idx].loggedOut  = false; _changed = true; }
+            if (_changed) saveUsers(users);
+        }
+    }
+
+    /* ===== CLOCK ===== */
+    function startClock() {
+        function tick() {
+            var d = new Date();
+            var h = String(d.getHours()).padStart(2,'0');
+            var m = String(d.getMinutes()).padStart(2,'0');
+            var s = String(d.getSeconds()).padStart(2,'0');
+            var el = document.getElementById('clock');
+            if (el) el.textContent = h+'.'+m+'.'+s;
+        }
+        tick();
+        setInterval(tick, 1000);
+    }
+
+    /* ===== DB HELPERS ===== */
+    function getUsers() {
+        try { return JSON.parse(localStorage.getItem(DB_KEY) || '[]'); }
+        catch(e) { return []; }
+    }
+    function saveUsers(arr, cb) {
+        localStorage.setItem(DB_KEY, JSON.stringify(arr));
+        /* Sync ke server (Firebase Admin SDK) agar bisa dibaca cross-domain —
+           dulu langsung firebase.database().ref(DB_KEY).set(arr, ...) dari
+           browser, sekarang lewat /api/admin-save-users supaya rule
+           hidz_access_db di Firebase bisa dikunci total dari akses client. */
+        fetch('/api/admin-save-users', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'x-admin-secret': _adminSecret || '' },
+            body: JSON.stringify(arr)
+        })
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+            if (cb) cb((data && data.ok) ? null : new Error((data && data.message) || 'Gagal sinkron ke server.'));
+        })
+        .catch(function(err) {
+            if (cb) cb(err);
+        });
+    }
+
+    function isExpired(u) { return u.expiresAt && Date.now() > u.expiresAt; }
+    /* Akun (durasi terbatas MAUPUN unlimited) yang belum/tidak lagi aktif — baru
+       dibuat & belum pernah login, atau baru saja di-reset lewat FORCE RESET SEMUA
+       SESI / update file hidzproject.html → wajib login ulang sebelum durasi/sesinya
+       berjalan lagi. Berlaku untuk semua role & semua limit device. */
+    function isPending(u) {
+        return u.activated === false && !isExpired(u);
+    }
+    function isProtected(u) {
+        /* Akun dianggap terlindungi HANYA jika KEDUANYA cocok:
+           id spesifik admin DAN username admin. Satu syarat saja tidak cukup,
+           sehingga user biasa (mis. SCEXE) tidak pernah dianggap admin
+           meski datanya terkontaminasi di Firebase. */
+        return u.id === 'admin_hidz_protected' &&
+               PROTECTED.indexOf((u.username || '').toLowerCase()) !== -1;
+    }
+
+    function fmtRemain(ts) {
+        if (!ts) return 'Unlimited';
+        var diff = ts - Date.now();
+        if (diff <= 0) return 'Expired';
+        var s  = Math.floor(diff/1000);
+        var d  = Math.floor(s/86400);
+        var h  = Math.floor((s%86400)/3600);
+        var mn = Math.floor((s%3600)/60);
+        var sc = s % 60;
+        if (d>0) return d+' hari '+h+' jam';
+        if (h>0) return h+' jam '+mn+' menit';
+        if (mn>0) return mn+' menit '+sc+' detik';
+        return sc+' detik';
+    }
+    function fmtDate(ts) {
+        if (!ts) return 'Tidak terbatas';
+        var d = new Date(ts);
+        return d.toLocaleDateString('id-ID',{weekday:'long',day:'2-digit',month:'long',year:'numeric'}) +
+               ', ' + d.toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+    }
+
+    /* ===== STATS ===== */
+    /* Active, Belum Login (pending), dan Expired dihitung pakai isExpired()/isPending()
+       yang sama persis dengan yang dipakai badge status tiap user di daftar bawah
+       (lihat renderUsers -> stCls), supaya angkanya SELALU konsisten & saling
+       eksklusif: tot === act + pnd + exp.
+         - Active     = sudah pernah login ke hidzproject.html (activated:true) & durasi belum habis
+         - Belum Login= akun sudah dibuat tapi belum pernah login (activated:false), termasuk
+                        yang baru dibuat MAUPUN yang sedang logout — keduanya sama-sama
+                        wajib login ulang sebelum dihitung aktif
+         - Expired    = durasinya sudah lewat (berlaku walau sempat aktif ataupun belum) */
+    function updateStats() {
+        var u   = getUsers();
+        var tot = u.length;
+        var act = u.filter(function(x){ return !isExpired(x) && !isPending(x); }).length;
+        var pnd = u.filter(function(x){ return  isPending(x); }).length;
+        var exp = u.filter(function(x){ return  isExpired(x); }).length;
+        document.getElementById('stTotal').textContent   = tot;
+        document.getElementById('stActive').textContent  = act;
+        document.getElementById('stPending').textContent = pnd;
+        document.getElementById('stExpired').textContent = exp;
+        document.getElementById('userCount').textContent = tot;
+    }
+
+    /* ===== RENDER USERS ===== */
+    function renderUsers() {
+        updateStats();
+        var users = getUsers();
+        var box   = document.getElementById('userList');
+        if (!users.length) {
+            box.innerHTML = '<div class="empty-state"><i class="fas fa-user-slash" style="font-size:22px;margin-bottom:8px;display:block;opacity:.35;"></i>Belum ada user terdaftar.</div>';
+            return;
+        }
+        var q = (_userSearchQuery || '').toLowerCase().trim();
+        var shown = !q ? users : users.filter(function(u) {
+            var roleTxt = isProtected(u) ? 'admin hidz' : (u.role === 'vip' ? 'vip' : 'user');
+            return (u.username||'').toLowerCase().indexOf(q) !== -1 || roleTxt.indexOf(q) !== -1;
+        });
+        if (!shown.length) {
+            box.innerHTML = '<div class="empty-state"><i class="fas fa-search" style="font-size:22px;margin-bottom:8px;display:block;opacity:.35;"></i>Nggak ada user yang cocok dengan pencarian "'+_userSearchQuery+'".</div>';
+            return;
+        }
+        var sorted = sortUsers(shown);
+        var html = '';
+        sorted.forEach(function(u) {
+            var exp       = isExpired(u);
+            var pending   = isPending(u);
+            var prot      = isProtected(u);
+            /* loggedOut hanya relevan saat pending (activated:false): true =
+               akun ini pending karena LOGOUT manual dari hidzproject.html,
+               false/undefined = pending karena baru dibuat ATAU baru saja
+               di-FORCE RESET SEMUA SESI (keduanya tampil "Menunggu login
+               pertama", sesuai permintaan). */
+            var loggedOut = pending && u.loggedOut === true;
+            var remain    = exp ? 'Expired' : (loggedOut ? 'Akun telah logout' : (pending ? 'Menunggu login pertama' : fmtRemain(u.expiresAt)));
+            var expDate   = pending ? 'Durasi belum dimulai' : fmtDate(u.expiresAt);
+            /* Status border kartu: hijau (st-active) = sudah login/aktif,
+               kuning (st-pending) = menunggu login (baru dibuat/logout/reset),
+               merah (st-expired) = durasi sudah habis. */
+            var stCls     = exp ? 'st-expired' : (pending ? 'st-pending' : 'st-active');
+            var roleKey  = isProtected(u) ? 'admin' : (u.role === 'vip' ? 'vip' : 'user');
+            var roleTxt  = (roleKey === 'admin') ? 'ADMIN HIDZ' : (roleKey === 'vip' ? 'VIP' : 'USER');
+            var isBanned = !!_bannedMap[u.id];
+
+            /* Limit device label */
+            var devLimitLabel = u.deviceLimit === 0 ? 'UNLIMITED' :
+                                u.deviceLimit === 2 ? '2 DEVICE' :
+                                u.deviceLimit === 1 ? '1 DEVICE' : '-';
+
+            /* Riwayat waktu logout/login terakhir, ditampilkan jika pernah tercatat.
+               Saat FORCE RESET SEMUA SESI dilakukan, logoutAt akan sama untuk semua
+               akun (momen reset tsb), sedangkan loginAt tetap individual per akun
+               sesuai waktu masing-masing login lagi. */
+            var logoutLoginInfo =
+                (u.logoutAt ? '<div class="u-expiry"><i class="fas fa-sign-out-alt" style="margin-right:4px;opacity:.5;"></i>Logout: '+fmtDate(u.logoutAt)+'</div>' : '') +
+                (u.loginAt  ? '<div class="u-expiry"><i class="fas fa-sign-in-alt" style="margin-right:4px;opacity:.5;"></i>Login terakhir: '+fmtDate(u.loginAt)+'</div>' : '');
+
+            /* Tombol hapus: tersembunyi untuk akun yang dilindungi, lewat
+               modal konfirmasi dulu sebelum benar-benar terhapus */
+            var delBtn   = prot
+                ? '<span title="Akun ini tidak bisa dihapus" style="position:absolute;top:10px;right:10px;width:28px;height:28px;display:flex;align-items:center;justify-content:center;opacity:.25;cursor:not-allowed;"><i class="fas fa-lock" style="font-size:12px;color:var(--tsec);"></i></span>'
+                : '<button class="btn-del" onclick="requestDeleteUser(\''+u.id+'\')" title="Hapus"><i class="fas fa-trash"></i></button>';
+
+            /* Tombol salin info akun (username/password/role/durasi) siap kirim ke buyer */
+            var copyBtn = !prot
+                ? '<button class="btn-copy" onclick="copyAccountInfo(\''+u.id+'\')" title="Salin info akun"><i class="fas fa-copy"></i></button>'
+                : '';
+
+            /* Tombol PERPANJANG DURASI — disembunyikan utk akun protected & UNLIMITED
+               (UNLIMITED tidak punya durasi utk ditambah) */
+            var isUnlimitedDur = (u.durationMs === null || u.durationMs === undefined);
+            var extendBtn = (!prot && !isUnlimitedDur)
+                ? '<button class="btn-extend" onclick="requestExtendUser(\''+u.id+'\')"><i class="fas fa-calendar-plus" style="margin-right:6px;"></i>PERPANJANG DURASI</button>'
+                : '';
+
+            /* Warning badge jika banned */
+            var warnBadge = isBanned
+                ? '<div class="u-warn-badge"><i class="fas fa-exclamation-triangle"></i> MELEBIHI LIMIT DEVICE — DIBLOKIR</div>'
+                : '';
+
+            /* Tombol UNBAND jika banned */
+            var unbandBtn = isBanned
+                ? '<button class="btn-unband" onclick="unbanUser(\''+u.id+'\')"><i class="fas fa-unlock" style="margin-right:6px;"></i>UNBAND / BUKA BLOKIR</button>'
+                : '';
+
+            html +=
+                '<div class="user-item '+(exp?'exp ':'')+stCls+'" id="uid-'+u.id+'">' +
+                copyBtn +
+                delBtn +
+                '<div class="user-top">' +
+                '<span class="u-name">'+u.username+'</span>' +
+                '<span class="u-role '+roleKey+'">'+roleTxt+'</span>' +
+                '</div>' +
+                '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">' +
+                '<span class="u-status '+(exp?'u-exp':(pending?'u-pending':'u-ok'))+'"><i class="fas fa-circle" style="font-size:5px;margin-right:3px;"></i>'+(exp?'EXPIRED':(loggedOut?'LOGOUT':(pending?'BELUM AKTIF':'ACTIVE')))+'</span>' +
+                '<span class="u-remain">'+remain+'</span>' +
+                '</div>' +
+                '<div class="u-expiry">Berakhir: '+expDate+'</div>' +
+                '<div class="u-expiry">Durasi: '+(u.durationLabel||'-')+'</div>' +
+                logoutLoginInfo +
+                '<div class="u-device"><i class="fas fa-mobile-alt" style="margin-right:4px;opacity:.5;"></i>Limit: '+devLimitLabel+'</div>' +
+                (!prot ? '<div class="u-pw"><i class="fas fa-key" style="margin-right:4px;opacity:.4;"></i>'+u.password+'</div>' : '') +
+                extendBtn +
+                warnBadge +
+                unbandBtn +
+                '</div>';
+        });
+        box.innerHTML = html;
+    }
+
+    /* Dipanggil dari kolom pencarian Database Users */
+    /* ===== EXPORT DAFTAR USER KE CSV ===== */
+    function exportUsersCSV() {
+        var users = getUsers();
+        if (!users.length) { showToast('Belum ada user untuk diekspor.', 'err'); return; }
+
+        var header = ['Username', 'Role', 'Status', 'Limit Perangkat', 'Durasi', 'Dibuat', 'Login Terakhir', 'Kedaluwarsa'];
+        var rows = [header];
+
+        users.forEach(function (u) {
+            var exp       = isExpired(u);
+            var pending   = isPending(u);
+            var prot      = isProtected(u);
+            var loggedOut = pending && u.loggedOut === true;
+            var roleTxt   = prot ? 'ADMIN HIDZ' : (u.role === 'vip' ? 'VIP' : 'USER');
+            var statusTxt = exp ? 'EXPIRED' : (loggedOut ? 'LOGOUT' : (pending ? 'PENDING' : 'AKTIF'));
+            var devTxt    = u.deviceLimit === 0 ? 'UNLIMITED' : (u.deviceLimit || 1) + ' DEVICE';
+            rows.push([
+                u.username || '',
+                roleTxt,
+                statusTxt,
+                devTxt,
+                u.durationLabel || '-',
+                u.createdAt ? fmtDate(u.createdAt) : '-',
+                u.loginAt ? fmtDate(u.loginAt) : '-',
+                u.expiresAt ? fmtDate(u.expiresAt) : 'Tidak terbatas'
+            ]);
+        });
+
+        var csv = rows.map(function (r) {
+            return r.map(function (cell) {
+                var s = String(cell == null ? '' : cell);
+                return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+            }).join(',');
+        }).join('\r\n');
+
+        /* BOM di depan supaya Excel baca karakter UTF-8 (mis. huruf non-ASCII) dengan benar */
+        if (_downloadFile('hidzproject-users-' + _tsForFilename() + '.csv', '\uFEFF' + csv, 'text/csv')) {
+            showToast('\u2714 ' + users.length + ' user berhasil diekspor ke CSV', 'ok');
+        }
+    }
+
+    function filterUsers(val) {
+        _userSearchQuery = val;
+        renderUsers();
+    }
+
+    /* Dipanggil dari dropdown sortir Database Users */
+    function setUserSort(mode) {
+        _userSortMode = mode;
+        renderUsers();
+    }
+    function sortUsers(list) {
+        var arr = list.slice();
+        if (_userSortMode === 'name') {
+            arr.sort(function(a,b){ return a.username.localeCompare(b.username); });
+        } else if (_userSortMode === 'oldest') {
+            arr.sort(function(a,b){ return (a.createdAt||0) - (b.createdAt||0); });
+        } else if (_userSortMode === 'expiry') {
+            /* Belum aktif/unlimited (expiresAt kosong) ditaruh paling belakang,
+               yang paling dekat waktu habisnya ditaruh paling depan */
+            arr.sort(function(a,b){
+                var ae = (a.expiresAt === null || a.expiresAt === undefined) ? Infinity : a.expiresAt;
+                var be = (b.expiresAt === null || b.expiresAt === undefined) ? Infinity : b.expiresAt;
+                return ae - be;
+            });
+        } else {
+            /* 'newest' (default) */
+            arr.sort(function(a,b){ return (b.createdAt||0) - (a.createdAt||0); });
+        }
+        return arr;
+    }
+
+    /* ===== SALIN INFO AKUN (siap kirim ke buyer via WA) ===== */
+    function buildAccountInfoText(opts) {
+        return (
+            '\u2726 HIDZ PROJECT \u2014 INFO AKSES \u2726\n\n' +
+            'Username : '+opts.username+'\n' +
+            'Password : '+opts.password+'\n' +
+            'Role     : '+opts.roleLabel+'\n' +
+            'Durasi   : '+(opts.durationLabel||'-')+'\n\n' +
+            'Simpan baik-baik ya, jangan dibagikan ke orang lain \ud83d\ude4f'
+        );
+    }
+    function _copyToClipboard(text, cb) {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(function(){ cb(true); }).catch(function(){ _copyFallback(text, cb); });
+        } else {
+            _copyFallback(text, cb);
+        }
+    }
+    function _copyFallback(text, cb) {
+        try {
+            var ta = document.createElement('textarea');
+            ta.value = text;
+            ta.style.position = 'fixed';
+            ta.style.opacity  = '0';
+            document.body.appendChild(ta);
+            ta.focus(); ta.select();
+            var ok = document.execCommand('copy');
+            document.body.removeChild(ta);
+            cb(ok);
+        } catch(e) { cb(false); }
+    }
+    function copyAccountInfo(id) {
+        var users = getUsers();
+        var u = null;
+        for (var i = 0; i < users.length; i++) { if (users[i].id === id) { u = users[i]; break; } }
+        if (!u) { showToast('User tidak ditemukan!', 'err'); return; }
+        var roleLabel = isProtected(u) ? 'ADMIN' : (u.role === 'vip' ? 'VIP' : 'USER');
+        var text = buildAccountInfoText({
+            username: u.username,
+            password: u.password,
+            roleLabel: roleLabel,
+            durationLabel: u.durationLabel
+        });
+        _copyToClipboard(text, function(ok) {
+            showToast(ok ? '\u2714 Info akun disalin!' : 'Gagal menyalin, coba lagi', ok ? 'ok' : 'err');
+        });
+    }
+
+    /* ===== PERPANJANG DURASI AKUN (tanpa hapus+buat ulang) ===== */
+    var _extendTargetId = null;
+
+    function msFromUnit(val, unit) {
+        var mult = {
+            detik: 1000, menit: 60000, jam: 3600000,
+            hari: 86400000, minggu: 7*86400000, bulan: 30*86400000, tahun: 365*86400000
+        };
+        return val * (mult[unit] || 86400000);
+    }
+    /* Ubah total milidetik jadi label yang enak dibaca, dipakai satuan
+       terbesar yang masih pas dibagi rata; kalau nggak ada yang pas,
+       dibulatkan ke HARI terdekat (minimal 1 hari) */
+    function msToLabel(ms) {
+        var DAY = 86400000;
+        var units = [
+            ['TAHUN', 365*DAY], ['BULAN', 30*DAY], ['MINGGU', 7*DAY],
+            ['HARI', DAY], ['JAM', 3600000], ['MENIT', 60000]
+        ];
+        for (var i = 0; i < units.length; i++) {
+            if (ms >= units[i][1] && ms % units[i][1] === 0) {
+                return (ms / units[i][1]) + ' ' + units[i][0];
+            }
+        }
+        return Math.max(1, Math.round(ms / DAY)) + ' HARI';
+    }
+
+    function requestExtendUser(id) {
+        var users = getUsers();
+        var target = null;
+        for (var i = 0; i < users.length; i++) { if (users[i].id === id) { target = users[i]; break; } }
+        if (!target) { showToast('User tidak ditemukan!', 'err'); return; }
+        if (target.durationMs === null || target.durationMs === undefined) {
+            showToast('Akun UNLIMITED tidak perlu diperpanjang!', 'err'); return;
+        }
+
+        _extendTargetId = id;
+        var nameEl = document.getElementById('extendModalUsername');
+        if (nameEl) nameEl.textContent = target.username;
+        document.getElementById('extendVal').value = 1;
+        document.getElementById('extendUnit').value = 'hari';
+
+        var m = document.getElementById('extendModal');
+        if (m) m.classList.add('show');
+    }
+    function closeExtendModal() {
+        var m = document.getElementById('extendModal');
+        if (m) m.classList.remove('show');
+        _extendTargetId = null;
+    }
+    function confirmExtendDuration() {
+        if (!_extendTargetId) return;
+        var val  = parseInt(document.getElementById('extendVal').value) || 0;
+        var unit = document.getElementById('extendUnit').value;
+        if (val < 1) { showToast('Jumlah durasi tidak valid!', 'err'); return; }
+        var addMs = msFromUnit(val, unit);
+
+        var users = getUsers();
+        var target = null;
+        for (var i = 0; i < users.length; i++) { if (users[i].id === _extendTargetId) { target = users[i]; break; } }
+        if (!target) { showToast('User tidak ditemukan!', 'err'); closeExtendModal(); return; }
+
+        var btn = document.getElementById('extendConfirmBtn');
+        if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin" style="margin-right:6px;"></i>MEMPROSES...'; }
+
+        if (!target.activated || !target.expiresAt) {
+            /* Belum aktif (pending) -> tambahkan ke durationMs, expiresAt baru
+               dihitung nanti saat user login pertama kali */
+            target.durationMs = (target.durationMs || 0) + addMs;
+        } else if (isExpired(target)) {
+            /* Sudah lewat expired -> hitung ulang dari SEKARANG, bukan numpuk
+               dari tanggal expired yang sudah lewat */
+            target.expiresAt  = Date.now() + addMs;
+            target.durationMs = (target.durationMs || 0) + addMs;
+        } else {
+            /* Masih aktif berjalan -> tambahkan ke sisa waktu yang ada */
+            target.expiresAt  = target.expiresAt + addMs;
+            target.durationMs = (target.durationMs || 0) + addMs;
+        }
+        target.durationLabel = msToLabel(target.durationMs);
+
+        saveUsers(users, function(err) {
+            var btn2 = document.getElementById('extendConfirmBtn');
+            if (btn2) { btn2.disabled = false; btn2.innerHTML = '<i class="fas fa-calendar-plus" style="margin-right:6px;"></i>PERPANJANG'; }
+            var extendedUsername = target.username;
+            closeExtendModal();
+            if (err) {
+                showToast('Gagal memperpanjang: ' + err.message, 'err');
+                return;
+            }
+            renderUsers();
+            showToast('\u2714 Durasi ' + extendedUsername + ' berhasil diperpanjang', 'ok');
+        });
+    }
+
+    /* ===== CREATE ACCESS ===== */
+    function createAccess() {
+        var username = document.getElementById('newUser').value.trim();
+        var password = document.getElementById('newPass').value;
+        var durVal   = parseInt(document.getElementById('durVal').value) || 1;
+        var durUnit  = document.getElementById('durUnit').value;
+        var isUnlimitedDur = (durUnit === 'unlimited');
+
+        if (!username) { showToast('Username tidak boleh kosong!','err'); return; }
+        if (!password) { showToast('Password tidak boleh kosong!','err'); return; }
+        if (!isUnlimitedDur && durVal<1)  { showToast('Durasi tidak valid!','err'); return; }
+
+        var users = getUsers();
+        if (users.some(function(u){ return u.username.toLowerCase()===username.toLowerCase(); })) {
+            showToast('Username sudah ada!','err'); return;
+        }
+
+        var now = Date.now();
+        var ms, durLabel;
+
+        if (isUnlimitedDur) {
+            /* Durasi tanpa batas waktu */
+            ms       = null;
+            durLabel = 'UNLIMITED';
+        } else {
+            /* Hitung milidetik berdasarkan satuan waktu */
+            var msMap = {
+                'detik': 1000,
+                'menit': 60000,
+                'jam':   3600000,
+                'hari':  86400000,
+                'minggu': 7 * 86400000,
+                'bulan': 30 * 86400000,
+                'tahun': 365 * 86400000
+            };
+            ms = (msMap[durUnit] || msMap['hari']) * durVal;
+
+            /* Label durasi yang ditampilkan */
+            var unitLabels = {
+                'detik':'DETIK','menit':'MENIT','jam':'JAM',
+                'hari':'HARI','minggu':'MINGGU','bulan':'BULAN','tahun':'TAHUN'
+            };
+            durLabel = durVal + ' ' + (unitLabels[durUnit] || 'HARI');
+        }
+
+        var createdRoleLabel = (_selectedRole === 'vip') ? 'VIP' : 'USER';
+
+        users.push({
+            id:            'u_'+now,
+            username:      username,
+            password:      password,
+            role:          _selectedRole,
+            createdAt:     now,
+            /* Durasi/status BELUM aktif saat dibuat — baru aktif saat user
+               login pertama kali ke hidzproject.html (lihat _completeLogin
+               di hidzproject.html). Berlaku untuk SEMUA akun, termasuk
+               UNLIMITED — akun UNLIMITED tetap wajib login sekali dulu
+               supaya tercatat kapan login pertamanya, meski durasinya sendiri
+               tidak pernah dihitung mundur (expiresAt selalu null). */
+            expiresAt:     null,
+            durationMs:    isUnlimitedDur ? null : ms,
+            durationLabel: durLabel,
+            deviceLimit:   _selectedDevLimit,
+            /* Selalu mulai belum aktif — TERMASUK akun UNLIMITED — supaya
+               setiap akun (apa pun tipe durasinya) wajib login dulu ke
+               hidzproject.html sebelum berstatus ACTIVE, dan loginAt-nya
+               benar-benar tercatat. */
+            activated:     false,
+            /* Riwayat waktu logout/login — diisi saat user logout manual dari
+               hidzproject.html, di-FORCE RESET SEMUA SESI, atau login lagi.
+               loggedOut:false → status pending akun baru ini tampil sebagai
+               "Menunggu login pertama", bukan "Akun telah logout". */
+            logoutAt:      null,
+            loginAt:       null,
+            loggedOut:     false
+        });
+
+        saveUsers(users, function(err) {
+            if (err) {
+                /* Sinkron ke server gagal -> batalkan perubahan lokal supaya
+                   tidak beda dengan cloud (mencegah data "hantu" yang tidak konsisten) */
+                users.pop();
+                localStorage.setItem(DB_KEY, JSON.stringify(users));
+                showToast('Gagal membuat akses (sinkron ke server gagal): ' + err.message,'err');
+                return;
+            }
+
+            document.getElementById('newUser').value = '';
+            document.getElementById('newPass').value = '';
+            document.getElementById('durVal').value  = '1';
+            resetNewPassVis();
+
+            /* Reset device limit ke default (1) */
+            setDevLimit(1);
+            /* Reset role ke default (user) */
+            setRole('user');
+
+            renderUsers();
+
+            var _copyText = buildAccountInfoText({
+                username: username,
+                password: password,
+                roleLabel: createdRoleLabel,
+                durationLabel: durLabel
+            });
+            _copyToClipboard(_copyText, function(ok) {
+                showToast(ok ? ('\u2714 Akses dibuat & info disalin untuk '+username) : ('\u2714 Akses dibuat untuk '+username), 'ok');
+            });
+        });
+    }
+
+    /* Aktif/nonaktifkan input nilai durasi saat satuan UNLIMITED dipilih */
+    function toggleDurVal() {
+        var sel = document.getElementById('durUnit');
+        var inp = document.getElementById('durVal');
+        if (!sel || !inp) return;
+        inp.disabled = (sel.value === 'unlimited');
+    }
+
+    /* Show/hide password saat Generate Access */
+    function toggleNewPassVis() {
+        var inp  = document.getElementById('newPass');
+        var icon = document.getElementById('newPassEyeIcon');
+        if (!inp) return;
+        var show = inp.type === 'password';
+        inp.type = show ? 'text' : 'password';
+        if (icon) icon.className = 'fas ' + (show ? 'fa-eye-slash' : 'fa-eye');
+    }
+    function resetNewPassVis() {
+        var inp  = document.getElementById('newPass');
+        var icon = document.getElementById('newPassEyeIcon');
+        if (inp)  inp.type = 'password';
+        if (icon) icon.className = 'fas fa-eye';
+    }
+
+    /* ===== DELETE USER ===== */
+    function deleteUser(id, onSettled) {
+        var fallbackUsers = getUsers();
+        var target = fallbackUsers.find(function(u){ return u.id===id; });
+
+        if (!target) {
+            showToast('User tidak ditemukan!','err');
+            if (onSettled) onSettled();
+            return;
+        }
+        /* Double-check: tidak bisa hapus akun yang dilindungi */
+        if (isProtected(target)) {
+            showToast('Akun ini tidak bisa dihapus!','err');
+            if (onSettled) onSettled();
+            return;
+        }
+
+        function finishDelete(users) {
+            var sisaUsers = users.filter(function(u){ return u.id!==id; });
+            saveUsers(sisaUsers, function(err) {
+                if (err) {
+                    /* Sinkron ke server gagal -> kembalikan data lokal agar tidak
+                       beda dengan cloud (mencegah akun "muncul lagi" setelah reload) */
+                    localStorage.setItem(DB_KEY, JSON.stringify(users));
+                    renderUsers();
+                    showToast('Gagal menghapus user (sinkron ke server gagal): ' + err.message,'err');
+                    if (onSettled) onSettled();
+                    return;
+                }
+                /* Bersihkan jejak sesi/banned/blocked milik user yang dihapus, sama
+                   seperti pada DELETE ALL USER & DATABASE, supaya tidak ada data
+                   basi yang tertinggal di Firebase. */
+                try {
+                    if (typeof firebase !== 'undefined' && firebase.apps.length) {
+                        firebase.database().ref('hidz_sessions/' + id).remove();
+                        firebase.database().ref('hidz_banned/' + id).remove();
+                        firebase.database().ref('hidz_blocked_devices/' + id).remove();
+                    }
+                } catch(e) {}
+                renderUsers();
+                showToast('\u2714 User berhasil dihapus','ok');
+                if (onSettled) onSettled();
+            });
+        }
+
+        /* Ambil data PALING BARU dari server sebelum menghapus. Ini mencegah
+           penghapusan dilakukan berdasarkan data lokal yang sudah basi (mis.
+           karena ada tab/device admin lain yang sempat menulis data setelah
+           halaman ini dimuat) — penyebab paling umum dari akun yang "tidak
+           bisa dihapus" / muncul lagi setelah refresh. */
+        fetchAdminUsersFresh(function(freshUsers, err) {
+            if (err) {
+                showToast('Gagal mengambil data terbaru: ' + err.message,'err');
+                finishDelete(fallbackUsers);
+                return;
+            }
+            finishDelete(freshUsers);
+        });
+    }
+
+    /* ===== SET DEVICE LIMIT (UI) ===== */
+    function setDevLimit(val) {
+        _selectedDevLimit = val;
+        document.querySelectorAll('#devLimitRow .dev-btn').forEach(function(b) {
+            b.classList.toggle('active', parseInt(b.getAttribute('data-val')) === val);
+        });
+    }
+
+    /* ===== SET ROLE (UI) ===== */
+    function setRole(val) {
+        _selectedRole = val;
+        document.querySelectorAll('#roleLimitRow .dev-btn').forEach(function(b) {
+            b.classList.toggle('active', b.getAttribute('data-role') === val);
+        });
+    }
+
+    /* ===== UNBAND USER (SMART) ===== */
+    function unbanUser(id) {
+        try {
+            if (typeof firebase !== 'undefined' && firebase.apps.length) {
+                /* Dapatkan deviceLimit dari database user */
+                var users      = getUsers();
+                var targetUser = null;
+                for (var i = 0; i < users.length; i++) {
+                    if (users[i].id === id) { targetUser = users[i]; break; }
+                }
+                var deviceLimit = targetUser ? (
+                    targetUser.deviceLimit === 0 ? 0 :
+                    (targetUser.deviceLimit || 1)
+                ) : 1;
+
+                /* Ambil semua sesi aktif dari Firebase */
+                firebase.database().ref('hidz_sessions/' + id).once('value', function(sessSnap) {
+                    var sessions = sessSnap.val();
+
+                    if (!sessions || Object.keys(sessions).length === 0) {
+                        /* Tidak ada sesi → langsung hapus banned */
+                        firebase.database().ref('hidz_banned/' + id).remove(function() {
+                            showToast('\u2714 Akun berhasil di-UNBAND!', 'ok');
+                        });
+                        return;
+                    }
+
+                    /* Urutkan sesi berdasarkan loginAt (yang pertama login paling awal) */
+                    var sessionList = Object.keys(sessions).map(function(devId) {
+                        return { deviceId: devId, loginAt: sessions[devId].loginAt || 0 };
+                    });
+                    sessionList.sort(function(a, b) { return a.loginAt - b.loginAt; });
+
+                    /* Tentukan berapa device yang boleh dipertahankan */
+                    var keepCount   = deviceLimit === 0 ? sessionList.length : deviceLimit;
+                    var keepDevices = sessionList.slice(0, keepCount);
+                    var blockDevices = sessionList.slice(keepCount);
+
+                    /* Hapus sesi + tandai device yang melebihi limit sebagai diblokir */
+                    blockDevices.forEach(function(dev) {
+                        /* Hapus sesi device ini */
+                        firebase.database().ref('hidz_sessions/' + id + '/' + dev.deviceId).remove();
+                        /* Catat deviceId ini sebagai diblokir */
+                        firebase.database().ref('hidz_blocked_devices/' + id + '/' + dev.deviceId).set({
+                            blockedAt: Date.now(),
+                            reason:    'Melebihi batas maksimum perangkat'
+                        });
+                    });
+
+                    /* Hapus status banned — device yang sah (pertama login) langsung normal */
+                    firebase.database().ref('hidz_banned/' + id).remove(function() {
+                        var blockedCount = blockDevices.length;
+                        if (blockedCount > 0) {
+                            showToast('\u2714 UNBAND: ' + keepDevices.length + ' device normal, ' + blockedCount + ' device diblokir', 'ok');
+                        } else {
+                            showToast('\u2714 Akun berhasil di-UNBAND!', 'ok');
+                        }
+                    });
+                });
+            } else {
+                showToast('Firebase tidak tersedia!', 'err');
+            }
+        } catch(e) {
+            showToast('Error: ' + e.message, 'err');
+        }
+    }
+
+    /* ===== WATCH BANNED STATUS (real-time) ===== */
+    function watchBannedStatus() {
+        try {
+            if (typeof firebase !== 'undefined' && firebase.apps.length) {
+                firebase.database().ref('hidz_banned').on('value', function(snap) {
+                    _bannedMap = {};
+                    var val = snap.val();
+                    if (val && typeof val === 'object') {
+                        Object.keys(val).forEach(function(uid) {
+                            if (val[uid] && val[uid].banned === true) {
+                                _bannedMap[uid] = true;
+                            }
+                        });
+                    }
+                    renderUsers();
+                });
+            }
+        } catch(e) {}
+    }
+
+    /* ===== TOAST ===== */
+    var _tt = null;
+    function showToast(msg, type) {
+        var t = document.getElementById('toast');
+        t.textContent = msg;
+        t.className   = 'toast '+(type||'')+' show';
+        clearTimeout(_tt);
+        _tt = setTimeout(function(){ t.className='toast'; }, 3200);
+    }
+
+    /* Live ticker: update sisa waktu setiap detik & re-render langsung saat ada akun expired */
+    function liveTickRemaining() {
+        var users = getUsers();
+        var needFullRender = false;
+        users.forEach(function(u) {
+            if (!u.expiresAt) return; /* unlimited, skip */
+            var itemEl = document.getElementById('uid-' + u.id);
+            if (!itemEl) return;
+            var wasExpired = itemEl.classList.contains('exp');
+            var isNowExpired = isExpired(u);
+            /* Status baru saja berubah jadi expired → butuh full render */
+            if (!wasExpired && isNowExpired) { needFullRender = true; return; }
+            /* Masih aktif → update teks sisa waktu saja tanpa rebuild DOM */
+            if (!isNowExpired) {
+                var remainEl = itemEl.querySelector('.u-remain');
+                if (remainEl) remainEl.textContent = fmtRemain(u.expiresAt);
+            }
+        });
+        if (needFullRender) renderUsers();
+    }
+    setInterval(liveTickRemaining, 1000);
+
+    /* ===== FORCE RE-LOGIN SEMUA SESI ===== */
+    function forceReloginAll() {
+        var _newToken = Date.now();
+
+        function _doForceToken() {
+            try {
+                if (typeof firebase !== 'undefined' && firebase.apps.length) {
+                    firebase.database().ref('hidz_force_relogin').set(_newToken, function(err) {
+                        if (!err) {
+                            showToast('\u2714 Semua sesi direset! User wajib login ulang.', 'ok');
+                        } else {
+                            showToast('Gagal reset sesi!', 'err');
+                        }
+                    });
+                } else {
+                    showToast('Firebase tidak tersedia!', 'err');
+                }
+            } catch(e) {
+                showToast('Error: ' + e.message, 'err');
+            }
+        }
+
+        /* Ambil data user terkini dari server sebelum melakukan reset */
+        fetchAdminUsersFresh(function(_frUsers, err) {
+            if (err) {
+                /* Fallback: gagal ambil data → tetap kirim force re-login saja */
+                _doForceToken();
+                return;
+            }
+
+            /* Reset status login untuk SEMUA akun TERMASUK ADMIN — berlaku
+               bagi semua role (VIP/USER/ADMIN), semua tipe durasi (terbatas
+               MAUPUN unlimited), dan semua limit device. Akun protected
+               (super-admin "Hidz") kini ikut ter-reset sama seperti role
+               lain, supaya konsisten.
+               - Akun durasi TERBATAS yang sedang berjalan: SISA durasinya
+                 dihitung (expiresAt - sekarang) lalu disimpan balik ke
+                 durationMs — akun ini di-"pause", BUKAN direset ke durasi
+                 penuh semula, jadi saat login lagi nanti sisa waktunya tetap
+                 lanjut (lihat _completeLogin di hidzproject.html).
+               - Akun durasi UNLIMITED (termasuk admin): langsung ditandai
+                 belum aktif tanpa syarat tambahan (memang tidak punya
+                 konsep sisa durasi).
+               - Akun yang memang belum pernah login (masih pending) atau
+                 sudah expired: durasinya dibiarkan apa adanya.
+               - logoutAt diisi waktu YANG SAMA (_newToken) untuk SEMUA akun
+                 (momen force reset ini), loginAt TIDAK disentuh (tetap
+                 individual saat masing-masing akun login lagi), dan
+                 loggedOut:false supaya labelnya "Menunggu login pertama" —
+                 bukan "Akun telah logout" (label itu khusus logout manual). */
+            var _frChanged = false;
+            _frUsers.forEach(function(u) {
+                var isUnlimitedDur = !(typeof u.durationMs === 'number' && u.durationMs > 0);
+                if (isUnlimitedDur) {
+                    u.activated = false;
+                } else if (u.activated === true && u.expiresAt && !isExpired(u)) {
+                    u.durationMs = Math.max(0, u.expiresAt - _newToken);
+                    u.expiresAt  = null;
+                    u.activated  = false;
+                }
+                u.logoutAt  = _newToken;
+                u.loggedOut = false;
+                _frChanged  = true;
+            });
+
+            /* Hapus semua sesi device + status banned/blocked yang tersimpan
+               di Firebase untuk tiap akun (termasuk admin). Tanpa ini, sisa
+               data sesi lama (mis. dari device yang tidak pernah "logout"
+               dengan bersih) bisa membuat akun terkena "AKUN DIBLOKIR" secara
+               keliru walau baru saja di-reset dan belum pernah login sama
+               sekali. */
+            try {
+                if (typeof firebase !== 'undefined' && firebase.apps.length) {
+                    _frUsers.forEach(function(u) {
+                        firebase.database().ref('hidz_sessions/' + u.id).remove();
+                        firebase.database().ref('hidz_banned/' + u.id).remove();
+                        firebase.database().ref('hidz_blocked_devices/' + u.id).remove();
+                    });
+                }
+            } catch(e) {}
+
+            if (_frChanged) {
+                /* Simpan perubahan ke server dulu, baru kirim token force re-login */
+                saveUsers(_frUsers, function(err2) {
+                    /* Kirim token meskipun sinkron gagal, agar sesi tetap terhapus */
+                    _doForceToken();
+                });
+            } else {
+                _doForceToken();
+            }
+        });
+    }
+
+    /* ===== KONFIRMASI TINDAKAN BERBAHAYA (generic, dipakai hapus 1 user & hapus semua) ===== */
+    var _dangerConfirmAction = null;
+
+    var _dangerBackupAction = null;
+    function openDangerModal(title, descHtml, confirmLabel, onConfirm, backupFn) {
+        var cb  = document.getElementById('dangerModalCheck');
+        var btn = document.getElementById('dangerModalConfirmBtn');
+        var ttl = document.getElementById('dangerModalTitle');
+        var dsc = document.getElementById('dangerModalDesc');
+        var bkp = document.getElementById('dangerModalBackupBtn');
+        if (cb)  cb.checked   = false;
+        if (ttl) ttl.innerHTML = title;
+        if (dsc) dsc.innerHTML = descHtml;
+        if (btn) {
+            btn.disabled  = true;
+            btn.innerHTML = '<i class="fas fa-trash-alt" style="margin-right:6px;"></i>' + confirmLabel;
+        }
+        _dangerConfirmAction = onConfirm;
+        _dangerBackupAction  = (typeof backupFn === 'function') ? backupFn : null;
+        if (bkp) bkp.style.display = _dangerBackupAction ? '' : 'none';
+        var m = document.getElementById('dangerModal');
+        if (m) m.classList.add('show');
+    }
+    function closeDangerModal() {
+        var m = document.getElementById('dangerModal');
+        if (m) m.classList.remove('show');
+        _dangerConfirmAction = null;
+        _dangerBackupAction  = null;
+    }
+    window._dangerDoBackup = function () {
+        if (typeof _dangerBackupAction === 'function') _dangerBackupAction();
+    };
+    function toggleDangerConfirmBtn() {
+        var cb  = document.getElementById('dangerModalCheck');
+        var btn = document.getElementById('dangerModalConfirmBtn');
+        if (btn) btn.disabled = !(cb && cb.checked);
+    }
+    function _resetDangerConfirmBtn(label) {
+        var btn = document.getElementById('dangerModalConfirmBtn');
+        if (btn) {
+            btn.disabled  = false;
+            btn.innerHTML = '<i class="fas fa-trash-alt" style="margin-right:6px;"></i>' + label;
+        }
+    }
+    function confirmDangerAction() {
+        var cb = document.getElementById('dangerModalCheck');
+        if (!cb || !cb.checked) return; /* wajib centang dulu sebelum lanjut */
+        if (typeof _dangerConfirmAction === 'function') _dangerConfirmAction();
+    }
+
+    /* ===== HAPUS 1 AKUN (lewat modal konfirmasi) ===== */
+    function requestDeleteUser(id) {
+        var users  = getUsers();
+        var target = null;
+        for (var i = 0; i < users.length; i++) { if (users[i].id === id) { target = users[i]; break; } }
+        if (!target) { showToast('User tidak ditemukan!', 'err'); return; }
+        if (isProtected(target)) { showToast('Akun ini tidak bisa dihapus!', 'err'); return; }
+
+        openDangerModal(
+            'Hapus Akun Ini?',
+            'Akun <b>' + target.username + '</b> akan <b>dihapus permanen</b> dari database &amp; Firebase.<br><br>' +
+            'Jika akun ini sedang login, sesinya akan otomatis ter-logout seketika.<br><br>' +
+            '<span style="color:var(--red);font-weight:800;">Tindakan ini TIDAK BISA DIBATALKAN.</span>',
+            'HAPUS AKUN',
+            function() {
+                var btn = document.getElementById('dangerModalConfirmBtn');
+                if (btn) {
+                    btn.disabled  = true;
+                    btn.innerHTML = '<i class="fas fa-spinner fa-spin" style="margin-right:6px;"></i>MEMPROSES...';
+                }
+                deleteUser(id, function() { closeDangerModal(); });
+            }
+        );
+    }
+
+    /* ===== Helper: turunkan file (dipakai buat backup JSON & export CSV) ===== */
+    function _downloadFile(filename, content, mime) {
+        try {
+            var blob = new Blob([content], { type: mime + ';charset=utf-8' });
+            var url  = URL.createObjectURL(blob);
+            var a    = document.createElement('a');
+            a.href = url; a.download = filename;
+            document.body.appendChild(a); a.click(); document.body.removeChild(a);
+            setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+            return true;
+        } catch (e) {
+            showToast('Gagal membuat file: ' + e.message, 'err');
+            return false;
+        }
+    }
+    function _tsForFilename() {
+        return new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+    }
+
+    /* ===== DELETE ALL USER & DATABASE ===== */
+    function backupUsersBeforeDeleteAll() {
+        var users   = getUsers();
+        var payload = {
+            exportedAt: new Date().toISOString(),
+            source:     'admin.html — backup sebelum Hapus Semua User & Database',
+            totalUsers: users.length,
+            users:      users
+        };
+        if (_downloadFile('hidzproject-backup-' + _tsForFilename() + '.json', JSON.stringify(payload, null, 2), 'application/json')) {
+            showToast('\u2714 Backup berhasil diunduh (' + users.length + ' user)', 'ok');
+        }
+    }
+    function openDeleteAllModal() {
+        openDangerModal(
+            'Hapus Semua User &amp; Database',
+            'Tindakan ini akan <b>menghapus PERMANEN</b> seluruh akun user (aktif maupun belum aktif) dari database &amp; Firebase.<br><br>' +
+            'Akun admin <b>tidak akan terhapus</b>.<br><br>' +
+            'User yang sedang login di HidzProject akan <b>otomatis ter-logout seketika</b> tanpa perlu refresh.<br><br>' +
+            '<span style="color:var(--red);font-weight:800;">Tindakan ini TIDAK BISA DIBATALKAN.</span>',
+            'HAPUS SEMUA',
+            executeDeleteAllUsers,
+            backupUsersBeforeDeleteAll
+        );
+    }
+
+    function executeDeleteAllUsers() {
+        var cb = document.getElementById('dangerModalCheck');
+        if (!cb || !cb.checked) return; /* wajib centang dulu sebelum lanjut */
+
+        var btn = document.getElementById('dangerModalConfirmBtn');
+        if (btn) {
+            btn.disabled  = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin" style="margin-right:6px;"></i>MEMPROSES...';
+        }
+
+        if (typeof firebase === 'undefined' || !firebase.apps.length) {
+            showToast('Firebase tidak tersedia!', 'err');
+            closeDangerModal();
+            _resetDangerConfirmBtn('HAPUS SEMUA');
+            return;
+        }
+
+        /* Ambil data PALING BARU dari server sebelum menghapus, supaya tidak
+           ada user yang terlewat / data basi (sama seperti deleteUser()). */
+        fetchAdminUsersFresh(function(freshUsers, err) {
+            if (err) {
+                showToast('Gagal mengambil data terbaru: ' + err.message, 'err');
+                closeDangerModal();
+                _resetDangerConfirmBtn('HAPUS SEMUA');
+                return;
+            }
+
+            var keptUsers    = freshUsers.filter(function(u){ return isProtected(u); });
+            var removedUsers = freshUsers.filter(function(u){ return !isProtected(u); });
+
+            if (removedUsers.length === 0) {
+                showToast('Tidak ada user untuk dihapus.', 'ok');
+                closeDangerModal();
+                _resetDangerConfirmBtn('HAPUS SEMUA');
+                return;
+            }
+
+            try {
+                /* 1) Kirim sinyal logout-instan ke hidzproject.html LEBIH DULU
+                      (sebelum hidz_access_db diubah), supaya akun yang sedang
+                      aktif langsung logout tanpa refresh, tanpa nunggu
+                      listener auto-logout bawaan (yang pakai reload halaman). */
+                firebase.database().ref('hidz_delete_all_trigger').set(Date.now(), function() {
+
+                    /* 2) Bersihkan jejak sesi/banned/blocked milik user yang dihapus */
+                    removedUsers.forEach(function(u) {
+                        try {
+                            firebase.database().ref('hidz_sessions/' + u.id).remove();
+                            firebase.database().ref('hidz_banned/' + u.id).remove();
+                            firebase.database().ref('hidz_blocked_devices/' + u.id).remove();
+                        } catch(e) {}
+                    });
+
+                    /* 3) Simpan ulang database — hanya menyisakan akun admin */
+                    saveUsers(keptUsers, function(err2) {
+                        _resetDangerConfirmBtn('HAPUS SEMUA');
+                        closeDangerModal();
+                        if (err2) {
+                            showToast('Gagal menghapus database: ' + err2.message, 'err');
+                            return;
+                        }
+                        renderUsers();
+                        showToast('\u2714 ' + removedUsers.length + ' user berhasil dihapus dari database & Firebase', 'ok');
+                    });
+                });
+            } catch(e) {
+                showToast('Error: ' + e.message, 'err');
+                closeDangerModal();
+                _resetDangerConfirmBtn('HAPUS SEMUA');
+            }
+        });
+    }
+
+    /* ===== SITE MAINTENANCE CONTROL ===== */
+    var _MREF = 'hidz_maintenance_mode';
+    var _currentProgress = 72;
+
+    /* Aktif/nonaktifkan input nilai durasi maintenance saat UNLIMITED dipilih */
+    function toggleMaintDurVal() {
+        var sel = document.getElementById('maintDurUnit');
+        var inp = document.getElementById('maintDurVal');
+        if (!sel || !inp) return;
+        inp.disabled = (sel.value === 'unlimited');
+    }
+
+    /* Kirim status ke Firebase */
+    function setSiteMode(active) {
+        /* Disable tombol sementara agar tidak double-klik */
+        var btnOn    = document.getElementById('btnSiteOn');
+        var btnMaint = document.getElementById('btnSiteMaint');
+        if (btnOn)    btnOn.classList.add('is-inactive');
+        if (btnMaint) btnMaint.classList.add('is-inactive');
+
+        try {
+            if (typeof firebase !== 'undefined' && firebase.apps.length) {
+                /* Saat maintenance ON → simpan juga startedAt agar countdown
+                   di maintenance.html bisa berjalan real-time dari waktu ini.
+                   progress selalu disertakan supaya ON/MAINTENANCE toggle
+                   (yang pakai .set() penuh) tidak menghapus nilai progress
+                   yang sudah diatur lewat slider. */
+                var _mdata = { active: active, progress: _currentProgress };
+                if (active) {
+                    _mdata.startedAt = Date.now();
+                    /* Baca durasi maintenance dari input */
+                    var _mDurVal  = parseInt(document.getElementById('maintDurVal').value) || 1;
+                    var _mDurUnit = document.getElementById('maintDurUnit').value;
+                    var _mMsMap = {
+                        'menit':  60000,
+                        'jam':    3600000,
+                        'hari':   86400000,
+                        'minggu': 7 * 86400000
+                    };
+                    _mdata.durationMs = (_mDurUnit === 'unlimited')
+                        ? 0
+                        : ((_mMsMap[_mDurUnit] || 3600000) * _mDurVal);
+                }
+                firebase.database().ref(_MREF).set(_mdata, function(err) {
+                    if (err) {
+                        showToast('Gagal update mode!', 'err');
+                        /* Kembalikan tombol jika gagal */
+                        _applyMaintUI(!active);
+                    } else {
+                        showToast(active
+                            ? '\u26a0 Mode MAINTENANCE aktif!'
+                            : '\u2714 Mode ONLINE aktif!',
+                            active ? 'err' : 'ok');
+                    }
+                });
+            } else {
+                showToast('Firebase tidak tersedia!', 'err');
+                _applyMaintUI(!active);
+            }
+        } catch(e) {
+            showToast('Error: ' + e.message, 'err');
+            _applyMaintUI(!active);
+        }
+    }
+
+    /* Update tampilan tombol & badge */
+    function _applyMaintUI(active) {
+        var bar  = document.getElementById('maintStatusBar');
+        var txt  = document.getElementById('maintStatusTxt');
+        var btnO = document.getElementById('btnSiteOn');
+        var btnM = document.getElementById('btnSiteMaint');
+        if (active) {
+            if (bar)  bar.className  = 'maint-status-bar s-maint';
+            if (txt)  txt.textContent = 'MAINTENANCE';
+            if (btnO) btnO.className = 'btn-site btn-s-on is-inactive';
+            if (btnM) btnM.className = 'btn-site btn-s-maint is-active';
+        } else {
+            if (bar)  bar.className  = 'maint-status-bar s-online';
+            if (txt)  txt.textContent = 'ONLINE';
+            if (btnO) btnO.className = 'btn-site btn-s-on is-active';
+            if (btnM) btnM.className = 'btn-site btn-s-maint is-inactive';
+        }
+    }
+
+    /* Slider "Progress Perbaikan" — update label langsung + kirim ke Firebase
+       pakai .update() (bukan .set()) supaya field active/startedAt/durationMs
+       yang lain tidak ikut tertimpa. */
+    function setMaintProgress(val) {
+        val = parseInt(val) || 0;
+        _currentProgress = val;
+        var lbl = document.getElementById('maintProgressLabel');
+        if (lbl) lbl.textContent = val + '%';
+        try {
+            if (typeof firebase !== 'undefined' && firebase.apps.length) {
+                firebase.database().ref(_MREF).update({ progress: val });
+            }
+        } catch(e) {}
+    }
+
+    /* Real-time listener — sync status dari Firebase */
+    (function _watchSiteMode() {
+        function tryWatch() {
+            try {
+                if (typeof firebase !== 'undefined' && firebase.apps.length) {
+                    firebase.database().ref(_MREF).on('value', function(snap) {
+                        var val = snap.val();
+                        _applyMaintUI(!!(val && val.active === true));
+                        if (val && typeof val.progress === 'number') {
+                            _currentProgress = val.progress;
+                            var slider = document.getElementById('maintProgressSlider');
+                            var lbl    = document.getElementById('maintProgressLabel');
+                            if (slider) slider.value = val.progress;
+                            if (lbl)    lbl.textContent = val.progress + '%';
+                        }
+                    });
+                } else {
+                    setTimeout(tryWatch, 1000);
+                }
+            } catch(e) { setTimeout(tryWatch, 1500); }
+        }
+        tryWatch();
+    })();
+
+    /* ===== SECURITY ALERTS — Percobaan Login ke Akun Admin ===== */
+    var _ALERTS_REF = 'hidz_admin_login_attempts';
+    var _alertsData = {};
+
+    /* Format waktu lengkap (untuk label statis) */
+    function fmtAlertTime(ts) {
+        var d = new Date(ts);
+        var days   = ['Min','Sen','Sel','Rab','Kam','Jum','Sab'];
+        var months = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+        return days[d.getDay()] + ', ' +
+               String(d.getDate()).padStart(2,'0') + ' ' + months[d.getMonth()] + ' ' + d.getFullYear() +
+               ' — ' +
+               String(d.getHours()).padStart(2,'0') + ':' +
+               String(d.getMinutes()).padStart(2,'0') + ':' +
+               String(d.getSeconds()).padStart(2,'0');
+    }
+
+    /* Format waktu relatif (update real-time setiap detik) */
+    function fmtAgo(ts) {
+        var diff = Date.now() - ts;
+        var s    = Math.floor(diff / 1000);
+        if (s < 5)   return 'Baru saja';
+        if (s < 60)  return s + ' detik yang lalu';
+        var m = Math.floor(s / 60);
+        if (m < 60)  return m + ' menit yang lalu';
+        var h = Math.floor(m / 60);
+        if (h < 24)  return h + ' jam yang lalu';
+        var day = Math.floor(h / 24);
+        return day + ' hari yang lalu';
+    }
+
+    /* Render semua alert ke DOM */
+    function renderAlerts() {
+        var listEl   = document.getElementById('alertList');
+        var countEl  = document.getElementById('alertCount');
+        var keys     = Object.keys(_alertsData);
+
+        if (countEl) countEl.textContent = keys.length;
+
+        if (!keys.length) {
+            if (listEl) listEl.innerHTML =
+                '<div class="no-alerts">' +
+                '<i class="fas fa-check-circle" style="color:var(--green);margin-right:6px;"></i>' +
+                'Tidak ada percobaan login mencurigakan.' +
+                '</div>';
+            return;
+        }
+
+        /* Urutkan: paling baru di atas */
+        keys.sort(function(a, b) {
+            return (_alertsData[b].attemptAt || 0) - (_alertsData[a].attemptAt || 0);
+        });
+
+        var html = '';
+        keys.forEach(function(key) {
+            var ts = _alertsData[key].attemptAt || 0;
+            html +=
+                '<div class="alert-item" id="alr-' + key + '">' +
+                  '<i class="fas fa-exclamation-triangle alert-icon"></i>' +
+                  '<div style="flex:1;min-width:0;">' +
+                    '<div class="alert-time"><i class="fas fa-clock" style="margin-right:5px;opacity:.6;"></i>' + fmtAlertTime(ts) + '</div>' +
+                    '<div class="alert-ago" id="alr-ago-' + key + '">' + fmtAgo(ts) + '</div>' +
+                    '<div class="alert-msg"><i class="fas fa-user-secret" style="margin-right:5px;"></i>Percobaan masuk ke akun admin ditolak.</div>' +
+                  '</div>' +
+                  '<button class="btn-dismiss" onclick="dismissAlert(\'' + key + '\')" title="Hapus peringatan ini">' +
+                    '<i class="fas fa-times"></i>' +
+                  '</button>' +
+                '</div>';
+        });
+
+        /* Tombol hapus semua hanya muncul jika ada lebih dari 1 */
+        if (keys.length > 1) {
+            html += '<button class="btn-clear-all" onclick="clearAllAlerts()">' +
+                    '<i class="fas fa-trash" style="margin-right:6px;"></i>HAPUS SEMUA PERINGATAN (' + keys.length + ')' +
+                    '</button>';
+        }
+
+        if (listEl) listEl.innerHTML = html;
+    }
+
+    /* Hapus satu peringatan */
+    function dismissAlert(key) {
+        try {
+            if (typeof firebase !== 'undefined' && firebase.apps.length) {
+                firebase.database().ref(_ALERTS_REF + '/' + key).remove(function(err) {
+                    if (!err) {
+                        delete _alertsData[key];
+                        renderAlerts();
+                        showToast('\u2714 Peringatan dihapus', 'ok');
+                    } else {
+                        showToast('Gagal menghapus peringatan!', 'err');
+                    }
+                });
+            }
+        } catch(e) { showToast('Error: ' + e.message, 'err'); }
+    }
+
+    /* Hapus semua peringatan */
+    function clearAllAlerts() {
+        try {
+            if (typeof firebase !== 'undefined' && firebase.apps.length) {
+                firebase.database().ref(_ALERTS_REF).remove(function(err) {
+                    if (!err) {
+                        _alertsData = {};
+                        renderAlerts();
+                        showToast('\u2714 Semua peringatan dihapus', 'ok');
+                    } else {
+                        showToast('Gagal menghapus semua peringatan!', 'err');
+                    }
+                });
+            }
+        } catch(e) { showToast('Error: ' + e.message, 'err'); }
+    }
+
+    /* Real-time listener untuk percobaan login baru */
+    function watchLoginAttempts() {
+        try {
+            if (typeof firebase !== 'undefined' && firebase.apps.length) {
+                firebase.database().ref(_ALERTS_REF).on('value', function(snap) {
+                    _alertsData = snap.val() || {};
+                    renderAlerts();
+                });
+            } else {
+                /* Firebase belum siap, coba lagi sebentar */
+                setTimeout(watchLoginAttempts, 1500);
+            }
+        } catch(e) {}
+    }
+
+    /* Update label waktu relatif setiap detik (real-time tanpa re-render DOM penuh) */
+    setInterval(function() {
+        Object.keys(_alertsData).forEach(function(key) {
+            var el = document.getElementById('alr-ago-' + key);
+            if (el) el.textContent = fmtAgo(_alertsData[key].attemptAt || 0);
+        });
+    }, 1000);
+
+    /* ===== PENGUMUMAN: PROMO BANNER ===== */
+    var _PROMO_REF = 'hidz_announcement_promo';
+    var _promoActiveCache = false;  /* cache status terakhir dari Firebase, dipakai buat re-cek expired berkala */
+    var _promoEndsAtCache = null;   /* cache endsAt terakhir dari Firebase, dipakai buat validasi sebelum aktifkan */
+
+    /* Ambil kode/pesan error Firebase yang singkat supaya toast tidak melebar & tetap jelas.
+       Detail lengkapnya tetap dicatat via console.error di setiap pemanggil. */
+    function _fbErrShort(err) {
+        var m = (err && (err.code || err.message)) || 'permission ditolak';
+        m = String(m);
+        return m.length > 42 ? m.substring(0, 42) + '\u2026' : m;
+    }
+
+    /* Kirim status aktif/nonaktif ke Firebase (terpisah dari konten, sama seperti pola Site Control).
+       Ditolak lebih dulu kalau mau diaktifkan tapi waktu berakhirnya belum diisi/sudah lewat —
+       supaya tidak "aktif" tapi diam-diam gak pernah tampil ke user. */
+    function setPromoActive(active) {
+        if (active && (!_promoEndsAtCache || _promoEndsAtCache <= Date.now())) {
+            showToast('Isi & simpan dulu waktu promo berakhir (di masa depan) sebelum diaktifkan!', 'err');
+            return;
+        }
+        var btnOn  = document.getElementById('btnPromoOn');
+        var btnOff = document.getElementById('btnPromoOff');
+        if (btnOn)  btnOn.classList.add('is-inactive');
+        if (btnOff) btnOff.classList.add('is-inactive');
+        try {
+            if (typeof firebase !== 'undefined' && firebase.apps.length) {
+                firebase.database().ref(_PROMO_REF).update({ active: active, updatedAt: Date.now() }, function(err) {
+                    if (err) {
+                        console.error('[Promo] gagal update status:', err);
+                        showToast('Gagal update status promo (' + _fbErrShort(err) + ')', 'err');
+                        _applyPromoStatusUI(!active);
+                    } else {
+                        showToast(active ? '\u2714 Promo diaktifkan!' : '\u2714 Promo dinonaktifkan', 'ok');
+                    }
+                });
+            } else {
+                showToast('Firebase tidak tersedia!', 'err');
+                _applyPromoStatusUI(!active);
+            }
+        } catch(e) {
+            console.error('[Promo] exception update status:', e);
+            showToast('Error: ' + e.message, 'err');
+            _applyPromoStatusUI(!active);
+        }
+    }
+
+    /* Update tampilan badge & tombol ON/OFF promo — termasuk kondisi "aktif tapi
+       kadaluarsa" (endsAt sudah lewat), biar admin gak bingung kenapa promo yang
+       katanya aktif ternyata gak pernah muncul ke user. */
+    function _applyPromoStatusUI(active) {
+        var bar  = document.getElementById('promoStatusBar');
+        var txt  = document.getElementById('promoStatusTxt');
+        var btnO = document.getElementById('btnPromoOn');
+        var btnF = document.getElementById('btnPromoOff');
+        var expired = active && _promoEndsAtCache && _promoEndsAtCache <= Date.now();
+        if (active) {
+            if (bar)  bar.className = 'promo-status-bar ' + (expired ? 'p-expired' : 'p-on');
+            if (txt)  txt.textContent = expired ? 'AKTIF, TAPI KADALUARSA' : 'AKTIF';
+            if (btnO) btnO.className = 'btn-site btn-p-on is-active';
+            if (btnF) btnF.className = 'btn-site btn-p-off is-inactive';
+        } else {
+            if (bar)  bar.className = 'promo-status-bar p-off';
+            if (txt)  txt.textContent = 'NONAKTIF';
+            if (btnO) btnO.className = 'btn-site btn-p-on is-inactive';
+            if (btnF) btnF.className = 'btn-site btn-p-off is-active';
+        }
+    }
+
+    /* Simpan konten promo (judul, deskripsi, gambar, tombol, waktu berakhir) — pakai .update() supaya status active tidak ikut tertimpa */
+    function savePromoAnnouncement() {
+        var title   = (document.getElementById('promoTitleInp').value || '').trim();
+        var desc    = (document.getElementById('promoDescInp').value || '').trim();
+        var image   = (document.getElementById('promoImageInp').value || '').trim();
+        var btnText = (document.getElementById('promoBtnTextInp').value || '').trim() || 'Lanjut';
+        var btnLink = (document.getElementById('promoBtnLinkInp').value || '').trim();
+        var endsVal = document.getElementById('promoEndsInp').value;
+
+        if (!title)   { showToast('Judul promo tidak boleh kosong!', 'err'); return; }
+        if (!endsVal) { showToast('Tentukan tanggal & waktu promo berakhir!', 'err'); return; }
+
+        var endsAt = new Date(endsVal).getTime();
+        if (isNaN(endsAt))       { showToast('Format tanggal tidak valid!', 'err'); return; }
+        if (endsAt <= Date.now()) { showToast('Waktu berakhir harus di masa depan!', 'err'); return; }
+
+        try {
+            if (typeof firebase !== 'undefined' && firebase.apps.length) {
+                firebase.database().ref(_PROMO_REF).update({
+                    title: title, desc: desc, image: image,
+                    btnText: btnText, btnLink: btnLink,
+                    endsAt: endsAt, updatedAt: Date.now()
+                }, function(err) {
+                    if (err) {
+                        console.error('[Promo] gagal simpan:', err);
+                        showToast('Gagal menyimpan promo (' + _fbErrShort(err) + ')', 'err');
+                    } else {
+                        showToast('\u2714 Promo tersimpan!', 'ok');
+                    }
+                });
+            } else {
+                showToast('Firebase tidak tersedia!', 'err');
+            }
+        } catch(e) { console.error('[Promo] exception simpan:', e); showToast('Error: ' + e.message, 'err'); }
+    }
+
+    /* Format timestamp (ms) -> value input datetime-local ("YYYY-MM-DDTHH:mm:ss"), mengikuti waktu lokal perangkat */
+    function _tsToLocalInput(ts) {
+        var d = new Date(ts);
+        var pad = function(n) { return String(n).padStart(2, '0'); };
+        return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) +
+               'T' + pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
+    }
+
+    /* Real-time listener — sync form & status dari Firebase (mis. saat dibuka dari 2 device admin) */
+    (function _watchPromo() {
+        function tryWatch() {
+            try {
+                if (typeof firebase !== 'undefined' && firebase.apps.length) {
+                    firebase.database().ref(_PROMO_REF).on('value', function(snap) {
+                        var val = snap.val() || {};
+                        _promoActiveCache = !!val.active;
+                        _promoEndsAtCache = val.endsAt || null;
+                        _applyPromoStatusUI(_promoActiveCache);
+                        var tEl = document.getElementById('promoTitleInp');
+                        var dEl = document.getElementById('promoDescInp');
+                        var iEl = document.getElementById('promoImageInp');
+                        var bEl = document.getElementById('promoBtnTextInp');
+                        var lEl = document.getElementById('promoBtnLinkInp');
+                        var eEl = document.getElementById('promoEndsInp');
+                        /* Jangan timpa field yang sedang aktif diketik admin */
+                        if (tEl && document.activeElement !== tEl) tEl.value = val.title   || '';
+                        if (dEl && document.activeElement !== dEl) dEl.value = val.desc    || '';
+                        if (iEl && document.activeElement !== iEl) iEl.value = val.image   || '';
+                        if (bEl && document.activeElement !== bEl) bEl.value = val.btnText || '';
+                        if (lEl && document.activeElement !== lEl) lEl.value = val.btnLink || '';
+                        if (eEl && document.activeElement !== eEl) eEl.value = val.endsAt ? _tsToLocalInput(val.endsAt) : '';
+                    }, function(err) {
+                        console.error('[Promo] gagal baca data:', err);
+                        showToast('Gagal memuat data promo (' + _fbErrShort(err) + ')', 'err');
+                    });
+                } else {
+                    setTimeout(tryWatch, 1000);
+                }
+            } catch(e) { setTimeout(tryWatch, 1500); }
+        }
+        tryWatch();
+        /* Re-cek berkala supaya badge langsung pindah ke "KADALUARSA" begitu waktunya
+           lewat, tanpa perlu nunggu ada perubahan data baru dari Firebase dulu. */
+        setInterval(function () { _applyPromoStatusUI(_promoActiveCache); }, 30000);
+    })();
+
+    /* ===== PENGUMUMAN: INFO & UPDATE (FEED) ===== */
+    var _ANN_FEED_REF  = 'hidz_announcement_feed';
+    var _annFeedData   = {};
+    var _annEditingKey = null;
+    var _annDeleteKey  = null;
+
+    function escAdmin(str) {
+        return String(str == null ? '' : str)
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+
+    function fmtAnnFeedDate(ts) {
+        if (!ts) return '-';
+        var d = new Date(ts);
+        var months = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+        return String(d.getDate()).padStart(2,'0') + ' ' + months[d.getMonth()] + ' ' + d.getFullYear() +
+               ' \u2014 ' + String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
+    }
+
+    /* Tambah pengumuman baru, atau simpan perubahan jika sedang mode edit */
+    function submitAnnFeed() {
+        var title   = (document.getElementById('annFeedTitleInp').value || '').trim();
+        var content = (document.getElementById('annFeedContentInp').value || '').trim();
+        if (!title || !content) { showToast('Judul & isi pengumuman tidak boleh kosong!', 'err'); return; }
+
+        try {
+            if (typeof firebase === 'undefined' || !firebase.apps.length) {
+                showToast('Firebase tidak tersedia!', 'err'); return;
+            }
+            if (_annEditingKey) {
+                firebase.database().ref(_ANN_FEED_REF + '/' + _annEditingKey).update({
+                    title: title, content: content, updatedAt: Date.now()
+                }, function(err) {
+                    if (err) { console.error('[Feed] gagal update:', err); showToast('Gagal menyimpan perubahan (' + _fbErrShort(err) + ')', 'err'); return; }
+                    showToast('\u2714 Pengumuman diperbarui!', 'ok');
+                    cancelEditAnnFeed();
+                });
+            } else {
+                firebase.database().ref(_ANN_FEED_REF).push({
+                    title: title, content: content, createdAt: Date.now()
+                }, function(err) {
+                    if (err) { console.error('[Feed] gagal tambah:', err); showToast('Gagal menambahkan pengumuman (' + _fbErrShort(err) + ')', 'err'); return; }
+                    showToast('\u2714 Pengumuman ditambahkan!', 'ok');
+                    document.getElementById('annFeedTitleInp').value   = '';
+                    document.getElementById('annFeedContentInp').value = '';
+                });
+            }
+        } catch(e) { console.error('[Feed] exception submit:', e); showToast('Error: ' + e.message, 'err'); }
+    }
+
+    /* Masuk mode edit — isi ulang form dengan data pengumuman yang dipilih */
+    function editAnnFeed(key) {
+        var it = _annFeedData[key];
+        if (!it) return;
+        _annEditingKey = key;
+        document.getElementById('annFeedTitleInp').value   = it.title   || '';
+        document.getElementById('annFeedContentInp').value = it.content || '';
+        document.getElementById('annFeedSubmitBtn').innerHTML = '<i class="fas fa-save" style="margin-right:8px;"></i>SIMPAN PERUBAHAN';
+        document.getElementById('annFeedCancelBtn').style.display = 'block';
+        document.getElementById('annFeedTitleInp').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    function cancelEditAnnFeed() {
+        _annEditingKey = null;
+        document.getElementById('annFeedTitleInp').value   = '';
+        document.getElementById('annFeedContentInp').value = '';
+        document.getElementById('annFeedSubmitBtn').innerHTML = '<i class="fas fa-plus" style="margin-right:8px;"></i>TAMBAHKAN PENGUMUMAN';
+        document.getElementById('annFeedCancelBtn').style.display = 'none';
+    }
+
+    function openAnnDeleteModal(key) {
+        var it = _annFeedData[key];
+        if (!it) return;
+        _annDeleteKey = key;
+        document.getElementById('annDeleteModalTitle').textContent = it.title || '-';
+        document.getElementById('annDeleteModal').classList.add('show');
+    }
+    function closeAnnDeleteModal() {
+        document.getElementById('annDeleteModal').classList.remove('show');
+        _annDeleteKey = null;
+    }
+    function confirmDeleteAnnFeed() {
+        if (!_annDeleteKey) return;
+        try {
+            firebase.database().ref(_ANN_FEED_REF + '/' + _annDeleteKey).remove(function(err) {
+                if (err) { console.error('[Feed] gagal hapus:', err); showToast('Gagal menghapus pengumuman (' + _fbErrShort(err) + ')', 'err'); return; }
+                showToast('\u2714 Pengumuman dihapus', 'ok');
+                if (_annEditingKey === _annDeleteKey) cancelEditAnnFeed();
+                closeAnnDeleteModal();
+            });
+        } catch(e) { console.error('[Feed] exception hapus:', e); showToast('Error: ' + e.message, 'err'); closeAnnDeleteModal(); }
+    }
+
+    /* Render semua pengumuman ke DOM, terbaru di atas */
+    function renderAnnFeedList() {
+        var listEl  = document.getElementById('annFeedList');
+        var countEl = document.getElementById('annFeedCount');
+        var keys = Object.keys(_annFeedData).sort(function(a, b) {
+            return (_annFeedData[b].createdAt || 0) - (_annFeedData[a].createdAt || 0);
+        });
+        if (countEl) countEl.textContent = keys.length;
+
+        if (!keys.length) {
+            if (listEl) listEl.innerHTML =
+                '<div class="empty-state">' +
+                '<i class="fas fa-bullhorn" style="font-size:22px;margin-bottom:8px;display:block;opacity:.35;"></i>' +
+                'Belum ada pengumuman.</div>';
+            return;
+        }
+
+        var html = '';
+        keys.forEach(function(key) {
+            var it = _annFeedData[key];
+            html +=
+                '<div class="ann-feed-item">' +
+                    '<div class="ann-feed-title">' + escAdmin(it.title) + '</div>' +
+                    '<div class="ann-feed-content">' + escAdmin(it.content) + '</div>' +
+                    '<div class="ann-feed-date"><i class="fas fa-clock" style="margin-right:4px;opacity:.6;"></i>' + fmtAnnFeedDate(it.createdAt) + '</div>' +
+                    '<button class="btn-edit" onclick="editAnnFeed(\'' + key + '\')" title="Edit pengumuman"><i class="fas fa-pen"></i></button>' +
+                    '<button class="btn-del" onclick="openAnnDeleteModal(\'' + key + '\')" title="Hapus pengumuman"><i class="fas fa-trash-alt"></i></button>' +
+                '</div>';
+        });
+        if (listEl) listEl.innerHTML = html;
+    }
+
+    /* Real-time listener — sync daftar pengumuman dari Firebase */
+    (function _watchAnnFeed() {
+        function tryWatch() {
+            try {
+                if (typeof firebase !== 'undefined' && firebase.apps.length) {
+                    firebase.database().ref(_ANN_FEED_REF).on('value', function(snap) {
+                        _annFeedData = snap.val() || {};
+                        renderAnnFeedList();
+                    }, function(err) {
+                        console.error('[Feed] gagal baca data:', err);
+                        showToast('Gagal memuat daftar pengumuman (' + _fbErrShort(err) + ')', 'err');
+                    });
+                } else {
+                    setTimeout(tryWatch, 1000);
+                }
+            } catch(e) { setTimeout(tryWatch, 1500); }
+        }
+        tryWatch();
+    })();
+</script>
+
+<!-- ============================================================
+     FITUR KONSELING — daftar percakapan + balas real-time.
+     Modul terpisah & mandiri, tidak menyentuh logika user/maintenance/
+     pengumuman yang sudah ada. Skema Firebase sama persis dengan yang
+     dipakai HidzProject: hidz_counseling_meta/{uid} & hidz_counseling_messages/{uid}.
+     ============================================================ -->
+<script>
+(function () {
+    'use strict';
+
+    var KONS_META_REF   = 'hidz_counseling_meta';
+    var KONS_MSG_REF     = 'hidz_counseling_messages';
+    var KONS_TYPING_REF = 'hidz_counseling_typing';
+
+    var _convMeta   = {};   // userId -> meta
+    var _activeUid  = null;
+    var _activeMsgs = {};
+    var _activeRef        = null; // ref pesan aktif, buat di-off() pas ganti/tutup percakapan
+    var _activeTypingRef  = null; // ref status "user sedang mengetik" percakapan aktif
+    var _activeReadRef    = null; // ref status "readAtUser" percakapan aktif (buat centang biru)
+    var _menuKey    = null;
+    var _typingTimer = null;
+    var _readAtUser  = 0;   // kapan terakhir USER baca percakapan aktif ini
+
+    function fmtSize(b) {
+        if (!b) return '';
+        if (b < 1024) return b + ' B';
+        if (b < 1024 * 1024) return (b / 1024).toFixed(1) + ' KB';
+        return (b / (1024 * 1024)).toFixed(1) + ' MB';
+    }
+    function fmtTime(ts) {
+        var d = new Date(ts);
+        return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+    }
+    /* Waktu kirim lengkap (jam:menit:detik + hari, tanggal bulan tahun) —
+       dipakai buat nandain pesan yang dikirim akun user di panel admin. */
+    function fmtFullTime(ts) {
+        var d = new Date(ts);
+        var hari   = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
+        var bulan  = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+        var jam    = String(d.getHours()).padStart(2, '0');
+        var menit  = String(d.getMinutes()).padStart(2, '0');
+        var detik  = String(d.getSeconds()).padStart(2, '0');
+        return jam + ':' + menit + ':' + detik + ' \u2022 ' + hari[d.getDay()] + ', ' + d.getDate() + ' ' + bulan[d.getMonth()] + ' ' + d.getFullYear();
+    }
+    function fmtDay(ts) {
+        var d = new Date(ts), now = new Date(), y = new Date();
+        y.setDate(y.getDate() - 1);
+        var same = function (a, b) { return a.getDate() === b.getDate() && a.getMonth() === b.getMonth() && a.getFullYear() === b.getFullYear(); };
+        if (same(d, now)) return 'Hari Ini';
+        if (same(d, y)) return 'Kemarin';
+        var months = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+        return d.getDate() + ' ' + months[d.getMonth()] + ' ' + d.getFullYear();
+    }
+    function fmtRelative(ts) {
+        if (!ts) return '';
+        var diff = Date.now() - ts;
+        var min = Math.floor(diff / 60000);
+        if (min < 1) return 'Baru saja';
+        if (min < 60) return min + ' menit lalu';
+        var hr = Math.floor(min / 60);
+        if (hr < 24) return hr + ' jam lalu';
+        var day = Math.floor(hr / 24);
+        if (day < 7) return day + ' hari lalu';
+        return fmtDay(ts);
+    }
+    function fileIcon(name) {
+        var ext = (name || '').split('.').pop().toLowerCase();
+        if (ext === 'pdf') return 'fa-file-pdf';
+        if (['doc','docx'].indexOf(ext) > -1) return 'fa-file-word';
+        if (['xls','xlsx'].indexOf(ext) > -1) return 'fa-file-excel';
+        if (['ppt','pptx'].indexOf(ext) > -1) return 'fa-file-powerpoint';
+        if (['zip','rar','7z'].indexOf(ext) > -1) return 'fa-file-zipper';
+        if (['mp3','wav','ogg','m4a'].indexOf(ext) > -1) return 'fa-file-audio';
+        return 'fa-file';
+    }
+    function ensureFb(cb) {
+        try {
+            if (typeof firebase !== 'undefined' && firebase.apps.length) { cb(); return; }
+        } catch (e) {}
+        setTimeout(function () { ensureFb(cb); }, 700);
+    }
+
+    /* ================= DAFTAR PERCAKAPAN ================= */
+    function renderConvList() {
+        var wrap = document.getElementById('konsConvList');
+        var badge = document.getElementById('konsAdminBadge');
+        if (!wrap) return;
+
+        var ids = Object.keys(_convMeta).filter(function (id) { return _convMeta[id]; });
+        ids.sort(function (a, b) { return (_convMeta[b].lastAt || 0) - (_convMeta[a].lastAt || 0); });
+
+        var unreadConvCount = 0;
+        ids.forEach(function (id) { if ((_convMeta[id].unreadAdmin || 0) > 0) unreadConvCount++; });
+        if (badge) badge.textContent = unreadConvCount;
+
+        if (!ids.length) {
+            wrap.innerHTML = '<div class="empty-state"><i class="fas fa-comments" style="font-size:22px;margin-bottom:8px;display:block;opacity:.35;"></i>Belum ada percakapan konseling.</div>';
+            return;
+        }
+
+        var html = '';
+        ids.forEach(function (id) {
+            var meta = _convMeta[id];
+            var unread = meta.unreadAdmin || 0;
+            html += '<div class="user-item kons-conv-item' + (unread > 0 ? ' unread' : '') + '" onclick="window.openKonsChat(\'' + id + '\')">' +
+                '<div class="user-top">' +
+                    '<div class="u-name">' + escAdmin(meta.username || id) + '</div>' +
+                    (unread > 0 ? '<span class="kons-unread-pill">' + unread + '</span>' : '') +
+                '</div>' +
+                '<div class="kons-conv-preview">' + (meta.lastSender === 'admin' ? '<i class="fas fa-reply" style="margin-right:4px;opacity:.6;"></i>' : '') + escAdmin(meta.lastMsg || '') + '</div>' +
+                '<div class="kons-conv-time">' + fmtRelative(meta.lastAt) + '</div>' +
+            '</div>';
+        });
+        wrap.innerHTML = html;
+    }
+
+    (function watchConvList() {
+        ensureFb(function () {
+            firebase.database().ref(KONS_META_REF).on('value', function (snap) {
+                _convMeta = snap.val() || {};
+                renderConvList();
+            }, function (err) {
+                showToast('Gagal memuat daftar konseling (' + _fbErrShort(err) + ')', 'err');
+                console.error('[Konseling] gagal baca daftar percakapan:', err);
+            });
+        });
+    })();
+
+    /* ================= RENDER PESAN (dalam 1 percakapan) ================= */
+    function renderChatMsgs() {
+        var wrap = document.getElementById('konsChatMessages');
+        if (!wrap) return;
+        var keys = Object.keys(_activeMsgs).sort(function (a, b) { return (_activeMsgs[a].time || 0) - (_activeMsgs[b].time || 0); });
+        var visible = keys.filter(function (k) {
+            var m = _activeMsgs[k];
+            return !(m.delFor && m.delFor.admin);
+        });
+        if (!visible.length) {
+            wrap.innerHTML = '<div class="kons-empty"><i class="fas fa-comments"></i><p>Belum ada pesan.</p></div>';
+            return;
+        }
+        var html = '', lastDay = '';
+        visible.forEach(function (k) {
+            var m = _activeMsgs[k];
+            var day = fmtDay(m.time);
+            if (day !== lastDay) { html += '<div class="kons-day-sep">' + day + '</div>'; lastDay = day; }
+            html += renderBubble(k, m);
+        });
+        wrap.innerHTML = html;
+        wrap.scrollTop = wrap.scrollHeight;
+    }
+
+    function renderBubble(key, m) {
+        /* Dari sudut pandang admin: pesan admin = "me" (kanan), pesan user = "them" (kiri) */
+        var isMe = m.sender === 'admin';
+        var rowClass = isMe ? 'me' : 'them';
+        /* Pesan dari akun user ditampilkan lengkap dengan jam:menit:detik & tanggalnya,
+           balasan admin sendiri cukup jam:menit seperti biasa. */
+        var timeLabel = (m.sender === 'user') ? fmtFullTime(m.time) : fmtTime(m.time);
+
+        if (m.delAll) {
+            return '<div class="kons-row ' + rowClass + '"><div class="kons-bubble-wrap">' +
+                '<div class="kons-bubble deleted"><i class="fas fa-ban" style="margin-right:5px;"></i>Pesan ini telah dihapus</div>' +
+                '<div class="kons-bubble-meta"><span class="kons-bubble-time">' + timeLabel + '</span>' +
+                '<button type="button" class="kons-bubble-more" title="Opsi" onclick="window._konsAdminOpenMsgMenu(\'' + key + '\')"><i class="fas fa-ellipsis"></i></button>' +
+                '</div></div></div>';
+        }
+
+        var body;
+        if (m.type === 'text') {
+            body = '<div class="kons-bubble">' + escAdmin(m.text).replace(/\n/g, '<br>') + '</div>';
+        } else if (m.type === 'sticker') {
+            body = '<div class="kons-bubble sticker-bubble">' + m.text + '</div>';
+        } else if (m.type === 'image') {
+            body = '<div class="kons-bubble"><img class="kons-img" src="' + escAdmin(m.url) + '" loading="lazy" onclick="window.open(\'' + escAdmin(m.url) + '\',\'_blank\')">' +
+                (m.text ? '<div class="kons-caption">' + escAdmin(m.text) + '</div>' : '') + '</div>';
+        } else if (m.type === 'video') {
+            body = '<div class="kons-bubble"><video class="kons-video" src="' + escAdmin(m.url) + '" controls playsinline></video>' +
+                (m.text ? '<div class="kons-caption">' + escAdmin(m.text) + '</div>' : '') + '</div>';
+        } else {
+            body = '<div class="kons-bubble"><a class="kons-file-card" href="' + escAdmin(m.url) + '" target="_blank" rel="noopener">' +
+                '<div class="kons-file-ico"><i class="fas ' + fileIcon(m.name) + '"></i></div>' +
+                '<div class="kons-file-info"><div class="kons-file-name">' + escAdmin(m.name || 'File') + '</div><div class="kons-file-size">' + fmtSize(m.size) + '</div></div>' +
+                '</a></div>';
+        }
+
+        var meta = '<div class="kons-bubble-meta">' +
+            '<span class="kons-bubble-time">' + timeLabel + '</span>' +
+            ticksHtml(m) +
+            '<button type="button" class="kons-bubble-more" title="Opsi" onclick="window._konsAdminOpenMsgMenu(\'' + key + '\')"><i class="fas fa-ellipsis"></i></button>' +
+            '</div>';
+
+        return '<div class="kons-row ' + rowClass + '"><div class="kons-bubble-wrap">' + body + meta + '</div></div>';
+    }
+
+    /* Centang status baca — cuma dipasang di pesan milik admin sendiri */
+    function ticksHtml(m) {
+        if (m.sender !== 'admin') return '';
+        var read = !!(_readAtUser && m.time <= _readAtUser);
+        var icon = read ? 'fa-check-double' : 'fa-check';
+        return '<i class="fas ' + icon + ' kons-ticks' + (read ? ' read' : '') + '" title="' + (read ? 'Dibaca' : 'Terkirim') + '"></i>';
+    }
+
+    /* ================= KIRIM PESAN ================= */
+    function pushAdminMsg(msg) {
+        if (!_activeUid) return;
+        firebase.database().ref(KONS_MSG_REF + '/' + _activeUid).push(msg).catch(function (err) {
+            showToast('Pesan gagal terkirim (' + _fbErrShort(err) + ')', 'err');
+        });
+        firebase.database().ref(KONS_META_REF + '/' + _activeUid).update({
+            lastMsg: String(msg.text || '').substring(0, 80),
+            lastAt: msg.time,
+            lastSender: 'admin'
+        }).catch(function (err) { console.error('[Konseling] gagal update meta', err); });
+        firebase.database().ref(KONS_META_REF + '/' + _activeUid + '/unreadUser').transaction(function (cur) { return (cur || 0) + 1; })
+            .catch(function (err) { console.error('[Konseling] gagal update unreadUser', err); });
+    }
+
+    window._konsAdminSendText = function () {
+        var inp = document.getElementById('konsChatTextInput');
+        if (!inp) return;
+        var text = (inp.value || '').trim();
+        if (!text || !_activeUid) return;
+        inp.value = '';
+        pushAdminMsg({ sender: 'admin', type: 'text', text: text, time: Date.now() });
+        clearTimeout(_typingTimer);
+        firebase.database().ref(KONS_TYPING_REF + '/' + _activeUid + '/admin').remove().catch(function () {});
+    };
+
+    /* Kirim sinyal "admin sedang mengetik" ke user, dengan debounce +
+       onDisconnect jaga-jaga kalau koneksi/tab admin ditutup mendadak */
+    window._konsAdminHandleTyping = function () {
+        if (!_activeUid) return;
+        ensureFb(function () {
+            var ref = firebase.database().ref(KONS_TYPING_REF + '/' + _activeUid + '/admin');
+            ref.set(Date.now()).catch(function () {});
+            ref.onDisconnect().remove();
+        });
+        clearTimeout(_typingTimer);
+        _typingTimer = setTimeout(function () {
+            if (!_activeUid) return;
+            firebase.database().ref(KONS_TYPING_REF + '/' + _activeUid + '/admin').remove().catch(function () {});
+        }, 2000);
+    };
+
+    /* ================= HAPUS PESAN (spt WhatsApp) ================= */
+    window._konsAdminOpenMsgMenu = function (key) {
+        var m = _activeMsgs[key];
+        if (!m) return;
+        _menuKey = key;
+        var delAllBtn = document.getElementById('konsAdminDeleteAllBtn');
+        if (delAllBtn) delAllBtn.style.display = (!m.delAll && m.sender === 'admin') ? 'flex' : 'none';
+        var menu = document.getElementById('konsAdminMsgMenu');
+        if (menu) menu.classList.add('show');
+    };
+    window._konsAdminCloseMsgMenu = function () {
+        _menuKey = null;
+        var menu = document.getElementById('konsAdminMsgMenu');
+        if (menu) menu.classList.remove('show');
+    };
+    window._konsAdminDeleteForMe = function () {
+        if (!_menuKey || !_activeUid) return;
+        firebase.database().ref(KONS_MSG_REF + '/' + _activeUid + '/' + _menuKey + '/delFor/admin').set(true)
+            .catch(function (err) { showToast('Gagal menghapus pesan (' + _fbErrShort(err) + ')', 'err'); });
+        window._konsAdminCloseMsgMenu();
+    };
+    window._konsAdminDeleteForEveryone = function () {
+        if (!_menuKey || !_activeUid) return;
+        var m = _activeMsgs[_menuKey];
+        if (!m || m.sender !== 'admin' || m.delAll) { window._konsAdminCloseMsgMenu(); return; }
+        firebase.database().ref(KONS_MSG_REF + '/' + _activeUid + '/' + _menuKey).update({
+            delAll: true, text: '', url: '', name: ''
+        }).catch(function (err) { showToast('Gagal menghapus pesan (' + _fbErrShort(err) + ')', 'err'); });
+        window._konsAdminCloseMsgMenu();
+    };
+
+    /* ================= BUKA / TUTUP PERCAKAPAN ================= */
+    window.openKonsChat = function (userId) {
+        if (!userId) return;
+        _activeUid = userId;
+        _activeMsgs = {};
+        _readAtUser = 0;
+        var meta = _convMeta[userId] || {};
+        var nameEl = document.getElementById('konsChatName');
+        if (nameEl) nameEl.textContent = meta.username || userId;
+        var typingRow = document.getElementById('konsChatTypingRow');
+        if (typingRow) typingRow.style.display = 'none';
+
+        var overlay = document.getElementById('konsChatOverlay');
+        if (overlay) overlay.classList.add('show');
+        renderChatMsgs();
+
+        ensureFb(function () {
+            firebase.database().ref(KONS_META_REF + '/' + userId + '/unreadAdmin').set(0)
+                .catch(function (err) { console.error('[Konseling] gagal reset unreadAdmin', err); });
+            firebase.database().ref(KONS_META_REF + '/' + userId + '/readAtAdmin').set(Date.now())
+                .catch(function (err) { console.error('[Konseling] gagal update status baca', err); });
+
+            if (_activeRef) _activeRef.off();
+            _activeRef = firebase.database().ref(KONS_MSG_REF + '/' + userId).limitToLast(300);
+            var onErr = function (err) {
+                showToast('Gagal memuat pesan (' + _fbErrShort(err) + ')', 'err');
+                console.error('[Konseling] gagal baca pesan', err);
+            };
+            _activeRef.on('child_added', function (snap) {
+                _activeMsgs[snap.key] = snap.val(); renderChatMsgs();
+                /* Chat lagi kebuka & ada pesan baru masuk -> langsung tandai terbaca */
+                firebase.database().ref(KONS_META_REF + '/' + userId + '/readAtAdmin').set(Date.now()).catch(function () {});
+            }, onErr);
+            _activeRef.on('child_changed', function (snap) { _activeMsgs[snap.key] = snap.val(); renderChatMsgs(); }, onErr);
+            _activeRef.on('child_removed', function (snap) { delete _activeMsgs[snap.key]; renderChatMsgs(); }, onErr);
+
+            /* Pantau kapan user terakhir baca balasan admin (centang biru) */
+            if (_activeReadRef) _activeReadRef.off();
+            _activeReadRef = firebase.database().ref(KONS_META_REF + '/' + userId + '/readAtUser');
+            _activeReadRef.on('value', function (snap) {
+                _readAtUser = snap.val() || 0;
+                renderChatMsgs();
+            }, function (err) { console.error('[Konseling] gagal pantau status baca user', err); });
+
+            /* Pantau status "user sedang mengetik" buat percakapan ini */
+            if (_activeTypingRef) _activeTypingRef.off();
+            _activeTypingRef = firebase.database().ref(KONS_TYPING_REF + '/' + userId + '/user');
+            _activeTypingRef.on('value', function (snap) {
+                var ts = snap.val();
+                var isTyping = !!(ts && (Date.now() - ts) < 6000);
+                var row = document.getElementById('konsChatTypingRow');
+                if (row) row.style.display = isTyping ? 'block' : 'none';
+            }, function (err) { console.error('[Konseling] gagal pantau status mengetik user', err); });
+        });
+    };
+
+    window.closeKonsChat = function () {
+        var overlay = document.getElementById('konsChatOverlay');
+        if (overlay) overlay.classList.remove('show');
+        window._konsAdminCloseMsgMenu();
+        if (_activeRef)       { _activeRef.off(); _activeRef = null; }
+        if (_activeReadRef)   { _activeReadRef.off(); _activeReadRef = null; }
+        if (_activeTypingRef) { _activeTypingRef.off(); _activeTypingRef = null; }
+        clearTimeout(_typingTimer);
+        if (_activeUid) firebase.database().ref(KONS_TYPING_REF + '/' + _activeUid + '/admin').remove().catch(function () {});
+        _activeUid  = null;
+        _activeMsgs = {};
+        _readAtUser = 0;
+    };
+
+    /* ================= HAPUS SEMUA CHAT AKUN (khusus admin) ================= */
+    window.requestClearKonsChat = function () {
+        if (!_activeUid) return;
+        var uid   = _activeUid;
+        var meta  = _convMeta[uid] || {};
+        var uname = meta.username || uid;
+        openDangerModal(
+            'Hapus Semua Chat?',
+            'Seluruh riwayat percakapan konseling dengan <b>' + escAdmin(uname) + '</b> akan <b>dihapus permanen</b> dari Firebase, termasuk pesan yang sebelumnya sudah dihapus.<br><br>' +
+            '<span style="color:var(--red);font-weight:800;">Tindakan ini TIDAK BISA DIBATALKAN.</span>',
+            'HAPUS SEMUA CHAT',
+            function () { executeClearKonsChat(uid); }
+        );
+    };
+
+    function executeClearKonsChat(uid) {
+        var cb = document.getElementById('dangerModalCheck');
+        if (!cb || !cb.checked) return; /* wajib centang dulu sebelum lanjut */
+
+        var btn = document.getElementById('dangerModalConfirmBtn');
+        if (btn) {
+            btn.disabled  = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin" style="margin-right:6px;"></i>MEMPROSES...';
+        }
+
+        Promise.all([
+            firebase.database().ref(KONS_MSG_REF + '/' + uid).remove(),
+            firebase.database().ref(KONS_META_REF + '/' + uid).remove()
+        ]).then(function () {
+            closeDangerModal();
+            window.closeKonsChat();
+            showToast('Riwayat chat berhasil dihapus', 'ok');
+        }).catch(function (err) {
+            _resetDangerConfirmBtn('HAPUS SEMUA CHAT');
+            closeDangerModal();
+            showToast('Gagal menghapus chat (' + _fbErrShort(err) + ')', 'err');
+        });
+    }
+
+})();
+</script>
+</body>
+</html>
