@@ -82,18 +82,71 @@ function isProtectedAccount(u) {
     return !!u && u.id === 'admin_hidz_protected';
 }
 
+/* ===== RATE LIMIT LOGIN — dicatat di server, bukan cuma di browser =====
+   Cooldown yang sebelumnya cuma ada di sisi client (localStorage) gampang
+   dilewati siapa pun yang langsung nembak endpoint ini pakai script, tanpa
+   pernah buka gerbang admin.html di browser sama sekali. Ini dicatat di
+   Firebase berdasarkan IP pemanggil, jadi tetap kena kunci walau
+   localStorage-nya dikosongin/incognito. */
+var RATE_LIMIT_MAX_FAILS = 5;
+var RATE_LIMIT_BASE_MS   = 30000;
+var RATE_LIMIT_CAP_MS    = 300000;
+var RATE_PATH            = 'hidz_admin_rate_limit';
+
+function callerKey(req) {
+    var fwd = (req.headers['x-forwarded-for'] || '').split(',')[0].trim();
+    var ip  = fwd || (req.socket && req.socket.remoteAddress) || 'unknown';
+    return ip.replace(/[.#$\[\]/:]/g, '_');
+}
+
+async function checkLoginRateLimit(req) {
+    var rec = await fetchPath(RATE_PATH + '/' + callerKey(req));
+    if (rec && rec.lockedUntil && Date.now() < rec.lockedUntil) {
+        return { blocked: true, retryAfterSec: Math.ceil((rec.lockedUntil - Date.now()) / 1000) };
+    }
+    return { blocked: false };
+}
+
+async function registerLoginFail(req) {
+    var key = callerKey(req);
+    var rec = (await fetchPath(RATE_PATH + '/' + key)) || { fails: 0, tier: 0 };
+    var fails = (rec.fails || 0) + 1;
+    if (fails >= RATE_LIMIT_MAX_FAILS) {
+        var tier   = rec.tier || 0;
+        var lockMs = Math.min(RATE_LIMIT_BASE_MS * Math.pow(2, tier), RATE_LIMIT_CAP_MS);
+        await setPath(RATE_PATH + '/' + key, { fails: 0, tier: tier + 1, lockedUntil: Date.now() + lockMs });
+    } else {
+        await setPath(RATE_PATH + '/' + key, { fails: fails, tier: rec.tier || 0 });
+    }
+}
+
+async function clearLoginRateLimit(req) {
+    await deletePath(RATE_PATH + '/' + callerKey(req));
+}
+
 /* Cek {username, password} yang dikirim benar-benar cocok dengan
-   ADMIN_USERNAME/ADMIN_PASSWORD di Environment Variable. Dipakai tiap
-   endpoint sebelum ngizinin baca/tulis apa pun — jadi walau seseorang tahu
-   alamat endpoint-nya, tetap gak bisa dipakai tanpa kredensial admin yang
-   benar. */
-function verifyAdmin(username, password) {
+   ADMIN_USERNAME/ADMIN_PASSWORD di Environment Variable — DIPAKAI SEMUA
+   endpoint admin/* (bukan cuma gerbang login), jadi titik pemeriksaannya
+   cuma satu dan rate limit-nya otomatis berlaku ke semuanya sekaligus.
+   Balikannya { ok, locked, retryAfterSec } — bukan boolean polos lagi. */
+async function verifyAdmin(req, username, password) {
+    var limit = await checkLoginRateLimit(req);
+    if (limit.blocked) {
+        return { ok: false, locked: true, retryAfterSec: limit.retryAfterSec };
+    }
+
     var adminUser = process.env.ADMIN_USERNAME || '';
     var adminPass = process.env.ADMIN_PASSWORD || '';
-    if (!adminUser || !adminPass) return false;
-    if ((username || '').toLowerCase() !== adminUser.toLowerCase()) return false;
-    if (password !== adminPass) return false;
-    return true;
+    var valid = !!adminUser && !!adminPass &&
+        (username || '').toLowerCase() === adminUser.toLowerCase() &&
+        password === adminPass;
+
+    if (valid) {
+        await clearLoginRateLimit(req);
+        return { ok: true };
+    }
+    await registerLoginFail(req);
+    return { ok: false, locked: false };
 }
 
 module.exports = {
