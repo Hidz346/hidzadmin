@@ -160,4 +160,3 @@ module.exports = {
     isProtectedAccount: isProtectedAccount,
     verifyAdmin: verifyAdmin
 };
-
