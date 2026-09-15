@@ -3,6 +3,7 @@
    napas terhadap data server TERBARU. */
 
 var db = require('../_lib/db');
+var pw = require('../_lib/password');
 
 module.exports = async function (req, res) {
     if (req.method !== 'POST') {
@@ -53,7 +54,7 @@ module.exports = async function (req, res) {
     var newUser = {
         id:            'u_' + now,
         username:      newUsername,
-        password:      newPassword,
+        password:      pw.hashPassword(newPassword),
         role:          role,
         createdAt:     now,
         expiresAt:     null,
@@ -72,5 +73,9 @@ module.exports = async function (req, res) {
         return;
     }
 
-    res.status(200).json({ ok: true, user: newUser });
+    /* Password asli sengaja tetap dibalikin SEKALI di sini — cuma echo dari
+       apa yang barusan diketik admin sendiri, buat ditampilkan/disalin
+       begitu akun selesai dibuat. Yang tersimpan di database tetap
+       hash-nya (newUser.password di atas). */
+    res.status(200).json({ ok: true, user: Object.assign({}, newUser, { password: newPassword }) });
 };

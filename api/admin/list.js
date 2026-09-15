@@ -30,6 +30,11 @@ module.exports = async function (req, res) {
         res.status(200).json({ ok: false, error: true });
         return;
     }
+    var sanitizedList = list.map(function (u) {
+        var copy = {};
+        Object.keys(u).forEach(function (k) { if (k !== 'password') copy[k] = u[k]; });
+        return copy;
+    });
 
     var bannedRaw = await db.fetchPath('hidz_banned');
     var banned = {};
@@ -39,5 +44,5 @@ module.exports = async function (req, res) {
         });
     }
 
-    res.status(200).json({ ok: true, users: list, banned: banned });
+    res.status(200).json({ ok: true, users: sanitizedList, banned: banned });
 };
