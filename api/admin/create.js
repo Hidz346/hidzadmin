@@ -1,35 +1,31 @@
-/* Replika persis createAccess() di admin.html, cuma sekarang jalan di
-   server: cek username duplikat & tulis akun baru dilakukan dalam satu
-   napas terhadap data server TERBARU. */
+/* Bikin akun role=user baru dari Panel VIP. Pengecekan username dobel dan
+   penulisan ke database dilakukan di server supaya browser gak perlu
+   download+timpa seluruh daftar akun sendiri kayak sebelumnya. */
 
 var db = require('../_lib/db');
 var pw = require('../_lib/password');
 
+var securityGuard = require('../_lib/security');
+
 module.exports = async function (req, res) {
+    if (!(await securityGuard.guard(req, res))) return;
     if (req.method !== 'POST') {
         res.status(200).json({ ok: false });
         return;
     }
 
-    var body        = req.body || {};
-    var username    = typeof body.username === 'string' ? body.username : '';
-    var password    = typeof body.password === 'string' ? body.password : '';
-    var newUsername = typeof body.newUsername === 'string' ? body.newUsername.trim() : '';
-    var newPassword = typeof body.newPassword === 'string' ? body.newPassword : '';
-    var role        = (body.role === 'vip') ? 'vip' : 'user';
-    var deviceLimit = typeof body.deviceLimit === 'number' ? body.deviceLimit : 1;
-    var isUnlimited = !!body.isUnlimited;
-    var durationMs  = typeof body.durationMs === 'number' ? body.durationMs : null;
+    var body         = req.body || {};
+    var vipId        = typeof body.vipId === 'string' ? body.vipId : '';
+    var vipUsername  = typeof body.vipUsername === 'string' ? body.vipUsername : '';
+    var vipPassword  = typeof body.vipPassword === 'string' ? body.vipPassword : '';
+    var newUsername  = typeof body.username === 'string' ? body.username.trim() : '';
+    var newPassword  = typeof body.password === 'string' ? body.password : '';
+    var deviceLimit  = typeof body.deviceLimit === 'number' ? body.deviceLimit : 1;
+    var isUnlimited  = !!body.isUnlimited;
+    var durationMs   = typeof body.durationMs === 'number' ? body.durationMs : null;
     var durationLabel = typeof body.durationLabel === 'string' ? body.durationLabel : 'UNLIMITED';
 
-    var auth = await db.verifyAdmin(req, username, password);
-    if (!auth.ok) {
-        res.status(200).json(auth.locked
-            ? { ok: false, locked: true, retryAfterSec: auth.retryAfterSec }
-            : { ok: false });
-        return;
-    }
-    if (!newUsername || !newPassword) {
+    if (!vipId || !vipUsername || !vipPassword || !newUsername || !newPassword) {
         res.status(200).json({ ok: false });
         return;
     }
@@ -40,6 +36,12 @@ module.exports = async function (req, res) {
         return;
     }
 
+    var me = db.findValidVip(list, vipId, vipUsername, vipPassword);
+    if (!me) {
+        res.status(200).json({ ok: false });
+        return;
+    }
+
     var dup = list.some(function (u) { return (u.username || '').toLowerCase() === newUsername.toLowerCase(); });
     if (dup) {
         res.status(200).json({ ok: false, reason: 'duplicate' });
@@ -47,16 +49,17 @@ module.exports = async function (req, res) {
     }
 
     var now = Date.now();
-    /* Durasi/status BELUM aktif saat dibuat — baru aktif begitu akun ini
-       login pertama kali ke hidzproject.html (lihat _completeLogin di
-       sana), berlaku juga untuk akun UNLIMITED. Sama persis seperti
-       createAccess() versi lama. */
+    /* expiresAt sengaja dibiarkan null — hitung mundur baru mulai jalan
+       begitu akun ini pertama kali login (lihat _completeLogin di
+       hidzproject.html), bukan dari saat dibuat. Sama persis seperti
+       perilaku Panel VIP yang lama. */
     var newUser = {
         id:            'u_' + now,
         username:      newUsername,
         password:      pw.hashPassword(newPassword),
-        role:          role,
+        role:          'user',
         createdAt:     now,
+        createdBy:     { id: me.id, username: me.username },
         expiresAt:     null,
         durationMs:    isUnlimited ? null : durationMs,
         durationLabel: durationLabel,
@@ -73,9 +76,9 @@ module.exports = async function (req, res) {
         return;
     }
 
-    /* Password asli sengaja tetap dibalikin SEKALI di sini — cuma echo dari
-       apa yang barusan diketik admin sendiri, buat ditampilkan/disalin
-       begitu akun selesai dibuat. Yang tersimpan di database tetap
-       hash-nya (newUser.password di atas). */
+    /* Password asli (bukan hash) sengaja tetap dibalikin SEKALI di sini —
+       ini cuma echo dari apa yang barusan diketik VIP sendiri di form,
+       dipakai buat ditampilkan/disalin begitu akun selesai dibuat. Yang
+       tersimpan di database tetap hash-nya (newUser.password di atas). */
     res.status(200).json({ ok: true, user: Object.assign({}, newUser, { password: newPassword }) });
 };

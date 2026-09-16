@@ -1,28 +1,25 @@
-/* Replika persis deleteUser() di admin.html — cek akun bukan yang
-   dilindungi, hapus dari daftar, lalu bersihkan jejaknya di sesi/banned/
-   blocked device. */
+/* Hapus akun role=user dari Panel VIP, sekalian bersihkan jejaknya di
+   hidz_sessions/hidz_banned/hidz_blocked_devices — persis seperti yang
+   dilakukan Panel VIP versi lama, cuma sekarang eksekusinya di server. */
 
 var db = require('../_lib/db');
 
+var securityGuard = require('../_lib/security');
+
 module.exports = async function (req, res) {
+    if (!(await securityGuard.guard(req, res))) return;
     if (req.method !== 'POST') {
         res.status(200).json({ ok: false });
         return;
     }
 
-    var body     = req.body || {};
-    var username = typeof body.username === 'string' ? body.username : '';
-    var password = typeof body.password === 'string' ? body.password : '';
-    var targetId = typeof body.targetId === 'string' ? body.targetId : '';
+    var body        = req.body || {};
+    var vipId       = typeof body.vipId === 'string' ? body.vipId : '';
+    var vipUsername = typeof body.vipUsername === 'string' ? body.vipUsername : '';
+    var vipPassword = typeof body.vipPassword === 'string' ? body.vipPassword : '';
+    var targetId    = typeof body.targetId === 'string' ? body.targetId : '';
 
-    var auth = await db.verifyAdmin(req, username, password);
-    if (!auth.ok) {
-        res.status(200).json(auth.locked
-            ? { ok: false, locked: true, retryAfterSec: auth.retryAfterSec }
-            : { ok: false });
-        return;
-    }
-    if (!targetId) {
+    if (!vipId || !vipUsername || !vipPassword || !targetId) {
         res.status(200).json({ ok: false });
         return;
     }
@@ -33,13 +30,15 @@ module.exports = async function (req, res) {
         return;
     }
 
-    var target = list.filter(function (u) { return u.id === targetId; })[0];
-    if (!target) {
-        res.status(200).json({ ok: false, reason: 'not_found' });
+    var me = db.findValidVip(list, vipId, vipUsername, vipPassword);
+    if (!me) {
+        res.status(200).json({ ok: false });
         return;
     }
-    if (db.isProtectedAccount(target)) {
-        res.status(200).json({ ok: false, reason: 'protected' });
+
+    var target = list.filter(function (u) { return u.id === targetId; })[0];
+    if (!target || target.role !== 'user') {
+        res.status(200).json({ ok: false, reason: 'not_found' });
         return;
     }
 
