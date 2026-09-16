@@ -6,6 +6,7 @@
    tanpa pernah buka gerbang di browser tetap kena kunci. */
 
 var db = require('./_lib/db');
+var firebaseAuth = require('./_lib/firebase-auth');
 
 module.exports = async function (req, res) {
     if (req.method !== 'POST') {
@@ -25,5 +26,8 @@ module.exports = async function (req, res) {
         return;
     }
 
-    res.status(200).json({ ok: true });
+    var token;
+    try { token = await firebaseAuth.createCustomToken('admin_hidz_protected', { admin: true, role: 'admin' }); }
+    catch (e) { res.status(503).json({ ok: false, error: true, code: 'FIREBASE_AUTH_CONFIG' }); return; }
+    res.status(200).json({ ok: true, firebaseToken: token });
 };
