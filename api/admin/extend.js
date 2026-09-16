@@ -8,6 +8,7 @@
    Logika ini HARUS sama persis dengan yang di client, jangan disederhanakan. */
 
 var db = require('../_lib/db');
+var firebaseAuth = require('../_lib/firebase-auth');
 
 function msToLabel(ms) {
     if (ms === null || ms === undefined) return 'UNLIMITED';
@@ -31,16 +32,11 @@ module.exports = async function (req, res) {
     }
 
     var body     = req.body || {};
-    var username = typeof body.username === 'string' ? body.username : '';
-    var password = typeof body.password === 'string' ? body.password : '';
     var targetId = typeof body.targetId === 'string' ? body.targetId : '';
     var addMs    = typeof body.addMs === 'number' ? body.addMs : 0;
 
-    var auth = await db.verifyAdmin(req, username, password);
-    if (!auth.ok) {
-        res.status(200).json(auth.locked
-            ? { ok: false, locked: true, retryAfterSec: auth.retryAfterSec }
-            : { ok: false });
+    try { await firebaseAuth.requireAdmin(req); } catch (e) {
+        res.status(401).json({ ok: false, error: 'AUTH_REQUIRED' });
         return;
     }
     if (!targetId || addMs < 1) {
