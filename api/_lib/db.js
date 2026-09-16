@@ -1,8 +1,6 @@
-/* Helper bersama buat semua endpoint di /api yang perlu baca/tulis
-   database akun (hidz_access_db). Satu tempat saja yang tahu cara ngomong
-   ke Firebase pakai Database Secret, biar gak ditulis ulang di tiap file.
-   Nama folder diawali underscore supaya Vercel gak menganggapnya sebagai
-   endpoint sendiri — ini murni file bantu. */
+/* Helper bersama buat semua endpoint kelola akun di project hidzadmin.
+   Nama folder diawali underscore supaya Vercel gak menganggapnya endpoint
+   sendiri — ini murni file bantu. */
 
 var DB_URL = 'https://hidzproject-8f335-default-rtdb.asia-southeast1.firebasedatabase.app';
 
@@ -11,8 +9,8 @@ function authQS() {
     return secret ? ('?auth=' + secret) : null;
 }
 
-/* Ambil nilai mentah dari path mana pun di database. null = secret belum
-   diset / gagal konek. */
+/* Ambil nilai mentah dari path mana pun di database (mis. 'hidz_banned',
+   'hidz_sessions/abc123'). null = secret belum diset / gagal konek. */
 async function fetchPath(path) {
     var qs = authQS();
     if (!qs) return null;
@@ -52,8 +50,8 @@ async function deletePath(path) {
     }
 }
 
-/* Ambil seluruh daftar akun (VIP/USER/admin lama). null = secret belum
-   diset / gagal konek, [] = memang kosong. */
+/* Ambil seluruh daftar akun (VIP/USER/admin lama), dibersihkan dari entri
+   kosong — sama seperti getUsers() di sisi client. */
 async function fetchAllAccounts() {
     var data = await fetchPath('hidz_access_db');
     if (data === null) return null;
@@ -62,15 +60,13 @@ async function fetchAllAccounts() {
     return [];
 }
 
-/* Timpa seluruh daftar akun dengan array baru (pola yang sama seperti
-   admin.html/mutateUsersAtomic — baca semua, ubah di memori, tulis semua). */
+/* Timpa seluruh daftar akun dengan array baru. */
 async function saveAllAccounts(list) {
     return setPath('hidz_access_db', list);
 }
 
-/* Bersihkan jejak akun yang sudah dihapus di node-node lain (sesi aktif,
-   status banned, device yang diblokir) — sama seperti yang dilakukan
-   Panel VIP & admin.html sebelumnya. */
+/* Bersihkan jejak satu akun di node-node lain (sesi aktif, status banned,
+   device yang diblokir) — dipakai tiap kali akun dihapus/direset. */
 async function removeAccountTraces(id) {
     await Promise.all([
         deletePath('hidz_sessions/' + id),
@@ -79,30 +75,23 @@ async function removeAccountTraces(id) {
     ]);
 }
 
-var pw = require('./password');
-
-/* Cek apakah {id, username, password} yang dikirim benar-benar akun VIP
-   yang valid di dalam daftar. Dipakai tiap endpoint Panel VIP sebelum
-   ngizinin baca/tulis apa pun. */
-function findValidVip(list, vipId, vipUsername, vipPassword) {
-    var me = list.filter(function (u) { return u.id === vipId; })[0];
-    if (!me) return null;
-    if (me.role !== 'vip') return null;
-    if ((me.username || '').toLowerCase() !== (vipUsername || '').toLowerCase()) return null;
-    if (!pw.verifyPassword(vipPassword, me.password)) return null;
-    return me;
+/* Akun ini boleh dihapus/direset atau tidak — SATU-SATUNYA akun yang
+   dilindungi adalah id tetap admin ('admin_hidz_protected'), sama seperti
+   isProtected() di sisi client. */
+function isProtectedAccount(u) {
+    return !!u && u.id === 'admin_hidz_protected';
 }
 
 /* ===== RATE LIMIT LOGIN — dicatat di server, bukan cuma di browser =====
    Cooldown yang sebelumnya cuma ada di sisi client (localStorage) gampang
    dilewati siapa pun yang langsung nembak endpoint ini pakai script, tanpa
-   pernah buka form login di browser sama sekali. Ini dicatat di Firebase
-   berdasarkan IP pemanggil, jadi tetap kena kunci walau localStorage-nya
-   dikosongin/incognito. Pola makin lama tiap terulang, sama seperti
-   cooldown di sisi client, cuma sekarang beneran gak bisa dilewati. */
+   pernah buka gerbang admin.html di browser sama sekali. Ini dicatat di
+   Firebase berdasarkan IP pemanggil, jadi tetap kena kunci walau
+   localStorage-nya dikosongin/incognito. */
 var RATE_LIMIT_MAX_FAILS = 5;
 var RATE_LIMIT_BASE_MS   = 30000;
 var RATE_LIMIT_CAP_MS    = 300000;
+var RATE_PATH            = 'hidz_admin_rate_limit';
 
 function callerKey(req) {
     var fwd = (req.headers['x-forwarded-for'] || '').split(',')[0].trim();
@@ -110,34 +99,54 @@ function callerKey(req) {
     return ip.replace(/[.#$\[\]/:]/g, '_');
 }
 
-/* { blocked: true, retryAfterSec } kalau IP ini lagi kena kunci,
-   { blocked: false } kalau boleh lanjut cek kredensial. */
-async function checkLoginRateLimit(path, req) {
-    var rec = await fetchPath(path + '/' + callerKey(req));
+async function checkLoginRateLimit(req) {
+    var rec = await fetchPath(RATE_PATH + '/' + callerKey(req));
     if (rec && rec.lockedUntil && Date.now() < rec.lockedUntil) {
         return { blocked: true, retryAfterSec: Math.ceil((rec.lockedUntil - Date.now()) / 1000) };
     }
     return { blocked: false };
 }
 
-/* Panggil tiap kredensial yang dikirim TERNYATA salah. */
-async function registerLoginFail(path, req) {
+async function registerLoginFail(req) {
     var key = callerKey(req);
-    var rec = (await fetchPath(path + '/' + key)) || { fails: 0, tier: 0 };
+    var rec = (await fetchPath(RATE_PATH + '/' + key)) || { fails: 0, tier: 0 };
     var fails = (rec.fails || 0) + 1;
     if (fails >= RATE_LIMIT_MAX_FAILS) {
         var tier   = rec.tier || 0;
         var lockMs = Math.min(RATE_LIMIT_BASE_MS * Math.pow(2, tier), RATE_LIMIT_CAP_MS);
-        await setPath(path + '/' + key, { fails: 0, tier: tier + 1, lockedUntil: Date.now() + lockMs });
+        await setPath(RATE_PATH + '/' + key, { fails: 0, tier: tier + 1, lockedUntil: Date.now() + lockMs });
     } else {
-        await setPath(path + '/' + key, { fails: fails, tier: rec.tier || 0 });
+        await setPath(RATE_PATH + '/' + key, { fails: fails, tier: rec.tier || 0 });
     }
 }
 
-/* Panggil tiap kredensial yang dikirim TERNYATA benar — reset hitungan
-   gagal beruntun punya IP itu. */
-async function clearLoginRateLimit(path, req) {
-    await deletePath(path + '/' + callerKey(req));
+async function clearLoginRateLimit(req) {
+    await deletePath(RATE_PATH + '/' + callerKey(req));
+}
+
+/* Cek {username, password} yang dikirim benar-benar cocok dengan
+   ADMIN_USERNAME/ADMIN_PASSWORD di Environment Variable — DIPAKAI SEMUA
+   endpoint admin/* (bukan cuma gerbang login), jadi titik pemeriksaannya
+   cuma satu dan rate limit-nya otomatis berlaku ke semuanya sekaligus.
+   Balikannya { ok, locked, retryAfterSec } — bukan boolean polos lagi. */
+async function verifyAdmin(req, username, password) {
+    var limit = await checkLoginRateLimit(req);
+    if (limit.blocked) {
+        return { ok: false, locked: true, retryAfterSec: limit.retryAfterSec };
+    }
+
+    var adminUser = process.env.ADMIN_USERNAME || '';
+    var adminPass = process.env.ADMIN_PASSWORD || '';
+    var valid = !!adminUser && !!adminPass &&
+        (username || '').toLowerCase() === adminUser.toLowerCase() &&
+        password === adminPass;
+
+    if (valid) {
+        await clearLoginRateLimit(req);
+        return { ok: true };
+    }
+    await registerLoginFail(req);
+    return { ok: false, locked: false };
 }
 
 module.exports = {
@@ -148,8 +157,6 @@ module.exports = {
     fetchAllAccounts: fetchAllAccounts,
     saveAllAccounts: saveAllAccounts,
     removeAccountTraces: removeAccountTraces,
-    findValidVip: findValidVip,
-    checkLoginRateLimit: checkLoginRateLimit,
-    registerLoginFail: registerLoginFail,
-    clearLoginRateLimit: clearLoginRateLimit
+    isProtectedAccount: isProtectedAccount,
+    verifyAdmin: verifyAdmin
 };
