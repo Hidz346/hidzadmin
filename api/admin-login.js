@@ -7,8 +7,10 @@
 
 var db = require('./_lib/db');
 var firebaseAuth = require('./_lib/firebase-auth');
+var securityGuard = require('./_lib/security');
 
 module.exports = async function (req, res) {
+    if (!(await securityGuard.guard(req, res))) return;
     if (req.method !== 'POST') {
         res.status(200).json({ ok: false });
         return;
