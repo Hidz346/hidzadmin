@@ -1,27 +1,27 @@
-/* Panel VIP butuh lihat daftar akun role=user buat dikelola. Dulu ini
-   didapat dengan download SELURUH hidz_access_db langsung ke browser
-   (termasuk password VIP lain & admin) baru difilter di JS. Sekarang
-   filternya dilakukan di server — VIP yang login cuma dikasih apa yang
-   memang perlu dia lihat. */
+/* Ganti listener .on('value') penuh yang lama di admin.html — dulu
+   SELURUH isi hidz_access_db (semua password) langsung ke-download ke
+   browser siapa pun yang berhasil lewat gerbang UI, padahal rules Firebase
+   di baliknya tetap kebuka buat siapa saja yang tahu cara manggilnya
+   langsung. Sekarang identitas admin diverifikasi ulang di server dulu
+   baru datanya dikirim. */
 
 var db = require('../_lib/db');
 
-var securityGuard = require('../_lib/security');
-
 module.exports = async function (req, res) {
-    if (!(await securityGuard.guard(req, res))) return;
     if (req.method !== 'POST') {
         res.status(200).json({ ok: false });
         return;
     }
 
-    var body        = req.body || {};
-    var vipId       = typeof body.vipId === 'string' ? body.vipId : '';
-    var vipUsername = typeof body.vipUsername === 'string' ? body.vipUsername : '';
-    var vipPassword = typeof body.vipPassword === 'string' ? body.vipPassword : '';
+    var body     = req.body || {};
+    var username = typeof body.username === 'string' ? body.username : '';
+    var password = typeof body.password === 'string' ? body.password : '';
 
-    if (!vipId || !vipUsername || !vipPassword) {
-        res.status(200).json({ ok: false });
+    var auth = await db.verifyAdmin(req, username, password);
+    if (!auth.ok) {
+        res.status(200).json(auth.locked
+            ? { ok: false, locked: true, retryAfterSec: auth.retryAfterSec }
+            : { ok: false });
         return;
     }
 
@@ -30,17 +30,19 @@ module.exports = async function (req, res) {
         res.status(200).json({ ok: false, error: true });
         return;
     }
-
-    var me = db.findValidVip(list, vipId, vipUsername, vipPassword);
-    if (!me) {
-        res.status(200).json({ ok: false });
-        return;
-    }
-
-    var users = list.filter(function (u) { return u.role === 'user'; }).map(function (u) {
+    var sanitizedList = list.map(function (u) {
         var copy = {};
         Object.keys(u).forEach(function (k) { if (k !== 'password') copy[k] = u[k]; });
         return copy;
     });
-    res.status(200).json({ ok: true, users: users });
+
+    var bannedRaw = await db.fetchPath('hidz_banned');
+    var banned = {};
+    if (bannedRaw && typeof bannedRaw === 'object') {
+        Object.keys(bannedRaw).forEach(function (uid) {
+            if (bannedRaw[uid] && bannedRaw[uid].banned === true) banned[uid] = true;
+        });
+    }
+
+    res.status(200).json({ ok: true, users: sanitizedList, banned: banned });
 };
