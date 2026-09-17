@@ -12,6 +12,7 @@
  */
 var crypto = require('crypto');
 var db = require('./db');
+var clientLocation = require('./ip-location');
 
 var BLOCK_MS = 24 * 60 * 60 * 1000;
 var MAX_BLOCK_MS = 7 * 24 * 60 * 60 * 1000;
@@ -119,7 +120,8 @@ async function writeEvent(req, reason, extra) {
         endpoint: String(req.url || '').slice(0, 180),
         method: String(req.method || '').slice(0, 12),
         reason: String(reason || 'Suspicious request').slice(0, MAX_ALERT_TEXT),
-        userAgent: String((req.headers && req.headers['user-agent']) || '').slice(0, 220)
+        userAgent: String((req.headers && req.headers['user-agent']) || '').slice(0, 220),
+        location: clientLocation(req)
     };
 
     if (extra && typeof extra === 'object') {
@@ -148,7 +150,8 @@ async function blockIp(req, reason, durationMs, tier) {
         blockedAt: now,
         blockedUntil: blockedUntil,
         tier: nextTier,
-        reason: String(reason || 'Suspicious request').slice(0, MAX_ALERT_TEXT)
+        reason: String(reason || 'Suspicious request').slice(0, MAX_ALERT_TEXT),
+        location: clientLocation(req)
     });
 
     await writeEvent(req, reason, {
