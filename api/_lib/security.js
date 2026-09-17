@@ -37,6 +37,31 @@ function ipKey(ip) {
     return crypto.createHash('sha256').update(String(ip)).digest('hex').slice(0, 48);
 }
 
+function sanitizeEndpoint(value) {
+    var input = String(value || '').slice(0, 180);
+    var hashIndex = input.indexOf('#');
+    if (hashIndex !== -1) input = input.slice(0, hashIndex);
+
+    var qIndex = input.indexOf('?');
+    if (qIndex === -1) return input;
+
+    var base = input.slice(0, qIndex);
+    var query = input.slice(qIndex + 1);
+    var sensitive = /^(?:password|pass|passwd|pwd|token|access_token|refresh_token|id_token|authorization|cookie|set-cookie|api[_-]?key|apikey|secret|credential|credentials|firebase_token|firebasetoken)$/i;
+
+    var parts = query.split('&').map(function (part) {
+        if (!part) return part;
+        var eq = part.indexOf('=');
+        var rawKey = eq === -1 ? part : part.slice(0, eq);
+        var decodedKey = rawKey;
+        try { decodedKey = decodeURIComponent(rawKey.replace(/\+/g, ' ')); } catch (e) {}
+        if (sensitive.test(decodedKey)) return rawKey + '=[REDACTED]';
+        return part.slice(0, 180);
+    });
+
+    return (base + '?' + parts.join('&')).slice(0, 180);
+}
+
 function textFromBody(body, out) {
     if (body == null) return;
     if (typeof body === 'string') {
@@ -117,7 +142,7 @@ async function writeEvent(req, reason, extra) {
     var event = {
         ip: ip,
         attemptAt: now,
-        endpoint: String(req.url || '').slice(0, 180),
+        endpoint: sanitizeEndpoint(req.url),
         method: String(req.method || '').slice(0, 12),
         reason: String(reason || 'Suspicious request').slice(0, MAX_ALERT_TEXT),
         userAgent: String((req.headers && req.headers['user-agent']) || '').slice(0, 220),
@@ -242,5 +267,6 @@ async function guard(req, res) {
 module.exports = {
     guard: guard,
     clientIp: clientIp,
-    ipKey: ipKey
+    ipKey: ipKey,
+    sanitizeEndpoint: sanitizeEndpoint
 };
