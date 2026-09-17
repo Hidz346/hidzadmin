@@ -4,6 +4,7 @@
  */
 var crypto = require('crypto');
 var db = require('./_lib/db');
+var securityGuard = require('./_lib/security');
 
 function ip(req) {
     var h = req.headers || {};
@@ -16,6 +17,7 @@ function key(req) {
 function text(v, max) { return typeof v === 'string' ? v.slice(0, max) : ''; }
 
 module.exports = async function (req, res) {
+    if (!(await securityGuard.guard(req, res))) return;
     if (req.method !== 'POST') { res.status(405).json({ ok: false }); return; }
 
     var k = key(req);
