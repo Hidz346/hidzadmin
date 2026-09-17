@@ -4,9 +4,11 @@
    di akhir supaya device yang sah langsung normal lagi. */
 
 var db = require('../_lib/db');
+var securityGuard = require('../_lib/security');
 var firebaseAuth = require('../_lib/firebase-auth');
 
 module.exports = async function (req, res) {
+    if (!(await securityGuard.guard(req, res))) return;
     if (req.method !== 'POST') {
         res.status(200).json({ ok: false });
         return;

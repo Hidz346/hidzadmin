@@ -3,10 +3,12 @@
    napas terhadap data server TERBARU. */
 
 var db = require('../_lib/db');
+var securityGuard = require('../_lib/security');
 var firebaseAuth = require('../_lib/firebase-auth');
 var pw = require('../_lib/password');
 
 module.exports = async function (req, res) {
+    if (!(await securityGuard.guard(req, res))) return;
     if (req.method !== 'POST') {
         res.status(200).json({ ok: false });
         return;

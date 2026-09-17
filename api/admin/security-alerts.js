@@ -1,8 +1,10 @@
 /* Read-only security dashboard for the administrator. */
 var db = require('../_lib/db');
+var securityGuard = require('../_lib/security');
 var firebaseAuth = require('../_lib/firebase-auth');
 
 module.exports = async function (req, res) {
+    if (!(await securityGuard.guard(req, res))) return;
     if (req.method !== 'POST') {
         res.status(405).json({ ok: false });
         return;
