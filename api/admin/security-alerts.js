@@ -2,6 +2,7 @@
 var db = require('../_lib/db');
 var securityGuard = require('../_lib/security');
 var firebaseAuth = require('../_lib/firebase-auth');
+var security = require('../_lib/security');
 
 module.exports = async function (req, res) {
     if (!(await securityGuard.guard(req, res))) return;
@@ -31,6 +32,9 @@ module.exports = async function (req, res) {
        records too, so old noise disappears from the monitor immediately. */
     events = vals(events).filter(function (x) {
         return String(x.reason || '').toLowerCase() !== 'csp violation report';
+    }).map(function (x) {
+        if (x.endpoint) x.endpoint = security.sanitizeEndpoint(x.endpoint);
+        return x;
     }).sort(function (a, b) {
         return (b.attemptAt || 0) - (a.attemptAt || 0);
     }).slice(0, 50);
