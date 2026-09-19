@@ -2,6 +2,8 @@
    Nama folder diawali underscore supaya Vercel gak menganggapnya endpoint
    sendiri — ini murni file bantu. */
 
+var pw = require('./password');
+
 var DB_URL = 'https://hidzproject-8f335-default-rtdb.asia-southeast1.firebasedatabase.app';
 
 function authQS() {
@@ -139,7 +141,7 @@ async function verifyAdmin(req, username, password) {
     var adminPass = process.env.ADMIN_PASSWORD || '';
     var valid = !!adminUser && !!adminPass &&
         (username || '').toLowerCase() === adminUser.toLowerCase() &&
-        password === adminPass;
+        pw.timingSafeStringEqual(password, adminPass);
 
     if (valid) {
         await clearLoginRateLimit(req);

@@ -24,9 +24,23 @@ function isHashed(stored) {
     return typeof stored === 'string' && stored.split(':').length === 3 && stored.indexOf('scrypt:') === 0;
 }
 
+/* Bandingin dua string tanpa bocorin info dari waktu eksekusi (percobaan
+   pertama beda vs percobaan ke-1000 harus makan waktu yang sama persis).
+   Dipakai buat kredensial ADMIN (dari Environment Variable) & fallback
+   password lama yang belum ke-hash — bukan cuma == biasa, soalnya ==
+   berhenti di karakter pertama yang beda, jadi teorinya bisa dipakai buat
+   nebak isi string aslinya sedikit demi sedikit lewat selisih waktu
+   respons. Kedua sisi di-hash dulu ke panjang tetap (SHA-256) sebelum
+   dibandingin, biar timingSafeEqual bisa jalan walau panjang aslinya beda. */
+function timingSafeStringEqual(a, b) {
+    var bufA = crypto.createHash('sha256').update(String(a == null ? '' : a)).digest();
+    var bufB = crypto.createHash('sha256').update(String(b == null ? '' : b)).digest();
+    return crypto.timingSafeEqual(bufA, bufB);
+}
+
 function verifyPassword(plain, stored) {
     if (!isHashed(stored)) {
-        return stored === plain;
+        return timingSafeStringEqual(stored, plain);
     }
     var parts = stored.split(':');
     try {
@@ -40,7 +54,8 @@ function verifyPassword(plain, stored) {
 }
 
 module.exports = {
-    hashPassword:   hashPassword,
-    isHashed:       isHashed,
-    verifyPassword: verifyPassword
+    hashPassword:         hashPassword,
+    isHashed:             isHashed,
+    verifyPassword:       verifyPassword,
+    timingSafeStringEqual: timingSafeStringEqual
 };

@@ -25,12 +25,115 @@ var RATE_MAX_REQUESTS = 90;
 var RATE_BLOCK_MS = 10 * 60 * 1000;
 var RATE_PATH = 'hidz_security_rate_limit';
 
+/* Rentang IP resmi Cloudflare (sumber: https://www.cloudflare.com/ips/,
+   per 28 Sep 2023) — cek ulang sesekali kalau Cloudflare umumin
+   perubahan rentang. Dipakai supaya header CF-Connecting-IP cuma
+   dipercaya kalau request itu memang lewat edge Cloudflare beneran. */
+var CLOUDFLARE_CIDR_V4 = [
+    ['173.245.48.0', 20], ['103.21.244.0', 22], ['103.22.200.0', 22],
+    ['103.31.4.0', 22], ['141.101.64.0', 18], ['108.162.192.0', 18],
+    ['190.93.240.0', 20], ['188.114.96.0', 20], ['197.234.240.0', 22],
+    ['198.41.128.0', 17], ['162.158.0.0', 15], ['104.16.0.0', 13],
+    ['104.24.0.0', 14], ['172.64.0.0', 13], ['131.0.72.0', 22]
+];
+var CLOUDFLARE_CIDR_V6 = [
+    ['2400:cb00::', 32], ['2606:4700::', 32], ['2803:f800::', 32],
+    ['2405:b500::', 32], ['2405:8100::', 32], ['2a06:98c0::', 29],
+    ['2c0f:f248::', 32]
+];
+
+function ipv4ToInt(ip) {
+    var parts = String(ip).split('.');
+    if (parts.length !== 4) return null;
+    var n = 0;
+    for (var i = 0; i < 4; i++) {
+        var octet = Number(parts[i]);
+        if (!Number.isInteger(octet) || octet < 0 || octet > 255) return null;
+        n = (n * 256) + octet;
+    }
+    return n >>> 0;
+}
+
+function ipv4InCidr(ip, base, bits) {
+    var baseInt = ipv4ToInt(base);
+    var ipInt = ipv4ToInt(ip);
+    if (baseInt === null || ipInt === null) return false;
+    var mask = bits === 0 ? 0 : (0xFFFFFFFF << (32 - bits)) >>> 0;
+    return (ipInt & mask) === (baseInt & mask);
+}
+
+function ipv6ToBigInt(ip) {
+    var groups;
+    ip = String(ip);
+    if (ip.indexOf('::') !== -1) {
+        var halves = ip.split('::');
+        if (halves.length > 2) return null;
+        var head = halves[0] ? halves[0].split(':') : [];
+        var tail = halves[1] ? halves[1].split(':') : [];
+        var missing = 8 - (head.length + tail.length);
+        if (missing < 0) return null;
+        var fill = [];
+        for (var i = 0; i < missing; i++) fill.push('0');
+        groups = head.concat(fill).concat(tail);
+    } else {
+        groups = ip.split(':');
+    }
+    if (groups.length !== 8) return null;
+    var value = 0n;
+    for (var j = 0; j < 8; j++) {
+        var g = groups[j] === '' ? 0 : parseInt(groups[j], 16);
+        if (isNaN(g) || g < 0 || g > 0xFFFF) return null;
+        value = (value << 16n) | BigInt(g);
+    }
+    return value;
+}
+
+function ipv6InCidr(ip, base, bits) {
+    var baseVal = ipv6ToBigInt(base);
+    var ipVal = ipv6ToBigInt(ip);
+    if (baseVal === null || ipVal === null) return false;
+    var full = (1n << 128n) - 1n;
+    var mask = bits === 0 ? 0n : (full << BigInt(128 - bits)) & full;
+    return (ipVal & mask) === (baseVal & mask);
+}
+
+/* True kalau ip itu memang bagian dari jaringan Cloudflare. */
+function isCloudflareIp(ip) {
+    if (!ip || ip === 'unknown') return false;
+    var i;
+    if (ip.indexOf(':') !== -1) {
+        for (i = 0; i < CLOUDFLARE_CIDR_V6.length; i++) {
+            if (ipv6InCidr(ip, CLOUDFLARE_CIDR_V6[i][0], CLOUDFLARE_CIDR_V6[i][1])) return true;
+        }
+        return false;
+    }
+    for (i = 0; i < CLOUDFLARE_CIDR_V4.length; i++) {
+        if (ipv4InCidr(ip, CLOUDFLARE_CIDR_V4[i][0], CLOUDFLARE_CIDR_V4[i][1])) return true;
+    }
+    return false;
+}
+
 function clientIp(req) {
     var h = req.headers || {};
-    var raw = h['cf-connecting-ip'] || h['x-real-ip'] || h['x-forwarded-for'] || '';
-    var ip = String(raw).split(',')[0].trim();
-    if (!ip && req.socket && req.socket.remoteAddress) ip = req.socket.remoteAddress;
-    return ip || 'unknown';
+    var forwardedRaw = h['x-real-ip'] || h['x-forwarded-for'] || '';
+    var trusted = String(forwardedRaw).split(',')[0].trim();
+    if (!trusted && req.socket && req.socket.remoteAddress) trusted = req.socket.remoteAddress;
+    if (!trusted) trusted = 'unknown';
+
+    /* CF-Connecting-IP cuma header biasa di mata Vercel — TIDAK otomatis
+       anti-spoofing kayak x-forwarded-for/x-real-ip (dua header itu selalu
+       di-overwrite Vercel di edge, gak bisa dipalsukan client kecuali beli
+       fitur Trusted Proxy). Jadi header ini cuma dipercaya kalau hop yang
+       benar-benar nyambung ke Vercel (trusted, di atas) memang salah satu
+       IP resmi Cloudflare — di luar itu, siapa pun bisa isi header ini
+       sembarangan buat ngelewatin rate limit/IP block atau nge-fitnah IP
+       orang lain. */
+    var cfHeader = h['cf-connecting-ip'];
+    if (cfHeader && isCloudflareIp(trusted)) {
+        var cfIp = String(cfHeader).split(',')[0].trim();
+        if (cfIp) return cfIp;
+    }
+    return trusted;
 }
 
 function ipKey(ip) {
