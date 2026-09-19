@@ -2,25 +2,16 @@
  * It is intentionally rate-limited and writes only through the server-side
  * Firebase credential. It does not grant access to any protected database node.
  */
-var crypto = require('crypto');
 var db = require('./_lib/db');
 var securityGuard = require('./_lib/security');
 
-function ip(req) {
-    var h = req.headers || {};
-    var raw = h['cf-connecting-ip'] || h['x-real-ip'] || h['x-forwarded-for'] || '';
-    return String(raw).split(',')[0].trim() || (req.socket && req.socket.remoteAddress) || 'unknown';
-}
-function key(req) {
-    return crypto.createHash('sha256').update(ip(req)).digest('hex').slice(0, 48);
-}
 function text(v, max) { return typeof v === 'string' ? v.slice(0, max) : ''; }
 
 module.exports = async function (req, res) {
     if (!(await securityGuard.guard(req, res))) return;
     if (req.method !== 'POST') { res.status(405).json({ ok: false }); return; }
 
-    var k = key(req);
+    var k = securityGuard.ipKey(securityGuard.clientIp(req));
     var path = 'hidz_security_rate_limit/admin_alert_' + k;
     var now = Date.now();
     var rec = await db.fetchPath(path);
