@@ -55,7 +55,7 @@ async function _getGoogleAccessToken() {
         var header = { alg: 'RS256', typ: 'JWT' };
         var payload = {
             iss: sa.client_email,
-            scope: 'https://www.googleapis.com/auth/firebase.database',
+            scope: 'https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/firebase.database',
             aud: 'https://oauth2.googleapis.com/token',
             iat: nowSec,
             exp: nowSec + 3600
