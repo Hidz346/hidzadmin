@@ -42,7 +42,7 @@
         },
         {
           "key": "Content-Security-Policy-Report-Only",
-          "value": "default-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; report-uri /api/security-csp-report"
+          "value": "default-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'"
         },
         {
           "key": "Cross-Origin-Opener-Policy",
