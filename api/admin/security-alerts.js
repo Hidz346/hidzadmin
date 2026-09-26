@@ -1,4 +1,4 @@
-/* Read-only security dashboard for the administrator. */
+/* Security dashboard + security-event administration. */
 var db = require('../_lib/db');
 var securityGuard = require('../_lib/security');
 var firebaseAuth = require('../_lib/firebase-auth');
@@ -6,6 +6,16 @@ var security = require('../_lib/security');
 
 var PAGE_SIZE_DEFAULT = 20;
 var PAGE_SIZE_MAX = 100;
+
+function getAction(req, body) {
+    var queryAction = req && req.query && typeof req.query.action === 'string'
+        ? req.query.action.trim().toLowerCase()
+        : '';
+    var bodyAction = body && typeof body.action === 'string'
+        ? body.action.trim().toLowerCase()
+        : '';
+    return queryAction || bodyAction;
+}
 
 module.exports = async function (req, res) {
     if (!(await securityGuard.guard(req, res))) return;
@@ -15,13 +25,44 @@ module.exports = async function (req, res) {
     }
 
     var body = req.body || {};
-    try { await firebaseAuth.requireAdmin(req); } catch (e) {
+
+    try {
+        await firebaseAuth.requireAdmin(req);
+    } catch (e) {
         res.status(401).json({ ok: false, error: 'AUTH_REQUIRED' });
         return;
     }
 
+    /*
+     * Admin security-event actions are handled here so they share the same
+     * protected serverless function as the security dashboard.
+     */
+    var action = getAction(req, body);
+
+    if (action === 'delete' || action === 'delete-event' || action === 'delete-security-event') {
+        var id = typeof body.id === 'string' ? body.id.trim() : '';
+
+        if (!id || id.length > 64 || !/^[a-zA-Z0-9_]+$/.test(id)) {
+            res.status(400).json({ ok: false });
+            return;
+        }
+
+        var deleted = await db.deletePath('hidz_security_events/' + id);
+        res.status(200).json({ ok: deleted });
+        return;
+    }
+
+    if (action === 'clear' || action === 'clear-events' || action === 'clear-security-events') {
+        var cleared = await db.deletePath('hidz_security_events');
+        res.status(200).json({ ok: cleared });
+        return;
+    }
+
     var offset = Math.max(0, parseInt(body.offset, 10) || 0);
-    var limit  = Math.min(PAGE_SIZE_MAX, Math.max(1, parseInt(body.limit, 10) || PAGE_SIZE_DEFAULT));
+    var limit = Math.min(
+        PAGE_SIZE_MAX,
+        Math.max(1, parseInt(body.limit, 10) || PAGE_SIZE_DEFAULT)
+    );
 
     var events = await db.fetchPath('hidz_security_events');
     var blocks = await db.fetchPath('hidz_security_ip_blocks');
@@ -39,11 +80,15 @@ module.exports = async function (req, res) {
         return String(x.reason || '').toLowerCase() !== 'csp violation report';
     }).map(function (x) {
         if (x.endpoint) x.endpoint = security.sanitizeEndpoint(x.endpoint);
+
         /* Setiap event di sini SELALU tercatat pas request-nya diblokir
            (lihat writeEvent() yang cuma dipanggil dari blockIp()) — jadi
            "status" nyatanya adalah apakah blokir IP itu masih aktif
            sekarang atau sudah kadaluarsa, dihitung dari blockedUntil. */
-        x.status = (Number(x.blockedUntil || 0) > Date.now()) ? 'blocked_active' : 'blocked_expired';
+        x.status = (Number(x.blockedUntil || 0) > Date.now())
+            ? 'blocked_active'
+            : 'blocked_expired';
+
         return x;
     }).sort(function (a, b) {
         return (b.attemptAt || 0) - (a.attemptAt || 0);
@@ -60,6 +105,7 @@ module.exports = async function (req, res) {
 
     var cspReports = await db.fetchPath('hidz_security_csp_reports');
     var cspCount = 0;
+
     if (cspReports && typeof cspReports === 'object') {
         cspCount = Object.keys(cspReports).length;
     }
