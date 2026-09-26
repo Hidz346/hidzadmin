@@ -76,7 +76,14 @@ function refresh(){
         watched[uid]=true;
         firebase.database().ref(MSG+'/'+uid).limitToLast(1).on('value',function(snap){
             var v=snap.val()||{}, keys=Object.keys(v).filter(function(k){return v[k]&&!(v[k].delAll);});
-            latest[uid]=keys.length?v[keys.sort(function(a,b){return Number(v[a].time||0)-Number(v[b].time||0);}[0]]:null;
+            keys.sort(function(a,b){return Number(v[a].time||0)-Number(v[b].time||0);});
+            latest[uid]=keys.length?v[keys.length-1]:null;
+            if(!rendering){
+                rendering=true;
+                render('konsConvList',false);
+                render('konsPickerList',true);
+                rendering=false;
+            }
         });
     });
     render('konsConvList',false);
