@@ -190,7 +190,7 @@ async function syncProject(project, token, teamId, now) {
 }
 
 async function sync() {
-    var token = process.env.VERCEL_API_TOKEN || '';
+    var token = process.env.VERCEL_API_TOKEN || process.env.VERCEL_TOKEN || '';
     if (!token) {
         return {
             ok: false,
