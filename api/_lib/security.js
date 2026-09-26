@@ -17,6 +17,7 @@ var clientLocation = require('./ip-location');
 var BLOCK_MS = 24 * 60 * 60 * 1000;
 var MAX_BLOCK_MS = 7 * 24 * 60 * 60 * 1000;
 var MAX_ALERT_TEXT = 180;
+var PROJECT_NAME = "HidzAdmin";
 
 /* Conservative application-layer rate limit. It is intentionally below
    normal browser usage but high enough for normal page/API activity. */
@@ -242,13 +243,22 @@ async function writeEvent(req, reason, extra) {
     var now = Date.now();
     var id = now + '_' + Math.random().toString(36).slice(2, 8);
 
+    var headers = req.headers || {};
     var event = {
         ip: ip,
         attemptAt: now,
         endpoint: sanitizeEndpoint(req.url),
         method: String(req.method || '').slice(0, 12),
         reason: String(reason || 'Suspicious request').slice(0, MAX_ALERT_TEXT),
-        userAgent: String((req.headers && req.headers['user-agent']) || '').slice(0, 220),
+        userAgent: String(headers['user-agent'] || '').slice(0, 220),
+        referer: String(headers.referer || headers.referrer || '').slice(0, 220),
+        origin: String(headers.origin || '').slice(0, 220),
+        host: String(headers.host || '').slice(0, 220),
+        requestId: String(headers['x-vercel-id'] || headers['x-request-id'] || '').slice(0, 220),
+        contentLength: String(headers['content-length'] || '').slice(0, 32),
+        source: 'application_security_guard',
+        project: PROJECT_NAME,
+        eventType: 'security_event',
         location: clientLocation(req)
     };
 
@@ -262,7 +272,7 @@ async function writeEvent(req, reason, extra) {
     return event;
 }
 
-async function blockIp(req, reason, durationMs, tier) {
+async function blockIp(req, reason, durationMs, tier, extra) {
     var ip = clientIp(req);
     var key = ipKey(ip);
     var old = await db.fetchPath('hidz_security_ip_blocks/' + key);
@@ -282,10 +292,10 @@ async function blockIp(req, reason, durationMs, tier) {
         location: clientLocation(req)
     });
 
-    await writeEvent(req, reason, {
+    await writeEvent(req, reason, Object.assign({
         blockedUntil: blockedUntil,
         tier: nextTier
-    });
+    }, extra || {}));
 
     return { ip: ip, blockedUntil: blockedUntil };
 }
@@ -317,6 +327,7 @@ async function checkRequestRate(req) {
         return {
             blocked: true,
             flood: true,
+            requestCount: count,
             retryAfterSec: Math.ceil(RATE_BLOCK_MS / 1000)
         };
     }
@@ -350,7 +361,17 @@ async function guard(req, res) {
         var rate = await checkRequestRate(req);
         if (rate.blocked) {
             if (rate.flood) {
-                await blockIp(req, 'Request flood / rate limit exceeded', RATE_BLOCK_MS, 1);
+                await blockIp(
+                    req,
+                    'DDoS-like request flood / rate limit exceeded',
+                    RATE_BLOCK_MS,
+                    2,
+                    {
+                        eventType: 'request_flood',
+                        severity: 'high',
+                        requestCount: Number(rate.requestCount || 0)
+                    }
+                );
             }
             res.status(429).json({
                 ok: false,
