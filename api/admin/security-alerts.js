@@ -3,6 +3,7 @@ var db = require('../_lib/db');
 var securityGuard = require('../_lib/security');
 var firebaseAuth = require('../_lib/firebase-auth');
 var security = require('../_lib/security');
+var edgeFirewall = require('../_lib/vercel-firewall');
 
 var PAGE_SIZE_DEFAULT = 20;
 var PAGE_SIZE_MAX = 100;
@@ -58,6 +59,13 @@ module.exports = async function (req, res) {
         return;
     }
 
+    var edgeSync = { ok: false, enabled: false, reason: 'NOT_RUN' };
+    try {
+        edgeSync = await edgeFirewall.sync();
+    } catch (e) {
+        edgeSync = { ok: false, enabled: true, reason: 'SYNC_FAILED' };
+    }
+
     var offset = Math.max(0, parseInt(body.offset, 10) || 0);
     var limit = Math.min(
         PAGE_SIZE_MAX,
@@ -85,9 +93,13 @@ module.exports = async function (req, res) {
            (lihat writeEvent() yang cuma dipanggil dari blockIp()) — jadi
            "status" nyatanya adalah apakah blokir IP itu masih aktif
            sekarang atau sudah kadaluarsa, dihitung dari blockedUntil. */
-        x.status = (Number(x.blockedUntil || 0) > Date.now())
-            ? 'blocked_active'
-            : 'blocked_expired';
+        if (x.source === 'vercel_firewall') {
+            x.status = x.active ? 'edge_active' : 'edge_observed';
+        } else {
+            x.status = (Number(x.blockedUntil || 0) > Date.now())
+                ? 'blocked_active'
+                : 'blocked_expired';
+        }
 
         return x;
     }).sort(function (a, b) {
@@ -117,6 +129,7 @@ module.exports = async function (req, res) {
         eventsOffset: offset,
         eventsLimit: limit,
         blocks: blocks,
-        cspReports: cspCount
+        cspReports: cspCount,
+        edgeSync: edgeSync
     });
 };
