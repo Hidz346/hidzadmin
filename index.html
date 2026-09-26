@@ -9,7 +9,7 @@
 <script id="__HIDZ_KONS_PATCH_V2__">
 (function(){
 'use strict';
-var META='hidz_counseling_meta', MSG='hidz_counseling_messages', meta={}, latest={}, watched={}, observer=null, syncing=false;
+var META='hidz_counseling_meta', MSG='hidz_counseling_messages', meta={}, latest={}, watched={}, syncing=false, rendering=false;
 
 function esc(v){
     return String(v==null?'':v).replace(/[&<>"']/g,function(ch){
@@ -31,38 +31,39 @@ function preview(uid){
     return text;
 }
 function sortTime(uid){
-    return Number((latest[uid]&&latest[uid].time)||meta[uid]&&meta[uid].lastAt||0)||0;
+    var x=latest[uid], m=meta[uid]||{};
+    return Number((x&&x.time)||m.lastAt||0)||0;
 }
 function uidFrom(el,picker){
-    var on=el.getAttribute('onclick')||'', re=picker?/_konsPickUser\(['"]([^'"]+)/: /openKonsChat\(['"]([^'"]+)/, m=on.match(re);
+    var on=el.getAttribute('onclick')||'';
+    var re=picker?/_konsPickUser\(['"]([^'"]+)/:/openKonsChat\(['"]([^'"]+)/;
+    var m=on.match(re);
     return m?m[1]:null;
 }
 function render(rootId,picker){
     var root=document.getElementById(rootId);
     if(!root)return;
-    var nodes=Array.prototype.slice.call(root.querySelectorAll(picker?'.user-item.kons-conv-item,.user-item:not(.kons-conv-item)','.kons-conv-item'));
-    nodes=nodes.filter(function(n){ return !!uidFrom(n,picker); });
+    var nodes=Array.prototype.slice.call(root.querySelectorAll(picker?'.user-item':'.kons-conv-item')).filter(function(n){
+        return !!uidFrom(n,picker);
+    });
     nodes.sort(function(a,b){
         var au=uidFrom(a,picker), bu=uidFrom(b,picker);
         var at=sortTime(au), bt=sortTime(bu);
         if(at!==bt)return bt-at;
-        var an=String((meta[au]&&meta[au].username)||au), bn=String((meta[bu]&&meta[bu].username)||bu);
         if(!picker){
             var ar=Number(meta[au]&&meta[au].unreadAdmin)||0, br=Number(meta[bu]&&meta[bu].unreadAdmin)||0;
             if(ar!==br)return br-ar;
         }
+        var an=String((meta[au]&&meta[au].username)||au);
+        var bn=String((meta[bu]&&meta[bu].username)||bu);
         return an.localeCompare(bn);
     });
     nodes.forEach(function(n){
         var uid=uidFrom(n,picker), p=n.querySelector('.kons-conv-preview');
         if(p){
-            var x=meta[uid]||{};
-            var txt=preview(uid);
-            if(txt){
-                p.innerHTML=(x.lastSender==='admin'?'<i class="fas fa-reply" style="margin-right:4px;opacity:.6;"></i>':'')+esc(txt);
-            }else{
-                p.innerHTML=picker?'<i style="opacity:.6;">Belum ada percakapan — ketuk buat mulai chat</i>':'';
-            }
+            var x=meta[uid]||{}, txt=preview(uid);
+            if(txt) p.innerHTML=(x.lastSender==='admin'?'<i class="fas fa-reply" style="margin-right:4px;opacity:.6;"></i>':'')+esc(txt);
+            else p.innerHTML=picker?'<i style="opacity:.6;">Belum ada percakapan — ketuk buat mulai chat</i>':'';
         }
         root.appendChild(n);
     });
@@ -75,12 +76,8 @@ function refresh(){
         watched[uid]=true;
         firebase.database().ref(MSG+'/'+uid).limitToLast(1).on('value',function(snap){
             var v=snap.val()||{}, keys=Object.keys(v).filter(function(k){return v[k]&&!(v[k].delAll);});
-            if(!keys.length){ latest[uid]=null; render('konsConvList',false); render('konsPickerList',true); return; }
-            keys.sort(function(a,b){return Number(v[a].time||0)-Number(v[b].time||0);});
-            latest[uid]=v[keys[keys.length-1]];
-            render('konsConvList',false);
-            render('konsPickerList',true);
-        },function(){});
+            latest[uid]=keys.length?v[keys.sort(function(a,b){return Number(v[a].time||0)-Number(v[b].time||0);}[0]]:null;
+        });
     });
     render('konsConvList',false);
     render('konsPickerList',true);
@@ -93,28 +90,35 @@ function start(){
     if(!user){setTimeout(start,700);return;}
     user.getIdTokenResult(true).then(function(res){
         if(!(res&&res.claims&&res.claims.admin===true)){setTimeout(start,1500);return;}
-        var ref=firebase.database().ref(META);
-        ref.on('value',function(snap){meta=snap.val()||{};refresh();},function(){});
+        firebase.database().ref(META).on('value',function(snap){
+            meta=snap.val()||{};
+            refresh();
+        },function(){});
         if(typeof MutationObserver!=='undefined'){
-            observer=new MutationObserver(function(){render('konsConvList',false);render('konsPickerList',true);});
-            observer.observe(document.body,{childList:true,subtree:true});
+            var ob=new MutationObserver(function(){
+                if(rendering)return;
+                rendering=true;
+                render('konsConvList',false);
+                render('konsPickerList',true);
+                rendering=false;
+            });
+            ob.observe(document.body,{childList:true,subtree:true});
         }
     }).catch(function(){setTimeout(start,1500);});
 }
-(function(){
+(function hookBack(){
     var oldClose=window.closeKonsChat;
-    if(typeof oldClose==='function'){
-        window.closeKonsChat=function(){
-            oldClose.apply(this,arguments);
-            setTimeout(function(){
-                var list=document.getElementById('konsConvList');
-                if(list){
-                    var target=list.closest?list.closest('.card'):list;
-                    try{target.scrollIntoView({behavior:'auto',block:'start'});}catch(e){target.scrollIntoView();}
-                }
-            },0);
-        };
-    }else{setTimeout(arguments.callee,300);}
+    if(typeof oldClose!=='function'){setTimeout(hookBack,300);return;}
+    window.closeKonsChat=function(){
+        oldClose.apply(this,arguments);
+        setTimeout(function(){
+            var list=document.getElementById('konsConvList');
+            if(list){
+                var target=list.closest?list.closest('.card'):list;
+                try{target.scrollIntoView({behavior:'auto',block:'start'});}catch(e){target.scrollIntoView();}
+            }
+        },0);
+    };
 })();
 start();
 })();
