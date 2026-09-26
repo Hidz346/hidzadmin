@@ -1,63 +1,91 @@
-# HIDZPROJECT — Vercel Firewall Production Setup
+# HidzAdmin — Vercel Firewall Production Setup
 
-This project keeps application-level protection in the API and uses Vercel Firewall for the edge layer. Do not try to replace the Vercel Firewall with JavaScript rate limiting: the edge layer must stop abusive traffic before it reaches the Functions.
+HidzAdmin uses two security layers:
 
-## 1. DDoS protection
+1. Vercel Firewall at the edge for volumetric and request-level abuse.
+2. Server-side protection in `api/_lib/security.js` plus the admin login lockout in `api/_lib/db.js`.
 
-Vercel's platform-wide DDoS mitigation is automatic for Vercel deployments. No application code is required for this layer.
+Do not replace the edge layer with JavaScript rate limiting. The application guard is defense in depth only.
 
-## 2. Custom WAF rules
+## 1. Automatic DDoS protection
 
-Open the Vercel project → **Firewall** → **Configure** → **Custom Rules**.
+Vercel provides platform-level DDoS mitigation automatically for deployed projects. No application code is required for this layer.
 
-Create these rules and publish them:
+## 2. Hobby-plan firewall layout
 
-### Rule A — protect authentication
+The current Vercel firewall supports custom rules on Hobby. Current Hobby limits are three custom firewall rules per project and one rate-limiting rule per project. Bot Protection is available as a managed ruleset. The OWASP Core Ruleset is not available on Hobby.
 
-- Name: `HIDZ Auth Abuse`
-- Request Path: starts with `/api/login` OR equals `/api/admin-login`
-- Action: **Rate Limit**
-- Follow-up action: **Deny / 429**
-- Start conservatively and watch the live traffic window before tightening it.
+Because HidzAdmin is on the Hobby plan, keep the configuration within those limits. Do not create two separate rate-limit rules.
 
-### Rule B — protect admin API
+## 3. Rule 1 — Admin API rate limit
 
-- Name: `HIDZ Admin API`
-- Request Path: starts with `/api/admin/`
-- Action: **Rate Limit**
-- Follow-up action: **Deny / 429**
+Create one custom rule:
 
-### Rule C — suspicious non-browser traffic
+- Name: `HIDZ Admin Abuse`
+- Match: `POST` requests to `/api/admin-login` OR `/api/admin/`
+- Rate limit: `20 requests / 60 seconds / IP`
+- Exceeded action: `429`
+- Keep the rule active and publish it.
 
-Use Vercel's Bot Protection / challenge capability where available. Do not blanket-block cURL or all non-browser clients because legitimate monitoring and API tooling may use them.
+The rule intentionally targets only authentication and privileged admin routes. Do not rate-limit all of `/api/*`: the admin panel may legitimately make several API requests during normal use.
 
-### Rule D — emergency IP blocking
+The server also has a separate credential lockout after repeated failed admin authentication attempts, so the two layers are complementary.
 
-Use Firewall → IP Blocking for confirmed abusive addresses. Do not put normal users into permanent blocks merely because of a single transient 429.
+## 4. Rule 2 — common scanner paths
 
-## 3. Managed rules
+Create one blocking rule for obvious probes that are not part of HidzAdmin:
 
-If the project's Vercel plan exposes managed rulesets, enable the available OWASP/bot protection rules after first observing them in log mode where supported. Review false positives before enforcing aggressive rules.
+- `/.env`
+- `/.git/`
+- `/wp-admin`
+- `/wp-login.php`
+- `/xmlrpc.php`
+- `/phpmyadmin`
+- `/server-status`
+- `/cgi-bin/`
 
-## 4. Attack Challenge Mode
+Action: `Deny`.
 
-Use **Attack Challenge Mode** temporarily during an active attack when normal traffic is being overwhelmed. It is a mitigation switch, not a permanent replacement for normal WAF rules.
+Keep this rule path-based. Do not block generic words such as `select`, `union`, or `script` globally because those can create unnecessary false positives on normal traffic.
 
-## 5. Application layer
+## 5. Rule 3 — bot protection
 
-The project also keeps a server-side rate limiter and suspicious-input detector. This is intentionally retained as defense in depth. It should never be treated as the DDoS boundary.
+Enable Vercel's **Bot Protection** managed ruleset for the project.
 
-## 6. Production verification
+Use challenge behavior for suspicious automated traffic where Vercel exposes the option. Do not blanket-block every non-browser user agent because legitimate uptime monitors and API tools may use them.
 
-After publishing WAF changes:
+## 6. Managed OWASP rules
 
-1. Open the live site normally.
-2. Test login once with valid credentials.
-3. Test login once with an invalid credential.
+Do not rely on the OWASP Core Ruleset on Hobby because it is not available on this plan.
+
+HidzAdmin therefore keeps the existing application-layer injection detector in `api/_lib/security.js`. It detects SQL-injection patterns, script/XSS patterns, path traversal, and command-style payloads and temporarily blocks abusive IPs.
+
+This remains defense in depth; it is not the DDoS boundary.
+
+## 7. Attack Challenge Mode
+
+Use **Attack Challenge Mode** only during an active attack or severe abuse spike. It is an emergency control and should not replace the normal firewall rules.
+
+## 8. Emergency IP blocking
+
+Use **Firewall → IP Blocking** for confirmed abusive IP addresses.
+
+Do not permanently block normal users based only on a single 429 response.
+
+## 9. Production verification
+
+After publishing firewall changes:
+
+1. Open `hidzadmin.vercel.app` or the custom domain normally.
+2. Perform one valid admin login.
+3. Perform one invalid login and confirm the application still returns its normal response.
 4. Open the admin panel and load the account list.
-5. Create/extend/delete one test account if appropriate.
-6. Log out and confirm the session is invalidated.
-7. Check Vercel Firewall live traffic for unexpected blocking.
-8. Check Vercel deployment logs for 4xx/5xx spikes.
+5. Confirm create, extend/reduce, delete, logout, and security-event actions still work.
+6. Watch Firewall traffic for unexpected blocks.
+7. Check the latest production deployment for 4xx/5xx spikes.
 
-Do not intentionally generate a large traffic flood against the production domain to test DDoS protection.
+Do not flood the production domain to test DDoS protection.
+
+## 10. CSP note
+
+The admin deployment uses CSP Report-Only without a report endpoint. This is intentional: creating a separate CSP-report Serverless Function would add another Vercel Function and can reintroduce the Hobby function-count limit that this project previously hit.
