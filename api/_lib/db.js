@@ -4,20 +4,121 @@
 
 var pw = require('./password');
 
-var DB_URL = 'https://hidzproject-8f335-default-rtdb.asia-southeast1.firebasedatabase.app';
 
-function authQS() {
-    var secret = process.env.FIREBASE_DB_SECRET || '';
-    return secret ? ('?auth=' + secret) : null;
+var DB_URL = 'https://hidzproject-8f335-default-rtdb.asia-southeast1.firebasedatabase.app';
+var crypto = require('crypto');
+
+var _accessTokenCache = { token: '', expiresAt: 0 };
+
+function _b64url(value) {
+    return Buffer.from(value).toString('base64')
+        .replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
 }
 
-/* Ambil nilai mentah dari path mana pun di database (mis. 'hidz_banned',
-   'hidz_sessions/abc123'). null = secret belum diset / gagal konek. */
-async function fetchPath(path) {
-    var qs = authQS();
-    if (!qs) return null;
+function _serviceAccount() {
+    var raw = process.env.FIREBASE_SERVICE_ACCOUNT_JSON || '';
+    if (raw) {
+        try {
+            var parsed = JSON.parse(raw);
+            if (parsed && parsed.client_email && parsed.private_key && parsed.project_id) return parsed;
+        } catch (e) {}
+    }
+
+    var email = process.env.FIREBASE_CLIENT_EMAIL || '';
+    var key = process.env.FIREBASE_PRIVATE_KEY || '';
+    var projectId = process.env.FIREBASE_PROJECT_ID || 'hidzproject-8f335';
+    if (!email || !key) return null;
+
+    return {
+        client_email: email,
+        private_key: key.replace(/\\n/g, '\\n'),
+        project_id: projectId
+    };
+}
+
+/* Pakai Database Secret kalau masih tersedia. Kalau tidak, fallback ke
+   OAuth access token dari service account yang memang sudah dibutuhkan
+   Firebase Authentication. Ini membuat hidz_access_db tetap tertutup
+   oleh Firebase Rules, tanpa mengharuskan operator mengedit database
+   secara manual. */
+async function _getGoogleAccessToken() {
+    var now = Date.now();
+    if (_accessTokenCache.token && _accessTokenCache.expiresAt > now + 60000) {
+        return _accessTokenCache.token;
+    }
+
+    var sa = _serviceAccount();
+    if (!sa) return null;
+
     try {
-        var r = await fetch(DB_URL + '/' + path + '.json' + qs);
+        var nowSec = Math.floor(now / 1000);
+        var header = { alg: 'RS256', typ: 'JWT' };
+        var payload = {
+            iss: sa.client_email,
+            scope: 'https://www.googleapis.com/auth/firebase.database',
+            aud: 'https://oauth2.googleapis.com/token',
+            iat: nowSec,
+            exp: nowSec + 3600
+        };
+
+        var unsigned = _b64url(JSON.stringify(header)) + '.' + _b64url(JSON.stringify(payload));
+        var signer = crypto.createSign('RSA-SHA256');
+        signer.update(unsigned);
+        signer.end();
+        var assertion = unsigned + '.' + _b64url(signer.sign(sa.private_key));
+
+        var response = await fetch('https://oauth2.googleapis.com/token', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams({
+                grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+                assertion: assertion
+            }).toString()
+        });
+
+        if (!response.ok) return null;
+        var data = await response.json();
+        if (!data || !data.access_token) return null;
+
+        _accessTokenCache = {
+            token: data.access_token,
+            expiresAt: now + Math.max(60000, Math.min(Number(data.expires_in || 3600) * 1000, 3600000))
+        };
+        return _accessTokenCache.token;
+    } catch (e) {
+        return null;
+    }
+}
+
+async function _requestAuth() {
+    var secret = process.env.FIREBASE_DB_SECRET || '';
+    if (secret) {
+        return {
+            query: '?auth=' + encodeURIComponent(secret),
+            headers: {}
+        };
+    }
+
+    var accessToken = await _getGoogleAccessToken();
+    if (!accessToken) return null;
+
+    return {
+        query: '',
+        headers: { Authorization: 'Bearer ' + accessToken }
+    };
+}
+
+/* Ambil nilai mentah dari path mana pun. null = database credential
+   belum tersedia atau request Firebase gagal. */
+async function fetchPath(path) {
+    var auth = await _requestAuth();
+    if (!auth) return null;
+
+    try {
+        var r = await fetch(DB_URL + '/' + path + '.json' + auth.query, {
+            headers: Object.assign({ Accept: 'application/json' }, auth.headers)
+        });
+        if (!r.ok) return null;
         return await r.json();
     } catch (e) {
         return null;
@@ -26,12 +127,13 @@ async function fetchPath(path) {
 
 /* Timpa nilai di path mana pun. */
 async function setPath(path, value) {
-    var qs = authQS();
-    if (!qs) return false;
+    var auth = await _requestAuth();
+    if (!auth) return false;
+
     try {
-        var r = await fetch(DB_URL + '/' + path + '.json' + qs, {
+        var r = await fetch(DB_URL + '/' + path + '.json' + auth.query, {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
+            headers: Object.assign({ 'Content-Type': 'application/json' }, auth.headers),
             body: JSON.stringify(value)
         });
         return r.ok;
@@ -42,10 +144,14 @@ async function setPath(path, value) {
 
 /* Hapus path mana pun. */
 async function deletePath(path) {
-    var qs = authQS();
-    if (!qs) return false;
+    var auth = await _requestAuth();
+    if (!auth) return false;
+
     try {
-        var r = await fetch(DB_URL + '/' + path + '.json' + qs, { method: 'DELETE' });
+        var r = await fetch(DB_URL + '/' + path + '.json' + auth.query, {
+            method: 'DELETE',
+            headers: auth.headers
+        });
         return r.ok;
     } catch (e) {
         return false;
