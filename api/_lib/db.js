@@ -31,7 +31,7 @@ function _serviceAccount() {
 
     return {
         client_email: email,
-        private_key: key.replace(/\\n/g, '\\n'),
+        private_key: key.replace(/\\n/g, '\n'),
         project_id: projectId
     };
 }
