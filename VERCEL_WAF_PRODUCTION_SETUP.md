@@ -89,3 +89,30 @@ Do not flood the production domain to test DDoS protection.
 ## 10. CSP note
 
 The admin deployment uses CSP Report-Only without a report endpoint. This is intentional: creating a separate CSP-report Serverless Function would add another Vercel Function and can reintroduce the Hobby function-count limit that this project previously hit.
+
+
+## 11. Edge firewall incident mirroring
+
+The existing `api/admin/security-alerts.js` now synchronizes recent Vercel Firewall actions for both projects into the shared `hidz_security_events` node. This does **not** add another Serverless Function and does **not** modify the obfuscated `index.html`.
+
+Configure these Vercel environment variables in HidzAdmin:
+
+- `VERCEL_API_TOKEN` — server-only Vercel API token with permission to read Firewall data.
+- `VERCEL_TEAM_ID` — optional; defaults to the current Hidz team.
+- `HIDZADMIN_VERCEL_PROJECT_ID` — optional; defaults to the current HidzAdmin project ID.
+- `HIDZPROJECT_VERCEL_PROJECT_ID` — optional; defaults to the current HidzProject project ID.
+
+The synchronized edge record can contain:
+
+- public IP
+- host
+- Firewall action type
+- request count
+- start/end time
+- project name
+- active/observed state
+- severity
+
+The Firewall actions API does not provide a physical address. Edge events therefore show location as unavailable when the request never reaches an application Function. Application-layer events continue to use Vercel location headers for approximate country/region/city/coordinates.
+
+On Hobby, this is a dashboard-driven synchronization fallback rather than a guaranteed real-time push webhook. Vercel's edge mitigation remains the primary DDoS protection boundary.
