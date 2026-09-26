@@ -58,5 +58,15 @@
         }
       ]
     }
+  ],
+  "rewrites": [
+    {
+      "source": "/api/admin/delete-security-event",
+      "destination": "/api/admin/security-alerts?action=delete"
+    },
+    {
+      "source": "/api/admin/clear-security-events",
+      "destination": "/api/admin/security-alerts?action=clear"
+    }
   ]
 }
