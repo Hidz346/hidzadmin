@@ -1,0 +1,638 @@
+/* HIDZ UI System — shared presentation layer
+ * Keeps the existing application logic untouched.
+ */
+:root{
+  --hz-bg:#0a0d12;
+  --hz-surface:rgba(18,23,32,.86);
+  --hz-surface-2:rgba(23,29,40,.82);
+  --hz-border:rgba(255,255,255,.09);
+  --hz-border-strong:rgba(255,255,255,.16);
+  --hz-text:#f7f8fb;
+  --hz-muted:#8e98aa;
+  --hz-soft:#b8c0ce;
+  --hz-accent:#ff8a1f;
+  --hz-accent-2:#ffb25f;
+  --hz-success:#36d67d;
+  --hz-danger:#ff5b6e;
+  --hz-shadow:0 24px 70px rgba(0,0,0,.34);
+  --hz-radius:18px;
+}
+
+html{
+  background:var(--hz-bg);
+  color-scheme:dark;
+  scroll-behavior:smooth;
+}
+
+html,body{
+  min-height:100%;
+}
+
+body{
+  margin:0;
+  background:
+    radial-gradient(circle at 10% -5%,rgba(255,138,31,.09),transparent 28rem),
+    radial-gradient(circle at 100% 0%,rgba(124,92,255,.08),transparent 32rem),
+    linear-gradient(180deg,#090c11 0%,#0c1016 48%,#090c11 100%);
+  color:var(--hz-text);
+  font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  -webkit-font-smoothing:antialiased;
+  text-rendering:optimizeLegibility;
+}
+
+body::before{
+  content:"";
+  position:fixed;
+  inset:0;
+  pointer-events:none;
+  z-index:-1;
+  background:
+    linear-gradient(rgba(255,255,255,.018) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(255,255,255,.018) 1px,transparent 1px);
+  background-size:36px 36px;
+  mask-image:linear-gradient(to bottom,rgba(0,0,0,.55),transparent 88%);
+}
+
+/* Security gate: same structural flow, substantially calmer proportions. */
+#hidz-security-screen{
+  background:
+    radial-gradient(circle at 50% 0%,rgba(255,138,31,.11),transparent 28rem),
+    linear-gradient(180deg,#090c11 0%,#0d1118 100%) !important;
+}
+
+#hidz-security-screen .hidz-security-wrap{
+  width:min(1040px,calc(100% - 32px));
+  padding:24px 12px 34px !important;
+  text-align:center;
+}
+
+#hidz-security-screen .hidz-security-orbit{
+  width:104px !important;
+  height:104px !important;
+  margin:0 auto 24px !important;
+}
+
+#hidz-security-screen .hidz-security-ring{
+  border-width:5px !important;
+  box-shadow:0 0 28px rgba(255,138,31,.12);
+}
+
+#hidz-security-screen .hidz-security-shield{
+  inset:21px !important;
+  font-size:20px !important;
+  background:linear-gradient(145deg,#171e2a,#10151d) !important;
+  box-shadow:0 0 0 1px rgba(255,255,255,.08) inset,0 10px 30px rgba(0,0,0,.22) !important;
+}
+
+#hidz-security-screen .hidz-security-title{
+  max-width:860px;
+  font-size:clamp(34px,7vw,66px) !important;
+  line-height:1.02 !important;
+  letter-spacing:-.055em !important;
+}
+
+#hidz-security-screen .hidz-security-copy{
+  max-width:780px;
+  margin:20px auto 0 !important;
+  color:#99a3b4 !important;
+  font-size:clamp(16px,2.35vw,22px) !important;
+  line-height:1.55 !important;
+}
+
+#hidz-security-screen .hidz-security-card{
+  max-width:920px;
+  min-height:0 !important;
+  margin:30px auto 0 !important;
+  padding:20px 22px !important;
+  display:grid !important;
+  grid-template-columns:auto minmax(0,1fr) auto !important;
+  gap:20px !important;
+  border:1px solid rgba(255,255,255,.14) !important;
+  border-radius:20px !important;
+  background:linear-gradient(145deg,rgba(32,38,48,.94),rgba(18,23,31,.92)) !important;
+  box-shadow:0 24px 60px rgba(0,0,0,.28),0 0 0 1px rgba(255,255,255,.025) inset !important;
+}
+
+#hidz-security-screen .hidz-security-status strong{
+  font-size:clamp(18px,2.5vw,25px) !important;
+  font-weight:650 !important;
+}
+
+#hidz-security-screen .hidz-security-status span{
+  color:#7f899a !important;
+}
+
+#hidz-security-screen .hidz-security-brand{
+  min-width:180px;
+}
+
+#hidz-security-screen .hidz-security-brand-main{
+  font-size:14px !important;
+  letter-spacing:.24em !important;
+  color:#f5f6f8;
+}
+
+#hidz-security-screen .hidz-security-brand-sub{
+  color:#9fa7b5 !important;
+}
+
+#hidz-security-screen .hidz-security-progress{
+  margin:22px auto 0 !important;
+  width:min(520px,78vw) !important;
+  height:4px !important;
+  background:#1d2633 !important;
+}
+
+#hidz-security-screen .hidz-security-progress i{
+  background:linear-gradient(90deg,#ff7a00,#ffb35d) !important;
+  box-shadow:0 0 18px rgba(255,138,31,.38);
+}
+
+#hidz-security-screen .hidz-security-footer{
+  margin-top:18px !important;
+  color:#687386 !important;
+  font-size:14px !important;
+}
+
+/* Shared app shell */
+body > header,
+body > nav,
+body > aside,
+body > main,
+body > footer,
+body > section,
+main,
+header,
+nav,
+aside,
+footer,
+section{
+  box-sizing:border-box;
+}
+
+body > header,
+body > nav{
+  position:relative;
+  z-index:20;
+}
+
+body > header,
+body > nav,
+[class*="app-header"],
+[class*="topbar"],
+[class*="top-bar"],
+[class*="header-bar"],
+[class*="navbar"]{
+  border-bottom:1px solid var(--hz-border);
+  background:rgba(10,14,20,.78) !important;
+  backdrop-filter:blur(18px) saturate(135%);
+  -webkit-backdrop-filter:blur(18px) saturate(135%);
+}
+
+body > header a,
+body > nav a,
+[class*="navbar"] a,
+[class*="topbar"] a{
+  color:var(--hz-soft);
+}
+
+body > main,
+body > section,
+main,
+section,
+[class*="app-"],
+[class*="page-"],
+[class*="content-"],
+[class*="main-"]{
+  box-sizing:border-box;
+}
+
+[class*="container"],
+[class*="content"],
+[class*="main-wrap"],
+[class*="page-wrap"]{
+  max-width:1400px;
+}
+
+h1,h2,h3,h4,h5,h6{
+  color:var(--hz-text);
+  letter-spacing:-.028em;
+}
+
+p,
+label,
+small{
+  color:var(--hz-soft);
+}
+
+a{
+  color:#c9d1dc;
+  text-decoration-thickness:1px;
+  text-underline-offset:3px;
+}
+
+a:hover{
+  color:#fff;
+}
+
+button,
+input,
+select,
+textarea{
+  font:inherit;
+}
+
+button,
+[role="button"],
+.btn,
+[class*="btn-"],
+[class^="btn"]{
+  border-radius:13px !important;
+  border:1px solid rgba(255,255,255,.11) !important;
+  box-shadow:0 8px 24px rgba(0,0,0,.18),0 0 0 1px rgba(255,255,255,.025) inset;
+  transition:transform .18s ease,border-color .18s ease,background .18s ease,box-shadow .18s ease;
+}
+
+button:hover,
+[role="button"]:hover,
+.btn:hover,
+[class*="btn-"]:hover,
+[class^="btn"]:hover{
+  transform:translateY(-1px);
+  border-color:rgba(255,255,255,.2) !important;
+}
+
+button:active,
+[role="button"]:active{
+  transform:translateY(0);
+}
+
+input,
+select,
+textarea,
+.f-inp,
+.f-sel,
+.lc-input{
+  color:var(--hz-text) !important;
+  background:rgba(14,19,27,.9) !important;
+  border:1px solid var(--hz-border-strong) !important;
+  border-radius:13px !important;
+  outline:none !important;
+  box-shadow:0 0 0 0 rgba(255,138,31,0);
+  transition:border-color .18s ease,box-shadow .18s ease,background .18s ease;
+}
+
+input:focus,
+select:focus,
+textarea:focus,
+.f-inp:focus,
+.f-sel:focus,
+.lc-input:focus{
+  border-color:rgba(255,138,31,.7) !important;
+  box-shadow:0 0 0 4px rgba(255,138,31,.11) !important;
+  background:rgba(16,21,30,.98) !important;
+}
+
+input::placeholder,
+textarea::placeholder{
+  color:#626d7e !important;
+}
+
+table{
+  width:100%;
+  border-collapse:separate;
+  border-spacing:0;
+  overflow:hidden;
+}
+
+table th{
+  color:#9ea8b7;
+  font-weight:600;
+  text-transform:uppercase;
+  letter-spacing:.08em;
+  font-size:11px;
+}
+
+table td,
+table th{
+  border-color:var(--hz-border) !important;
+}
+
+table tr{
+  transition:background .16s ease;
+}
+
+table tbody tr:hover{
+  background:rgba(255,255,255,.026) !important;
+}
+
+/* Cards / panels — catches the existing class families without touching behavior. */
+.card,
+.panel,
+[class*="card"],
+[class*="panel"],
+[class*="section-card"],
+[class*="info-card"],
+[class*="kons-"],
+[class*="ann-"],
+[class*="promo-"],
+[class*="srv-"],
+[class*="akses-"],
+[class*="vip-"]{
+  box-sizing:border-box;
+  color:var(--hz-text);
+}
+
+.card,
+.panel,
+[class*="card"],
+[class*="panel"]{
+  border-color:var(--hz-border) !important;
+  background:linear-gradient(145deg,rgba(21,27,36,.9),rgba(15,20,28,.86)) !important;
+  box-shadow:var(--hz-shadow),0 0 0 1px rgba(255,255,255,.02) inset;
+  border-radius:var(--hz-radius) !important;
+}
+
+[class*="promo-"]{
+  box-shadow:0 20px 60px rgba(255,138,31,.1),0 0 0 1px rgba(255,255,255,.03) inset;
+}
+
+.alert,
+[class*="alert"]{
+  border-radius:14px !important;
+  border:1px solid var(--hz-border-strong) !important;
+  background:rgba(18,23,32,.88) !important;
+}
+
+.toast,
+[class*="toast"]{
+  border:1px solid var(--hz-border-strong) !important;
+  background:rgba(12,17,24,.94) !important;
+  backdrop-filter:blur(16px);
+  box-shadow:0 22px 70px rgba(0,0,0,.36);
+  border-radius:14px !important;
+}
+
+/* Navigation families present in HIDZ PROJECT / PANEL. */
+.vertical-nav,
+[class*="vertical-nav"],
+[class*="sidebar"],
+aside{
+  background:rgba(10,14,20,.78) !important;
+  border-color:var(--hz-border) !important;
+  backdrop-filter:blur(18px);
+  -webkit-backdrop-filter:blur(18px);
+}
+
+.vertical-nav-item,
+[class*="vertical-nav-item"],
+[class*="nav-item"]{
+  color:#8f99aa !important;
+  border-radius:12px !important;
+  transition:background .16s ease,color .16s ease,transform .16s ease;
+}
+
+.vertical-nav-item:hover,
+[class*="vertical-nav-item"]:hover,
+[class*="nav-item"]:hover{
+  color:#fff !important;
+  background:rgba(255,255,255,.05) !important;
+}
+
+.vertical-nav-item.active,
+[class*="vertical-nav-item"].active,
+[class*="nav-item"].active,
+[class*="nav-item"][aria-current="page"]{
+  color:#fff !important;
+  background:linear-gradient(90deg,rgba(255,138,31,.16),rgba(255,138,31,.045)) !important;
+  box-shadow:inset 3px 0 0 var(--hz-accent),0 10px 26px rgba(0,0,0,.16);
+}
+
+/* Main site utility cards and information blocks. */
+[class*="info-left"],
+[class*="card-hor"],
+[class*="project-s"],
+.gobox{
+  border-radius:18px !important;
+}
+
+.gobox{
+  border:1px solid var(--hz-border) !important;
+  background:linear-gradient(145deg,rgba(24,30,40,.9),rgba(14,19,27,.88)) !important;
+  box-shadow:var(--hz-shadow);
+}
+
+/* Admin-specific families visible in the existing panel. */
+.panel-log,
+[class*="panel-log"],
+[class*="kons-"],
+[class*="u-row"],
+[class*="u-exp"],
+[class*="u-c"],
+[class*="user-"],
+[class*="role-"],
+[class*="tp-b"]{
+  color:var(--hz-text);
+}
+
+[class*="kons-row"],
+[class*="kons-co"],
+[class*="kons-d"],
+[class*="kons-sen"]{
+  border-color:var(--hz-border) !important;
+}
+
+[class*="durg"],
+[class*="st-p"]{
+  color:#b8c0ce !important;
+}
+
+/* Accent utilities */
+.text-accent,
+[class*="accent"],
+[class*="brand"]{
+  --accent-color:var(--hz-accent);
+}
+
+button.primary,
+button[data-variant="primary"],
+[class*="btn-p"],
+[class*="btn-primary"]{
+  color:#160d05 !important;
+  border-color:#ff9b3f !important;
+  background:linear-gradient(135deg,#ff8a1f,#ffb25f) !important;
+  box-shadow:0 12px 30px rgba(255,138,31,.2),0 0 0 1px rgba(255,255,255,.17) inset !important;
+}
+
+button.danger,
+[class*="btn-danger"],
+[class*="btn-del"],
+[class*="btn-delete"]{
+  border-color:rgba(255,91,110,.35) !important;
+  background:rgba(145,30,45,.22) !important;
+}
+
+.status-success,
+[class*="success"],
+[class*="active"]{
+  --hz-status-color:var(--hz-success);
+}
+
+.status-danger,
+[class*="danger"],
+[class*="banned"]{
+  --hz-status-color:var(--hz-danger);
+}
+
+/* Scrollbars */
+*{
+  scrollbar-width:thin;
+  scrollbar-color:#303947 transparent;
+}
+
+*::-webkit-scrollbar{
+  width:9px;
+  height:9px;
+}
+
+*::-webkit-scrollbar-track{
+  background:transparent;
+}
+
+*::-webkit-scrollbar-thumb{
+  background:#303947;
+  border:2px solid transparent;
+  background-clip:padding-box;
+  border-radius:999px;
+}
+
+*::-webkit-scrollbar-thumb:hover{
+  background:#465264;
+  border:2px solid transparent;
+  background-clip:padding-box;
+}
+
+/* Respect motion preferences. */
+@media (prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto}
+  *,*::before,*::after{
+    transition-duration:.01ms !important;
+    animation-duration:.01ms !important;
+    animation-iteration-count:1 !important;
+  }
+}
+
+/* Tablet */
+@media (max-width:900px){
+  #hidz-security-screen .hidz-security-card{
+    grid-template-columns:auto minmax(0,1fr) !important;
+  }
+
+  #hidz-security-screen .hidz-security-brand{
+    grid-column:1 / -1;
+    min-width:0;
+    text-align:left;
+    padding-left:70px;
+  }
+
+  [class*="sidebar"],
+  .vertical-nav,
+  aside{
+    backdrop-filter:blur(20px);
+  }
+}
+
+/* Phone */
+@media (max-width:640px){
+  body{
+    background:
+      radial-gradient(circle at 20% 0%,rgba(255,138,31,.08),transparent 18rem),
+      linear-gradient(180deg,#090c11 0%,#0b0f15 100%);
+  }
+
+  body::before{display:none}
+
+  #hidz-security-screen .hidz-security-wrap{
+    width:min(100%,calc(100% - 22px));
+    padding:16px 4px 22px !important;
+  }
+
+  #hidz-security-screen .hidz-security-orbit{
+    width:82px !important;
+    height:82px !important;
+    margin-bottom:18px !important;
+  }
+
+  #hidz-security-screen .hidz-security-shield{
+    inset:17px !important;
+  }
+
+  #hidz-security-screen .hidz-security-title{
+    font-size:clamp(32px,11vw,45px) !important;
+  }
+
+  #hidz-security-screen .hidz-security-copy{
+    margin-top:15px !important;
+    font-size:16px !important;
+    line-height:1.48 !important;
+  }
+
+  #hidz-security-screen .hidz-security-card{
+    grid-template-columns:50px minmax(0,1fr) !important;
+    gap:13px !important;
+    margin-top:24px !important;
+    padding:16px !important;
+    border-radius:16px !important;
+    text-align:left !important;
+  }
+
+  #hidz-security-screen .hidz-security-dots{
+    width:46px !important;
+    height:46px !important;
+    flex-basis:46px !important;
+  }
+
+  #hidz-security-screen .hidz-security-status span{
+    margin-top:5px !important;
+    font-size:11px !important;
+    line-height:1.4;
+  }
+
+  #hidz-security-screen .hidz-security-brand{
+    display:none !important;
+  }
+
+  #hidz-security-screen .hidz-security-footer{
+    margin-top:15px !important;
+    font-size:12px !important;
+  }
+
+  .card,
+  .panel,
+  [class*="card"],
+  [class*="panel"]{
+    border-radius:16px !important;
+  }
+
+  button,
+  [role="button"],
+  .btn,
+  [class*="btn-"],
+  [class^="btn"]{
+    border-radius:12px !important;
+  }
+
+  table{
+    min-width:640px;
+  }
+}
+
+@media (max-width:420px){
+  #hidz-security-screen .hidz-security-title{
+    font-size:31px !important;
+  }
+
+  #hidz-security-screen .hidz-security-copy{
+    font-size:15px !important;
+  }
+}
