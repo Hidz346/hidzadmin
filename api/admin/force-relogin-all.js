@@ -25,34 +25,37 @@ module.exports = async function (req, res) {
         return;
     }
 
-    var list = await db.fetchAllAccounts();
-    if (list === null) {
-        res.status(200).json({ ok: false, error: true });
-        return;
-    }
-
     var now = Date.now();
-    list.forEach(function (u) {
-        var isUnlimitedDur = !(typeof u.durationMs === 'number' && u.durationMs > 0);
-        var isExpired = u.expiresAt && now > u.expiresAt;
-        if (isUnlimitedDur) {
-            u.activated = false;
-        } else if (u.activated === true && u.expiresAt && !isExpired) {
-            u.durationMs = Math.max(0, u.expiresAt - now);
-            u.expiresAt  = null;
-            u.activated  = false;
-        }
-        u.logoutAt  = now;
-        u.loggedOut = false;
+    var out = await db.mutateAccounts(function (list) {
+        list.forEach(function (u) {
+            var isUnlimitedDur = !(typeof u.durationMs === 'number' && u.durationMs > 0);
+            var isExpired = u.expiresAt && now > u.expiresAt;
+            if (isUnlimitedDur) {
+                u.activated = false;
+            } else if (u.activated === true && u.expiresAt && !isExpired) {
+                u.durationMs = Math.max(0, u.expiresAt - now);
+                u.expiresAt  = null;
+                u.activated  = false;
+            }
+            u.logoutAt  = now;
+            u.loggedOut = false;
+        });
+        return {
+            save: true,
+            result: list.map(function (u) { return u.id; })
+        };
     });
 
-    var ok = await db.saveAllAccounts(list);
+    if (!out.ok) {
+        res.status(200).json({ ok: false });
+        return;
+    }
 
     /* Bersihkan sesi/banned/blocked semua akun apa pun hasil di atas, sama
        seperti versi lama — supaya sisa data sesi lama gak bikin akun yang
        baru saja direset kena "AKUN DIBLOKIR" secara keliru. */
-    await Promise.all(list.map(function (u) { return db.removeAccountTraces(u.id); }));
+    await Promise.all(out.result.map(function (id) { return db.removeAccountTraces(id); }));
     await db.setPath('hidz_force_relogin', now);
 
-    res.status(200).json({ ok: !!ok });
+    res.status(200).json({ ok: true });
 };

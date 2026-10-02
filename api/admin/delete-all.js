@@ -22,16 +22,14 @@ module.exports = async function (req, res) {
         return;
     }
 
-    var list = await db.fetchAllAccounts();
-    if (list === null) {
+    /* Intip dulu apakah memang ada yang perlu dihapus, supaya sinyal logout
+       instan di bawah tidak terkirim percuma. */
+    var current = await db.fetchAllAccounts();
+    if (current === null) {
         res.status(200).json({ ok: false, error: true });
         return;
     }
-
-    var kept    = list.filter(function (u) { return db.isProtectedAccount(u); });
-    var removed = list.filter(function (u) { return !db.isProtectedAccount(u); });
-
-    if (removed.length === 0) {
+    if (!current.some(function (u) { return !db.isProtectedAccount(u); })) {
         res.status(200).json({ ok: true, removedCount: 0 });
         return;
     }
@@ -40,12 +38,20 @@ module.exports = async function (req, res) {
        diubah, sama seperti versi lama */
     await db.setPath('hidz_delete_all_trigger', Date.now());
 
-    var ok = await db.saveAllAccounts(kept);
-    if (!ok) {
+    var out = await db.mutateAccounts(function (list) {
+        var removed = list.filter(function (u) { return !db.isProtectedAccount(u); });
+        return {
+            save: removed.length > 0,
+            list: list.filter(function (u) { return db.isProtectedAccount(u); }),
+            result: removed
+        };
+    });
+
+    if (!out.ok) {
         res.status(200).json({ ok: false, error: true });
         return;
     }
 
-    await Promise.all(removed.map(function (u) { return db.removeAccountTraces(u.id); }));
-    res.status(200).json({ ok: true, removedCount: removed.length });
+    await Promise.all(out.result.map(function (u) { return db.removeAccountTraces(u.id); }));
+    res.status(200).json({ ok: true, removedCount: out.result.length });
 };

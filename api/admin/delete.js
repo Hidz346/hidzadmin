@@ -25,29 +25,22 @@ module.exports = async function (req, res) {
         return;
     }
 
-    var list = await db.fetchAllAccounts();
-    if (list === null) {
+    var out = await db.mutateAccounts(function (list) {
+        var target = list.filter(function (u) { return u.id === targetId; })[0];
+        if (!target) return { save: false, result: { ok: false, reason: 'not_found' } };
+        if (db.isProtectedAccount(target)) return { save: false, result: { ok: false, reason: 'protected' } };
+
+        return {
+            save: true,
+            list: list.filter(function (u) { return u.id !== targetId; }),
+            result: { ok: true }
+        };
+    });
+
+    if (!out.ok) {
         res.status(200).json({ ok: false, error: true });
         return;
     }
-
-    var target = list.filter(function (u) { return u.id === targetId; })[0];
-    if (!target) {
-        res.status(200).json({ ok: false, reason: 'not_found' });
-        return;
-    }
-    if (db.isProtectedAccount(target)) {
-        res.status(200).json({ ok: false, reason: 'protected' });
-        return;
-    }
-
-    var remaining = list.filter(function (u) { return u.id !== targetId; });
-    var ok = await db.saveAllAccounts(remaining);
-    if (!ok) {
-        res.status(200).json({ ok: false, error: true });
-        return;
-    }
-
-    await db.removeAccountTraces(targetId);
-    res.status(200).json({ ok: true });
+    if (out.result.ok) await db.removeAccountTraces(targetId);
+    res.status(200).json(out.result);
 };
