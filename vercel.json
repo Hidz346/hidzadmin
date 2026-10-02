@@ -61,6 +61,14 @@
   ],
   "rewrites": [
     {
+      "source": "/api/admin/extend",
+      "destination": "/api/admin/duration"
+    },
+    {
+      "source": "/api/admin/reduce",
+      "destination": "/api/admin/duration"
+    },
+    {
       "source": "/api/admin/delete-security-event",
       "destination": "/api/admin/security-alerts?action=delete"
     },
