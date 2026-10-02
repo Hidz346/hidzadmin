@@ -40,6 +40,23 @@ async function setPath(path, value) {
     }
 }
 
+/* Ubah sebagian field di sebuah node (PATCH) — field lain di node yang sama
+   tidak tersentuh, beda dengan setPath() yang menimpa seluruh node. */
+async function updatePath(path, value) {
+    var qs = authQS();
+    if (!qs) return false;
+    try {
+        var r = await fetch(DB_URL + '/' + path + '.json' + qs, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(value)
+        });
+        return r.ok;
+    } catch (e) {
+        return false;
+    }
+}
+
 /* Hapus path mana pun. */
 async function deletePath(path) {
     var qs = authQS();
@@ -57,12 +74,88 @@ async function deletePath(path) {
 async function fetchAllAccounts() {
     var data = await fetchPath('hidz_access_db');
     if (data === null) return null;
+    return cleanAccounts(data);
+}
+
+/* Daftar akun versi "bersih": entri kosong / tanpa username dibuang. Dipakai
+   bareng oleh fetchAllAccounts() dan mutateAccounts() supaya hasilnya sama. */
+function cleanAccounts(data) {
     if (Array.isArray(data)) return data.filter(function (u) { return u && u.username; });
     if (data && typeof data === 'object') return Object.values(data).filter(function (u) { return u && u.username; });
     return [];
 }
 
-/* Timpa seluruh daftar akun dengan array baru. */
+var MUTATE_MAX_ATTEMPTS = 10;
+
+function pause(ms) {
+    return new Promise(function (resolve) { setTimeout(resolve, ms); });
+}
+
+/* Baca-ubah-tulis daftar akun SECARA ATOMIK. Semua endpoint yang mengubah
+   hidz_access_db harus lewat sini, bukan fetchAllAccounts() + saveAllAccounts()
+   terpisah — kalau dua request jalan bersamaan (mis. admin membuat akun saat
+   user lain login pertama kali), yang menulis belakangan akan menimpa
+   perubahan yang menulis duluan, dan akun bisa hilang atau aktivasi
+   login-nya terbuang.
+
+   Caranya pakai conditional request bawaan Firebase REST: GET dengan header
+   X-Firebase-ETag mengembalikan ETag data saat dibaca, lalu PUT dengan
+   if-match hanya diterima kalau data belum berubah sejak itu. Kalau sudah
+   berubah, Firebase menjawab 412 dan kita ulangi dari baca. Hasilnya sama
+   dengan transaction() yang dulu dipakai langsung dari browser.
+
+   mutator(list) menerima daftar akun terbaru dan mengubahnya di tempat
+   (atau mengembalikan `list` baru), lalu mengembalikan:
+     { save: true,  result: ... }  -> daftar ditulis
+     { save: false, result: ... }  -> tidak ada yang ditulis (validasi gagal, dll)
+   mutator bisa terpanggil lebih dari sekali kalau terjadi bentrok, jadi
+   jangan taruh efek samping (tulis ke tempat lain, hitung hash mahal) di
+   dalamnya — kerjakan dulu di luar.
+
+   Balikan: { ok: true, result } kalau selesai, { ok: false } kalau secret
+   belum diset / gagal konek / bentrok terus sampai kehabisan percobaan. */
+async function mutateAccounts(mutator) {
+    var qs = authQS();
+    if (!qs) return { ok: false };
+    var url = DB_URL + '/hidz_access_db.json' + qs;
+
+    for (var attempt = 0; attempt < MUTATE_MAX_ATTEMPTS; attempt++) {
+        var etag = null;
+        var data = null;
+        try {
+            var r = await fetch(url, { headers: { 'X-Firebase-ETag': 'true' } });
+            if (!r.ok) return { ok: false };
+            etag = r.headers.get('etag');
+            data = await r.json();
+        } catch (e) {
+            return { ok: false };
+        }
+
+        var list = cleanAccounts(data);
+        var out = mutator(list);
+        if (!out || !out.save) return { ok: true, result: out ? out.result : undefined };
+
+        var headers = { 'Content-Type': 'application/json' };
+        if (etag) headers['if-match'] = etag;
+        try {
+            var w = await fetch(url, { method: 'PUT', headers: headers, body: JSON.stringify(out.list || list) });
+            if (w.ok) return { ok: true, result: out.result };
+            if (w.status !== 412) return { ok: false };
+        } catch (e) {
+            return { ok: false };
+        }
+
+        /* Bentrok dengan penulis lain — jeda acak yang makin lebar tiap
+           percobaan, supaya request yang bentrok bersamaan tidak mengulang
+           di saat yang sama lagi dan semuanya akhirnya kebagian giliran. */
+        await pause(Math.floor(Math.random() * Math.min(600, 40 * Math.pow(2, attempt))));
+    }
+    return { ok: false };
+}
+
+/* Timpa seluruh daftar akun dengan array baru, TANPA cek bentrok. Untuk
+   mengubah akun pakai mutateAccounts() di atas — fungsi ini bisa menimpa
+   perubahan lain yang masuk di saat yang sama. */
 async function saveAllAccounts(list) {
     return setPath('hidz_access_db', list);
 }
@@ -158,8 +251,10 @@ module.exports = {
     DB_URL: DB_URL,
     fetchPath: fetchPath,
     setPath: setPath,
+    updatePath: updatePath,
     deletePath: deletePath,
     fetchAllAccounts: fetchAllAccounts,
+    mutateAccounts: mutateAccounts,
     saveAllAccounts: saveAllAccounts,
     removeAccountTraces: removeAccountTraces,
     isProtectedAccount: isProtectedAccount,
