@@ -17,11 +17,17 @@
    - update   -> tambah/kurangi dari SISA waktu yang sedang berjalan, atau
                  langsung ubah ke UNLIMITED (sisa dihitung di server, bukan di
                  browser, supaya tidak terpengaruh jam perangkat admin)
-   - progress -> ubah persentase progress perbaikan saja */
+   - progress -> ubah persentase progress perbaikan saja
+   - project-new -> kabari semua akun bahwa ada project baru (pesan dalam
+                 halaman + notifikasi Chrome). Tidak menyentuh mode maintenance;
+                 numpang di endpoint ini supaya jumlah Serverless Function
+                 tidak bertambah — logikanya ada di api/_lib/project-new.js */
 
 var db = require('../_lib/db');
 var securityGuard = require('../_lib/security');
 var firebaseAuth = require('../_lib/firebase-auth');
+var push = require('../_lib/push');
+var projectNew = require('../_lib/project-new');
 
 var MREF = 'hidz_maintenance_mode';
 var DEFAULT_DURATION_MS = 24 * 3600000;       /* sama seperti halaman maintenance user */
@@ -64,6 +70,11 @@ module.exports = async function (req, res) {
     var action = typeof body.action === 'string' ? body.action : '';
     var now    = Date.now();
 
+    if (action === 'project-new') {
+        await projectNew.run(body, res);
+        return;
+    }
+
     var current = await db.fetchPath(MREF);
     var knownProgress = (current && typeof current.progress === 'number') ? current.progress : 0;
 
@@ -79,6 +90,15 @@ module.exports = async function (req, res) {
             durationMs: startMs
         };
         if (!(await db.setPath(MREF, onData))) { res.status(200).json({ ok: false, error: true }); return; }
+
+        /* Kabari device yang sudah mengaktifkan notifikasi Chrome. */
+        await push.broadcast({
+            type:  'maintenance',
+            title: 'Maintenance HidzProject',
+            body:  'Website sedang dalam perbaikan' +
+                   (startMs > 0 ? ', estimasi ' + push.describeDuration(startMs) : '') +
+                   '. Akses dibuka lagi setelah selesai.'
+        }, 'hidz-maintenance');
         res.status(200).json({ ok: true, data: onData });
         return;
     }

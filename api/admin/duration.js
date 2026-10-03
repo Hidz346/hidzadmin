@@ -27,6 +27,7 @@
 var db = require('../_lib/db');
 var securityGuard = require('../_lib/security');
 var firebaseAuth = require('../_lib/firebase-auth');
+var push = require('../_lib/push');
 
 function msToLabel(ms) {
     if (ms === null || ms === undefined) return 'UNLIMITED';
@@ -110,6 +111,16 @@ module.exports = async function (req, res) {
     if (!out.ok) {
         res.status(200).json({ ok: false, error: true });
         return;
+    }
+
+    /* Pemilik akun dikabari hanya untuk TAMBAH durasi (pesan dalam halaman
+       saat ONLINE + notifikasi Chrome). Mengurangi durasi tidak ikut. */
+    if (adding && out.result && out.result.ok) {
+        await push.notifyUser(targetId, {
+            type:  'duration_added',
+            title: 'Durasi Akun Ditambah',
+            body:  'Durasi akunmu bertambah ' + push.describeDuration(addMs) + '.'
+        });
     }
     res.status(200).json(out.result);
 };
