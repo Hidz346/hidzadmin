@@ -20,6 +20,13 @@
       dalam halaman yang jalan), kalau tidak ya muncul di bar notifikasi
       seperti notifikasi Chrome biasa.
 
+   3) RIWAYAT — hidz_notification_log/{id}
+      Tiap pengiriman dicatat untuk kartu "Riwayat Notifikasi" di panel
+      admin (jenis, isi, penerima, jumlah device Chrome yang terkirim). Path
+      ini tertutup untuk browser; dibaca dan dihapus lewat action 'notif-list'
+      / 'notif-delete' di api/admin/maintenance.js. Menghapus riwayat juga
+      menarik pesan antrean yang belum dibaca (ditandai logId).
+
    Semuanya best-effort: kegagalan di sini TIDAK boleh menggagalkan aksi
    admin yang sudah berhasil, jadi tidak ada fungsi di bawah yang melempar
    error. Kalau paket web-push belum terpasang atau kunci VAPID belum
@@ -33,12 +40,16 @@ try { webpush = require('web-push'); } catch (e) { webpush = null; }
 
 var SUBS_PATH  = 'hidz_push_subs';
 var INBOX_PATH = 'hidz_notifications';
+var LOG_PATH   = 'hidz_notification_log';
 var ADMIN_ID   = 'admin_hidz_protected';
 
 /* Id akun dipakai langsung sebagai kunci path Firebase. Satu kunci yang
    mengandung karakter terlarang (. # $ [ ] /) membuat seluruh penulisan
    massal ditolak, jadi akun dengan id aneh dilewati saja. */
 var ID_PATTERN = /^[A-Za-z0-9_-]{1,128}$/;
+
+var LOG_ID_PATTERN = /^l_[0-9]{10,16}_[0-9a-f]{6}$/;
+var LOG_KEEP = 50;   /* riwayat yang disimpan; sisanya dipangkas saat daftar dibuka */
 
 var BATCH_SIZE   = 10;
 var SEND_TIMEOUT = 4000;   /* batas tiap pengiriman ke layanan push */
@@ -63,14 +74,29 @@ function isAllowedEndpoint(endpoint) {
     });
 }
 
+/* Alasan Web Push tidak jalan dicatat ke log Vercel (sekali per alasan per
+   instance), supaya kelihatan di Logs tanpa membanjiri. */
+var _warned = {};
+function warnOnce(key, message) {
+    if (_warned[key]) return;
+    _warned[key] = true;
+    console.warn('[push] ' + message);
+}
+
 var _configured = false;
 function pushReady() {
-    if (!webpush) return false;
+    if (!webpush) {
+        warnOnce('module', 'paket web-push tidak terpasang — pastikan package.json ada di root repo HidzAdmin, lalu deploy ulang.');
+        return false;
+    }
     if (_configured) return true;
 
     var publicKey  = process.env.VAPID_PUBLIC_KEY || '';
     var privateKey = process.env.VAPID_PRIVATE_KEY || '';
-    if (!publicKey || !privateKey) return false;
+    if (!publicKey || !privateKey) {
+        warnOnce('keys', 'VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY belum diisi di HidzAdmin (atau belum redeploy).');
+        return false;
+    }
 
     try {
         webpush.setVapidDetails(
@@ -80,6 +106,7 @@ function pushReady() {
         );
         _configured = true;
     } catch (e) {
+        warnOnce('details', 'kunci VAPID / VAPID_SUBJECT ditolak: ' + (e && e.message));
         return false;
     }
     return true;
@@ -119,6 +146,7 @@ async function sendOne(path, sub, payload, ttl) {
         return true;
     } catch (e) {
         if (e && (e.statusCode === 404 || e.statusCode === 410)) await db.deletePath(path);
+        else console.warn('[push] gagal kirim (status ' + (e && e.statusCode) + '): ' + String((e && e.body) || (e && e.message) || '').slice(0, 200));
         return false;
     }
 }
@@ -151,32 +179,65 @@ function newInboxId() {
     return 'n_' + Date.now() + '_' + crypto.randomBytes(3).toString('hex');
 }
 
+function newLogId() {
+    return 'l_' + Date.now() + '_' + crypto.randomBytes(3).toString('hex');
+}
+
+/* Catat satu pengiriman ke riwayat. Best-effort seperti yang lain di file
+   ini: gagal mencatat tidak boleh mengganggu pengiriman yang sudah jalan. */
+async function logHistory(id, entry) {
+    var rec = {
+        type:      entry.type || 'info',
+        title:     entry.title,
+        body:      entry.body,
+        scope:     entry.scope,
+        pushed:    entry.pushed || 0,
+        createdAt: entry.createdAt || Date.now()
+    };
+    if (entry.userId)   rec.userId   = entry.userId;
+    if (entry.accounts) rec.accounts = entry.accounts;
+
+    var saved = await db.setPath(LOG_PATH + '/' + id, rec);
+    if (!saved) console.warn('[push] riwayat notifikasi gagal ditulis ke Firebase.');
+    return saved;
+}
+
 /* Kabari satu akun: antrean dalam halaman + Web Push ke semua device-nya.
    note = { type, title, body }. Balikan: jumlah push yang terkirim. */
 async function notifyUser(userId, note) {
     if (!userId || !note) return 0;
 
+    var pushed = 0;
     try {
-        var id = newInboxId();
-        await db.setPath(INBOX_PATH + '/' + userId + '/' + id, {
+        var id    = newInboxId();
+        var logId = newLogId();
+        var queued = await db.setPath(INBOX_PATH + '/' + userId + '/' + id, {
             type:      note.type || 'info',
             title:     note.title,
             body:      note.body,
-            createdAt: Date.now()
+            createdAt: Date.now(),
+            logId:     logId
         });
+        if (!queued) console.warn('[push] pesan dalam halaman gagal ditulis ke Firebase (cek FIREBASE_DB_SECRET).');
 
-        if (!pushReady()) return 0;
+        if (pushReady()) {
+            var devices = await db.fetchPath(SUBS_PATH + '/' + userId);
+            if (devices && typeof devices === 'object') {
+                var targets = Object.keys(devices).map(function (deviceId) {
+                    return { path: SUBS_PATH + '/' + userId + '/' + deviceId, sub: devices[deviceId] };
+                });
+                pushed = await sendAll(targets, note, id, 86400);
+            }
+        }
 
-        var devices = await db.fetchPath(SUBS_PATH + '/' + userId);
-        if (!devices || typeof devices !== 'object') return 0;
-
-        var targets = Object.keys(devices).map(function (deviceId) {
-            return { path: SUBS_PATH + '/' + userId + '/' + deviceId, sub: devices[deviceId] };
-        });
-        return await sendAll(targets, note, id, 86400);
-    } catch (e) {
-        return 0;
-    }
+        if (queued || pushed > 0) {
+            await logHistory(logId, {
+                type: note.type, title: note.title, body: note.body,
+                scope: 'user', userId: userId, pushed: pushed
+            });
+        }
+    } catch (e) { /* best-effort */ }
+    return pushed;
 }
 
 /* Kabari SEMUA device yang sudah mengaktifkan notifikasi (mis. maintenance
@@ -203,16 +264,23 @@ async function broadcast(note, tag) {
 
         var targets = [];
         var orphans = [];
+        var reached = {};
         Object.keys(all).forEach(function (userId) {
             if (userId === ADMIN_ID || !all[userId] || typeof all[userId] !== 'object') return;
             if (!alive[userId]) { orphans.push(userId); return; }
             Object.keys(all[userId]).forEach(function (deviceId) {
+                reached[userId] = true;
                 targets.push({ path: SUBS_PATH + '/' + userId + '/' + deviceId, sub: all[userId][deviceId] });
             });
         });
 
         await Promise.all(orphans.map(function (userId) { return db.deletePath(SUBS_PATH + '/' + userId); }));
-        return await sendAll(targets, note, tag || 'hidz-info', 21600);
+        var sent = await sendAll(targets, note, tag || 'hidz-info', 21600);
+        await logHistory(newLogId(), {
+            type: note.type, title: note.title, body: note.body,
+            scope: 'all', accounts: Object.keys(reached).length, pushed: sent
+        });
+        return sent;
     } catch (e) {
         return 0;
     }
@@ -248,6 +316,7 @@ async function announce(note) {
         if (!recipients.length) return { accounts: 0, pushed: 0 };
 
         /* Satu penulisan massal ke semua antrean — bukan satu request per akun. */
+        var logId = newLogId();
         var inbox = {};
         var tags  = {};
         recipients.forEach(function (u) {
@@ -257,7 +326,8 @@ async function announce(note) {
                 type:      note.type || 'info',
                 title:     note.title,
                 body:      note.body,
-                createdAt: now
+                createdAt: now,
+                logId:     logId
             };
         });
         if (!(await db.updatePath(INBOX_PATH, inbox))) return null;
@@ -281,9 +351,77 @@ async function announce(note) {
                 pushed = await sendAll(targets, note, 'hidz-info', 86400);
             }
         }
+
+        await logHistory(logId, {
+            type: note.type, title: note.title, body: note.body,
+            scope: 'all', accounts: recipients.length, pushed: pushed, createdAt: now
+        });
         return { accounts: recipients.length, pushed: pushed };
     } catch (e) {
         return null;
+    }
+}
+
+/* Riwayat untuk panel admin, terbaru lebih dulu. Yang melewati LOG_KEEP
+   dipangkas di sini — daftar ini hanya dibuka admin, jadi tidak perlu tugas
+   pembersih terpisah. */
+async function listHistory() {
+    var all = await db.fetchPath(LOG_PATH);
+    if (!all || typeof all !== 'object') return [];
+
+    var items = Object.keys(all)
+        .filter(function (id) { return LOG_ID_PATTERN.test(id) && all[id] && typeof all[id] === 'object'; })
+        .map(function (id) {
+            var e = all[id];
+            return {
+                id:        id,
+                type:      String(e.type || 'info'),
+                title:     String(e.title || ''),
+                body:      String(e.body || ''),
+                scope:     e.scope === 'user' ? 'user' : 'all',
+                userId:    e.userId ? String(e.userId) : '',
+                accounts:  Number(e.accounts) || 0,
+                pushed:    Number(e.pushed) || 0,
+                createdAt: Number(e.createdAt) || 0
+            };
+        })
+        .sort(function (a, b) { return b.createdAt - a.createdAt; });
+
+    if (items.length > LOG_KEEP) {
+        var stale = {};
+        items.slice(LOG_KEEP).forEach(function (it) { stale[it.id] = null; });
+        await db.updatePath(LOG_PATH, stale);
+        items = items.slice(0, LOG_KEEP);
+    }
+    return items;
+}
+
+/* Hapus satu catatan riwayat sekaligus menarik pesan antrean yang masih
+   belum dibaca penerimanya (yang sudah dibaca/terhapus tidak ada lagi).
+   Balikan: null kalau id tidak valid, false kalau database gagal,
+   selain itu { retracted } — jumlah pesan antrean yang ditarik. */
+async function removeHistory(id) {
+    if (typeof id !== 'string' || !LOG_ID_PATTERN.test(id)) return null;
+
+    try {
+        var inbox = await db.fetchPath(INBOX_PATH);
+        var retract = {};
+        if (inbox && typeof inbox === 'object') {
+            Object.keys(inbox).forEach(function (userId) {
+                var notes = inbox[userId];
+                if (!ID_PATTERN.test(userId) || !notes || typeof notes !== 'object') return;
+                Object.keys(notes).forEach(function (noteId) {
+                    if (notes[noteId] && notes[noteId].logId === id) retract[userId + '/' + noteId] = null;
+                });
+            });
+        }
+
+        var retracted = Object.keys(retract).length;
+        if (retracted && !(await db.updatePath(INBOX_PATH, retract))) return false;
+        if (!(await db.deletePath(LOG_PATH + '/' + id))) return false;
+        return { retracted: retracted };
+    } catch (e) {
+        return false;
     }
 }
 
@@ -291,5 +429,7 @@ module.exports = {
     notifyUser: notifyUser,
     broadcast: broadcast,
     announce: announce,
+    listHistory: listHistory,
+    removeHistory: removeHistory,
     describeDuration: describeDuration
 };
