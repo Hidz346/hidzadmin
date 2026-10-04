@@ -21,7 +21,13 @@
    - project-new -> kabari semua akun bahwa ada project baru (pesan dalam
                  halaman + notifikasi Chrome). Tidak menyentuh mode maintenance;
                  numpang di endpoint ini supaya jumlah Serverless Function
-                 tidak bertambah — logikanya ada di api/_lib/project-new.js */
+                 tidak bertambah — logikanya ada di api/_lib/project-new.js
+   - notif-list   -> riwayat notifikasi yang pernah dikirim (terbaru dulu)
+   - notif-delete -> hapus satu catatan riwayat + tarik pesan antrean yang
+                 belum dibaca penerimanya. Notifikasi Chrome yang sudah
+                 masuk ke perangkat tidak bisa ditarik. Numpang di sini
+                 juga demi batas Serverless Function; logikanya di
+                 api/_lib/push.js (listHistory / removeHistory). */
 
 var db = require('../_lib/db');
 var securityGuard = require('../_lib/security');
@@ -72,6 +78,19 @@ module.exports = async function (req, res) {
 
     if (action === 'project-new') {
         await projectNew.run(body, res);
+        return;
+    }
+
+    if (action === 'notif-list') {
+        res.status(200).json({ ok: true, items: await push.listHistory() });
+        return;
+    }
+
+    if (action === 'notif-delete') {
+        var removed = await push.removeHistory(body.id);
+        if (removed === null) { fail(res, 'invalid'); return; }
+        if (!removed)         { res.status(200).json({ ok: false, error: true }); return; }
+        res.status(200).json({ ok: true, retracted: removed.retracted });
         return;
     }
 
