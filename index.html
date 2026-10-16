@@ -597,6 +597,7 @@
             transition:border-color .15s;
         }
         .f-sel:focus { border-color:var(--cyan); box-shadow:3px 3px 0 var(--cyan); }
+        .btn-more-users { width:100%; margin-top:6px; padding:12px 14px; font-size:12px; font-weight:800; letter-spacing:.6px; }
 
         /* ===== DURASI GABUNGAN (tahun/bulan/hari/jam/menit/detik) + TOGGLE TAMBAH/KURANGI
            dipakai bareng oleh modal Atur Durasi Akun & Durasi Maintenance ===== */
@@ -2546,26 +2547,107 @@
         }
     }
 
-    function isExpired(u) { return u.expiresAt && Date.now() > u.expiresAt; }
-    /* Akun (durasi terbatas MAUPUN unlimited) yang belum/tidak lagi aktif — baru
-       dibuat & belum pernah login, atau baru saja di-reset lewat FORCE RESET SEMUA
-       SESI / update file hidzproject.html → wajib login ulang sebelum durasi/sesinya
-       berjalan lagi. Berlaku untuk semua role & semua limit device. */
+    /* === HIDZ_MAINT_FREEZE_AND_3_LIMIT === */
+    var _showAllUsers = false;
+    var _USER_INITIAL_LIMIT = 3;
+
+    function toggleShowAllUsers() {
+        _showAllUsers = !_showAllUsers;
+        renderUsers();
+    }
+
+    function _isMaintFreezeActive() {
+        return !!(_maintData && _maintData.active === true);
+    }
+
+    /* Hitung sisa durasi efektif (ms). Saat mode maintenance aktif, durasi akun
+       yang sudah login & bukan UNLIMITED otomatis berhenti bergerak seketika. */
+    function _getEffectiveRemainMs(u) {
+        if (!u || u.durationMs === null || u.durationMs === undefined) return null;
+        if (u.activated === false || !u.expiresAt) return u.durationMs || 0;
+        if (typeof u.pausedRemainingMs === 'number' && u.pausedRemainingMs > 0) {
+            return u.pausedRemainingMs;
+        }
+        if (_isMaintFreezeActive()) {
+            var refTs = (_maintData && typeof _maintData.startedAt === 'number') ? _maintData.startedAt : Date.now();
+            if (u.expiresAt > refTs) return u.expiresAt - refTs;
+        }
+        var diff = u.expiresAt - Date.now();
+        return diff > 0 ? diff : 0;
+    }
+
+    function _getEffectiveExpiresAt(u) {
+        if (!u || !u.expiresAt) return u ? u.expiresAt : null;
+        if (u.durationMs === null || u.durationMs === undefined) return u.expiresAt;
+        if (u.activated === false) return u.expiresAt;
+        if (typeof u.pausedRemainingMs === 'number' && u.pausedRemainingMs > 0) {
+            return Date.now() + u.pausedRemainingMs;
+        }
+        if (_isMaintFreezeActive()) {
+            var refTs = (_maintData && typeof _maintData.startedAt === 'number') ? _maintData.startedAt : Date.now();
+            if (u.expiresAt > refTs) return Date.now() + (u.expiresAt - refTs);
+        }
+        return u.expiresAt;
+    }
+
+    function _syncLocalUsersOnMaintToggle(maintNode) {
+        var isOn = !!(maintNode && maintNode.active === true);
+        var now  = Date.now();
+        var refTs = (isOn && maintNode && typeof maintNode.startedAt === 'number') ? maintNode.startedAt : now;
+        var list = getUsers();
+        if (!list.length) return;
+        var changed = false;
+
+        list.forEach(function (u) {
+            if (!u || isProtected(u)) return;
+            if (u.durationMs === null || u.durationMs === undefined) return;
+            if (u.activated === false || !u.expiresAt) return;
+
+            if (isOn) {
+                if (typeof u.pausedRemainingMs !== 'number' && u.expiresAt > refTs) {
+                    u.pausedRemainingMs = u.expiresAt - refTs;
+                    u.pausedAt = refTs;
+                    changed = true;
+                }
+            } else {
+                if (typeof u.pausedRemainingMs === 'number' && u.pausedRemainingMs > 0) {
+                    u.expiresAt = now + u.pausedRemainingMs;
+                    delete u.pausedRemainingMs;
+                    delete u.pausedAt;
+                    changed = true;
+                }
+            }
+        });
+
+        if (changed) {
+            _lastLocalMutationAt = now;
+            try { localStorage.setItem(DB_KEY, JSON.stringify(list)); } catch (e) {}
+        }
+        renderUsers();
+        if (typeof _updateExtendHint === 'function') _updateExtendHint();
+    }
+
+    function isExpired(u) {
+        if (!u || !u.expiresAt) return false;
+        if (u.durationMs === null || u.durationMs === undefined) return false;
+        if (u.activated !== false) {
+            if (typeof u.pausedRemainingMs === 'number' && u.pausedRemainingMs > 0) return false;
+            if (_isMaintFreezeActive()) {
+                var refTs = (_maintData && typeof _maintData.startedAt === 'number') ? _maintData.startedAt : Date.now();
+                if (u.expiresAt > refTs) return false;
+            }
+        }
+        return Date.now() > u.expiresAt;
+    }
     function isPending(u) {
         return u.activated === false && !isExpired(u);
     }
     function isProtected(u) {
-        /* Akun dianggap terlindungi HANYA jika KEDUANYA cocok:
-           id spesifik admin DAN username admin. Satu syarat saja tidak cukup,
-           sehingga user biasa (mis. SCEXE) tidak pernah dianggap admin
-           meski datanya terkontaminasi di Firebase. */
         return u.id === 'admin_hidz_protected' &&
                PROTECTED.indexOf((u.username || '').toLowerCase()) !== -1;
     }
 
-    function fmtRemain(ts) {
-        if (!ts) return 'Unlimited';
-        var diff = ts - Date.now();
+    function _fmtMsDiff(diff) {
         if (diff <= 0) return 'Expired';
         var s  = Math.floor(diff/1000);
         var d  = Math.floor(s/86400);
@@ -2576,6 +2658,16 @@
         if (h>0) return h+' jam '+mn+' menit';
         if (mn>0) return mn+' menit '+sc+' detik';
         return sc+' detik';
+    }
+    function fmtRemain(ts) {
+        if (!ts) return 'Unlimited';
+        return _fmtMsDiff(ts - Date.now());
+    }
+    function fmtRemainUser(u) {
+        if (!u || u.durationMs === null || u.durationMs === undefined || !u.expiresAt) return 'Unlimited';
+        var rem = _getEffectiveRemainMs(u);
+        if (rem === null) return 'Unlimited';
+        return _fmtMsDiff(rem);
     }
     function fmtDate(ts) {
         if (!ts) return 'Tidak terbatas';
@@ -2744,19 +2836,18 @@
             return;
         }
         var sorted = sortUsers(shown);
+        var totalSorted = sorted.length;
+        var visibleUsers = (_showAllUsers || totalSorted <= _USER_INITIAL_LIMIT)
+            ? sorted
+            : sorted.slice(0, _USER_INITIAL_LIMIT);
         var html = '';
-        sorted.forEach(function(u) {
+        visibleUsers.forEach(function(u) {
             var exp       = isExpired(u);
             var pending   = isPending(u);
             var prot      = isProtected(u);
-            /* loggedOut hanya relevan saat pending (activated:false): true =
-               akun ini pending karena LOGOUT manual dari hidzproject.html,
-               false/undefined = pending karena baru dibuat ATAU baru saja
-               di-FORCE RESET SEMUA SESI (keduanya tampil "Menunggu login
-               pertama", sesuai permintaan). */
             var loggedOut = pending && u.loggedOut === true;
-            var remain    = exp ? 'Expired' : (loggedOut ? 'Akun telah logout' : (pending ? 'Menunggu login pertama' : fmtRemain(u.expiresAt)));
-            var expDate   = pending ? 'Durasi belum dimulai' : fmtDate(u.expiresAt);
+            var remain    = exp ? 'Expired' : (loggedOut ? 'Akun telah logout' : (pending ? 'Menunggu login pertama' : fmtRemainUser(u)));
+            var expDate   = pending ? 'Durasi belum dimulai' : fmtDate(_getEffectiveExpiresAt(u));
             /* Status border kartu: hijau (st-active) = sudah login/aktif,
                kuning (st-pending) = menunggu login (baru dibuat/logout/reset),
                merah (st-expired) = durasi sudah habis. */
@@ -2850,6 +2941,11 @@
                 unbandBtn +
                 '</div>';
         });
+        if (totalSorted > _USER_INITIAL_LIMIT) {
+            html += '<button type="button" class="btn-extend btn-more-users" onclick="toggleShowAllUsers()">' +
+                    (_showAllUsers ? 'Sembunyikan ↑' : 'Lihat Lebih Detail ↓') +
+                    '</button>';
+        }
         box.innerHTML = html;
     }
 
@@ -3150,10 +3246,7 @@
     /* Sisa durasi akun sekarang dalam ms. null = UNLIMITED, 0 = sudah habis,
        belum pernah login = sisa sama dengan durationMs (belum mulai jalan). */
     function _accountRemainingMs(u) {
-        if (u.durationMs === null || u.durationMs === undefined) return null;
-        if (!u.activated || !u.expiresAt) return u.durationMs || 0;
-        var left = u.expiresAt - Date.now();
-        return left > 0 ? left : 0;
+        return _getEffectiveRemainMs(u);
     }
 
     /* Label satuan-tunggal yang dikirim ke server sebagai durationLabel — dipakai
@@ -4019,6 +4112,8 @@
         _syncMaintTicker();
         _applyMaintUI(!!(data && data.active === true));
         if (data && typeof data.progress === 'number' && !_progressBusy) _applyMaintProgressUI(data.progress);
+        _syncLocalUsersOnMaintToggle(_maintData);
+        _adminSyncUsers();
     }
 
     /* Kembalikan tombol ON/MAINTENANCE sesuai status terakhir yang diketahui */
@@ -4343,12 +4438,16 @@
                 if (typeof firebase !== 'undefined' && firebase.apps.length) {
                     firebase.database().ref(_MREF).on('value', function(snap) {
                         var val = snap.val();
+                        var prevActive = !!(_maintData && _maintData.active === true);
+                        var nextActive = !!(val && val.active === true);
                         _maintData = val;
                         _syncMaintTicker();
-                        _applyMaintUI(!!(val && val.active === true));
+                        _applyMaintUI(nextActive);
                         if (val && typeof val.progress === 'number' && !_progressBusy) {
                             _applyMaintProgressUI(val.progress);
                         }
+                        _syncLocalUsersOnMaintToggle(val);
+                        if (prevActive !== nextActive) _adminSyncUsers();
                     });
                 } else {
                     setTimeout(tryWatch, 1000);
@@ -4518,7 +4617,29 @@
         } catch(e) {}
     }
 
-    /* Update label waktu relatif setiap detik (real-time tanpa re-render DOM penuh) */
+    /* Update durasi kartu akun setiap detik secara real-time (langsung berhenti saat maintenance aktif) */
+    setInterval(function() {
+        if (_isMaintFreezeActive()) return;
+        var users = getUsers();
+        if (!users.length) return;
+        var needFullRender = false;
+        users.forEach(function(u) {
+            if (!u || !u.id || u.activated === false || !u.expiresAt) return;
+            if (u.durationMs === null || u.durationMs === undefined) return;
+            var card = document.getElementById('uid-' + u.id);
+            if (!card) return;
+            var remEl = card.querySelector('.u-remain');
+            if (!remEl) return;
+            if (isExpired(u)) {
+                if (!card.classList.contains('exp')) needFullRender = true;
+            } else {
+                remEl.textContent = fmtRemainUser(u);
+            }
+        });
+        if (needFullRender) renderUsers();
+    }, 1000);
+
+        /* Update label waktu relatif setiap detik (real-time tanpa re-render DOM penuh) */
     setInterval(function() {
         Object.keys(_alertsData).forEach(function(key) {
             var el = document.getElementById('alr-ago-' + key);

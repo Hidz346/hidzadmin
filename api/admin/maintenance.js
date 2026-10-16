@@ -1,33 +1,4 @@
-/* Semua perubahan mode maintenance dari panel Site Control lewat sini.
-
-   Dulu tombol ON/MAINTENANCE, UPDATE MAINTENANCE, dan slider progress menulis
-   ke Firebase langsung dari browser (.set()/.update()). Penulisan dari browser
-   itu yang ditolak database — muncul toast "Gagal update mode!" dan slider
-   progress balik sendiri ke angka lama. Sekarang penulisannya dilakukan di
-   server memakai Database Secret yang sama dengan endpoint kelola akun, dan
-   identitas admin diverifikasi lewat Firebase ID token seperti endpoint lain.
-
-   Struktur node 'hidz_maintenance_mode' TIDAK diubah, jadi halaman maintenance
-   di HidzProject tetap membaca field yang sama: active, progress, startedAt,
-   durationMs (0 = UNLIMITED).
-
-   action:
-   - on       -> nyalakan MAINTENANCE, durasi dihitung dari sekarang
-   - off      -> kembali ONLINE
-   - update   -> tambah/kurangi dari SISA waktu yang sedang berjalan, atau
-                 langsung ubah ke UNLIMITED (sisa dihitung di server, bukan di
-                 browser, supaya tidak terpengaruh jam perangkat admin)
-   - progress -> ubah persentase progress perbaikan saja
-   - project-new -> kabari semua akun bahwa ada project baru (pesan dalam
-                 halaman + notifikasi Chrome). Tidak menyentuh mode maintenance;
-                 numpang di endpoint ini supaya jumlah Serverless Function
-                 tidak bertambah — logikanya ada di api/_lib/project-new.js
-   - notif-list   -> riwayat notifikasi yang pernah dikirim (terbaru dulu)
-   - notif-delete -> hapus satu catatan riwayat + tarik pesan antrean yang
-                 belum dibaca penerimanya. Notifikasi Chrome yang sudah
-                 masuk ke perangkat tidak bisa ditarik. Numpang di sini
-                 juga demi batas Serverless Function; logikanya di
-                 api/_lib/push.js (listHistory / removeHistory). */
+/* Semua perubahan mode maintenance dari panel Site Control lewat sini. */
 
 var db = require('../_lib/db');
 var securityGuard = require('../_lib/security');
@@ -36,8 +7,8 @@ var push = require('../_lib/push');
 var projectNew = require('../_lib/project-new');
 
 var MREF = 'hidz_maintenance_mode';
-var DEFAULT_DURATION_MS = 24 * 3600000;       /* sama seperti halaman maintenance user */
-var FALLBACK_START_MS   = 3600000;            /* kolom durasi kosong -> 1 jam */
+var DEFAULT_DURATION_MS = 24 * 3600000;
+var FALLBACK_START_MS   = 3600000;
 var MAX_DURATION_MS     = 20 * 365 * 86400000;
 
 function toProgress(value, fallback) {
@@ -46,7 +17,6 @@ function toProgress(value, fallback) {
     return Math.min(100, Math.max(0, n));
 }
 
-/* null = tidak aktif, Infinity = UNLIMITED, 0 = waktu habis */
 function remainingMs(node) {
     if (!node || node.active !== true) return null;
     if (node.durationMs === 0) return Infinity;
@@ -58,6 +28,61 @@ function remainingMs(node) {
 
 function fail(res, reason, extra) {
     res.status(200).json(Object.assign({ ok: false, reason: reason }, extra || {}));
+}
+
+/* Bekukan sisa durasi semua akun aktif (kecuali UNLIMITED & yang belum login) */
+async function freezeActiveAccountDurations(now) {
+    await db.mutateAccounts(function (list) {
+        var changed = false;
+        list.forEach(function (u) {
+            if (!u || db.isProtectedAccount(u)) return;
+            if (u.durationMs === null || u.durationMs === undefined) return;
+            if (u.activated === false || !u.expiresAt) return;
+            if (typeof u.pausedRemainingMs === 'number' && u.pausedRemainingMs > 0) return;
+            var rem = u.expiresAt - now;
+            if (rem > 0) {
+                u.pausedRemainingMs = rem;
+                u.pausedAt = now;
+                changed = true;
+            }
+        });
+        return { save: changed, list: list };
+    });
+}
+
+/* Lanjutkan kembali durasi akun yang dibekukan saat maintenance berakhir */
+async function resumeFrozenAccountDurations(now, maintStartedAt) {
+    await db.mutateAccounts(function (list) {
+        var changed = false;
+        list.forEach(function (u) {
+            if (!u || db.isProtectedAccount(u)) return;
+            if (u.durationMs === null || u.durationMs === undefined) return;
+            if (u.activated === false || !u.expiresAt) {
+                if (u.pausedRemainingMs !== undefined || u.pausedAt !== undefined) {
+                    delete u.pausedRemainingMs;
+                    delete u.pausedAt;
+                    changed = true;
+                }
+                return;
+            }
+            if (typeof u.pausedRemainingMs === 'number' && u.pausedRemainingMs > 0) {
+                u.expiresAt = now + u.pausedRemainingMs;
+                delete u.pausedRemainingMs;
+                delete u.pausedAt;
+                changed = true;
+            } else if (maintStartedAt && u.expiresAt > maintStartedAt) {
+                var freezeStart = (typeof u.pausedAt === 'number') ? u.pausedAt : maintStartedAt;
+                var pausedDur = Math.max(0, now - freezeStart);
+                if (pausedDur > 0) {
+                    u.expiresAt = u.expiresAt + pausedDur;
+                    changed = true;
+                }
+                delete u.pausedRemainingMs;
+                delete u.pausedAt;
+            }
+        });
+        return { save: changed, list: list };
+    });
 }
 
 module.exports = async function (req, res) {
@@ -110,7 +135,8 @@ module.exports = async function (req, res) {
         };
         if (!(await db.setPath(MREF, onData))) { res.status(200).json({ ok: false, error: true }); return; }
 
-        /* Kabari device yang sudah mengaktifkan notifikasi Chrome. */
+        await freezeActiveAccountDurations(now);
+
         await push.broadcast({
             type:  'maintenance',
             title: 'Maintenance HidzProject',
@@ -125,6 +151,10 @@ module.exports = async function (req, res) {
     if (action === 'off') {
         var offData = { active: false, progress: toProgress(body.progress, knownProgress) };
         if (!(await db.setPath(MREF, offData))) { res.status(200).json({ ok: false, error: true }); return; }
+
+        var maintStartedAt = (current && typeof current.startedAt === 'number') ? current.startedAt : null;
+        await resumeFrozenAccountDurations(now, maintStartedAt);
+
         res.status(200).json({ ok: true, data: offData });
         return;
     }
