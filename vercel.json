@@ -75,6 +75,22 @@
     {
       "source": "/api/admin/clear-security-events",
       "destination": "/api/admin/security-alerts?action=clear"
+    },
+    {
+      "source": "/api/admin/vouchers",
+      "destination": "/api/admin/maintenance?vipAdminAction=vouchers"
+    },
+    {
+      "source": "/api/admin/voucher-save",
+      "destination": "/api/admin/maintenance?vipAdminAction=voucher-save"
+    },
+    {
+      "source": "/api/admin/voucher-delete",
+      "destination": "/api/admin/maintenance?vipAdminAction=voucher-delete"
+    },
+    {
+      "source": "/api/admin/vip-orders",
+      "destination": "/api/admin/maintenance?vipAdminAction=vip-orders"
     }
   ]
 }

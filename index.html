@@ -2154,6 +2154,104 @@
         </div>
     </div>
 
+
+    <!-- ADD VOUCHER VIP & RIWAYAT VOUCHER -->
+    <div class="card" id="vipVoucherAdminCard">
+        <div class="sec-hdr">
+            <div class="sec-title">Add Voucher VIP <span class="sec-spark">&#127915;</span></div>
+            <div class="cnt-badge" id="vchActiveCount">0</div>
+        </div>
+        <p style="font-size:11px;color:var(--tsec);line-height:1.65;margin-bottom:13px;">
+            Buat voucher diskon khusus paket VIP di <b style="color:var(--text);">HidzProject</b>. Harga akhir otomatis divalidasi minimal Rp 1.000 (batas minimum QRIS).
+        </p>
+
+        <div class="f-lbl">Kode Voucher (4–20 Huruf/Angka)</div>
+        <input type="text" class="f-inp" id="vchCodeInp" placeholder="mis. PROMOVIP50" maxlength="20" style="text-transform:uppercase;" autocomplete="off">
+
+        <div class="f-lbl">Pilih Paket VIP</div>
+        <select class="f-sel" id="vchPlanSel" style="width:100%;margin-bottom:13px;" onchange="window._vchUpdatePreview()">
+            <option value="1d">1 Day — Rp 3.000</option>
+            <option value="3d">3 Day — Rp 5.000</option>
+            <option value="7d">7 Day — Rp 10.000</option>
+            <option value="14d">14 Day — Rp 15.000</option>
+            <option value="1m">1 Month — Rp 20.000</option>
+            <option value="3m">3 Month — Rp 30.000</option>
+            <option value="5m">5 Month — Rp 50.000</option>
+            <option value="1y">1 Year — Rp 100.000</option>
+        </select>
+
+        <div class="f-lbl">Tipe Potongan Harga</div>
+        <div class="dev-limit-row" id="vchTypeRow" style="grid-template-columns:1fr 1fr;">
+            <button type="button" class="dev-btn active" id="vchTypePctBtn" onclick="window._vchSetType('percent')">DISKON PERSEN (%)</button>
+            <button type="button" class="dev-btn" id="vchTypeCusBtn" onclick="window._vchSetType('custom')">HARGA AKHIR (RP)</button>
+        </div>
+
+        <div id="vchPctWrap">
+            <div class="f-lbl">Persentase Diskon (1% – 99%)</div>
+            <input type="number" class="f-inp" id="vchPctInp" value="20" min="1" max="99" oninput="window._vchUpdatePreview()">
+        </div>
+        <div id="vchCusWrap" style="display:none;">
+            <div class="f-lbl">Harga Akhir Setelah Diskon (Rp)</div>
+            <input type="number" class="f-inp" id="vchCusInp" value="2000" min="1000" oninput="window._vchUpdatePreview()">
+        </div>
+
+        <div id="vchCalcPreview" style="background:var(--sur2);border:2px solid var(--bd);padding:10px 12px;margin-bottom:13px;font-size:11.5px;font-weight:700;color:var(--cyan);">
+            Pratinjau: Harga normal Rp 3.000 &rarr; Harga akhir Rp 2.400 (-20%)
+        </div>
+
+        <div class="f-lbl">Voucher Berakhir Pada</div>
+        <input type="datetime-local" class="f-inp" id="vchExpInp" step="1">
+
+        <button type="button" class="btn-create" id="vchSubmitBtn" onclick="window._vchSaveNew(false)">
+            <i class="fas fa-ticket-alt" style="margin-right:8px;"></i>SIMPAN VOUCHER
+        </button>
+
+        <div class="divider" style="margin:18px 0 14px;"></div>
+        <div class="sec-hdr">
+            <div class="sec-title" style="font-size:11.5px;">Daftar Voucher <span class="sec-spark">&#9734;</span></div>
+        </div>
+        <div id="vchListBox"><div class="empty-state">Memuat voucher...</div></div>
+
+        <div class="divider" style="margin:18px 0 14px;"></div>
+        <div class="sec-hdr">
+            <div class="sec-title" style="font-size:11.5px;">Riwayat Voucher <span class="sec-spark">&#128338;</span></div>
+            <div class="cnt-badge" id="vchHistCount">0</div>
+        </div>
+        <div id="vchHistoryBox"><div class="empty-state">Belum ada riwayat voucher.</div></div>
+    </div>
+
+    <!-- RIWAYAT UPGRADE VIP & VERIFIKASI BUKTI -->
+    <div class="card" id="vipOrdersAdminCard">
+        <div class="sec-hdr">
+            <div class="sec-title">Riwayat Upgrade VIP <span class="sec-spark">&#128081;</span></div>
+            <div class="cnt-badge" id="vipOrdCount">0</div>
+        </div>
+        <p style="font-size:11px;color:var(--tsec);line-height:1.65;margin-bottom:12px;">
+             pantau transaksi QRIS VIP secara real-time dan cek keaslian Kode Verifikasi HMAC dari bukti transaksi pelanggan.
+        </p>
+
+        <div class="f-lbl">Verifikasi Kode Bukti Transaksi (HMAC)</div>
+        <div style="display:grid;grid-template-columns:1fr auto;gap:8px;margin-bottom:12px;">
+            <input type="text" class="f-inp" id="vipVerifyCodeInp" placeholder="HZV-XXXXXXXXXXXXXXXX" style="margin-bottom:0;text-transform:uppercase;" autocomplete="off">
+            <button type="button" class="dev-btn active" style="padding:0 14px;" onclick="window._vipVerifyReceiptCode()">CEK KODE</button>
+        </div>
+        <div id="vipVerifyResultBox" style="display:none;margin-bottom:13px;"></div>
+
+        <div class="user-search-wrap">
+            <i class="fas fa-search"></i>
+            <input type="text" id="vipOrdSearchInp" placeholder="Cari ID order / username / paket..." oninput="window._vipFilterOrders(this.value)" autocomplete="off">
+        </div>
+        <select id="vipOrdStatusSel" class="f-sel" style="width:100%;margin-bottom:12px;" onchange="window._vipSetOrderFilter(this.value)">
+            <option value="ALL">Semua Status</option>
+            <option value="SUCCESS">SUCCESS (Berhasil)</option>
+            <option value="PENDING">PENDING (Menunggu Bayar)</option>
+            <option value="EXPIRED">EXPIRED (Kedaluwarsa)</option>
+            <option value="CANCELLED">CANCELLED (Dibatalkan)</option>
+            <option value="LATE_PAYMENT">LATE_PAYMENT (Bayar Terlambat)</option>
+        </select>
+        <div id="vipOrdListBox"><div class="empty-state">Memuat transaksi VIP...</div></div>
+    </div>
+
     <!-- SECURITY ALERTS -->
     <div class="sec-alert-card">
         <div class="sec-hdr">
@@ -5976,8 +6074,9 @@
     window._hidzClearEvents = function () {
         var a = auth();
         if (!a) return;
-        if (!confirm('Hapus semua riwayat ancaman terdeteksi? Tindakan ini tidak bisa dibatalkan.')) return;
-        _adminFetch('/api/admin/clear-security-events', {
+        openDangerModal('Hapus Riwayat Ancaman?', 'Semua riwayat ancaman terdeteksi akan dihapus permanen.', 'HAPUS SEMUA', function () {
+            closeDangerModal();
+            _adminFetch('/api/admin/clear-security-events', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({})
@@ -5987,6 +6086,7 @@
             eventsOffset = 0;
             eventsTotal = 0;
             render();
+        });
         });
     };
 
@@ -5998,5 +6098,269 @@
     window.addEventListener('load', load);
 })();
 </script>
+<script>
+(function () {
+    'use strict';
+    var PLAN_PRICES = { '1d': 3000, '3d': 5000, '7d': 10000, '14d': 15000, '1m': 20000, '3m': 30000, '5m': 50000, '1y': 100000 };
+    var _vchType = 'percent', _vouchers = [], _vchHistory = [], _showAllVchHist = false;
+    var _vipOrders = [], _showAllVipOrd = false, _vipOrdQuery = '', _vipOrdFilter = 'ALL';
+
+    function fmtRp(n) { return 'Rp ' + Math.round(Number(n) || 0).toLocaleString('id-ID'); }
+    function fmtWib(ts) {
+        if (!ts) return '-';
+        var d = new Date(Number(ts)), z = { timeZone: 'Asia/Jakarta' };
+        return d.toLocaleDateString('id-ID', Object.assign({ day: '2-digit', month: 'short', year: 'numeric' }, z)) + ', ' +
+            d.toLocaleTimeString('id-ID', Object.assign({ hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }, z)) + ' WIB';
+    }
+    function tsToLocalInp(ts) {
+        var d = new Date(ts), p = function (n) { return String(n).padStart(2, '0'); };
+        return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + 'T' + p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds());
+    }
+
+    /* Set default waktu berakhir voucher 24 jam ke depan */
+    var expInp = document.getElementById('vchExpInp');
+    if (expInp && !expInp.value) expInp.value = tsToLocalInp(Date.now() + 86400000);
+
+    window._vchSetType = function (t) {
+        _vchType = (t === 'custom') ? 'custom' : 'percent';
+        document.getElementById('vchTypePctBtn').className = 'dev-btn' + (_vchType === 'percent' ? ' active' : '');
+        document.getElementById('vchTypeCusBtn').className = 'dev-btn' + (_vchType === 'custom' ? ' active' : '');
+        document.getElementById('vchPctWrap').style.display = (_vchType === 'percent') ? 'block' : 'none';
+        document.getElementById('vchCusWrap').style.display = (_vchType === 'custom') ? 'block' : 'none';
+        window._vchUpdatePreview();
+    };
+
+    window._vchUpdatePreview = function () {
+        var planId = document.getElementById('vchPlanSel').value || '1d';
+        var normal = PLAN_PRICES[planId] || 3000;
+        var prev = document.getElementById('vchCalcPreview');
+        if (!prev) return;
+        if (_vchType === 'percent') {
+            var pct = Number(document.getElementById('vchPctInp').value || 0);
+            var fin = Math.round(normal * (100 - pct) / 100);
+            prev.style.color = (fin < 1000 || pct < 1 || pct > 99) ? 'var(--red)' : 'var(--cyan)';
+            prev.innerHTML = 'Harga normal <b>' + fmtRp(normal) + '</b> &rarr; Harga akhir <b>' + fmtRp(fin) + '</b> (-' + pct + '%)';
+        } else {
+            var finCus = Math.round(Number(document.getElementById('vchCusInp').value || 0));
+            var pctCalc = Math.round(((normal - finCus) / normal) * 1000) / 10;
+            prev.style.color = (finCus < 1000 || finCus >= normal) ? 'var(--red)' : 'var(--cyan)';
+            prev.innerHTML = 'Harga normal <b>' + fmtRp(normal) + '</b> &rarr; Harga akhir <b>' + fmtRp(finCus) + '</b> (-' + pctCalc + '%)';
+        }
+    };
+
+    window._vchSaveNew = function (isReuse) {
+        var code = (document.getElementById('vchCodeInp').value || '').trim().toUpperCase();
+        var planId = document.getElementById('vchPlanSel').value || '1d';
+        var expVal = document.getElementById('vchExpInp').value;
+        if (!code) { showToast('Kode voucher wajib diisi!', 'err'); return; }
+        if (!expVal) { showToast('Tentukan waktu berakhir voucher!', 'err'); return; }
+        var expiresAt = new Date(expVal).getTime();
+        var payload = {
+            code: code, planId: planId, discountType: _vchType,
+            percent: Number(document.getElementById('vchPctInp').value || 0),
+            finalPrice: Number(document.getElementById('vchCusInp').value || 0),
+            expiresAt: expiresAt, isReuse: !!isReuse
+        };
+        var btn = document.getElementById('vchSubmitBtn');
+        if (btn) btn.disabled = true;
+        _adminFetch('/api/admin/voucher-save', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+        }).then(function (r) { return r.json(); }).then(function (res) {
+            if (btn) btn.disabled = false;
+            if (!res || !res.ok) { showToast((res && res.message) || 'Gagal menyimpan voucher', 'err'); return; }
+            showToast('\u2714 Voucher ' + code + ' berhasil disimpan!', 'ok');
+            document.getElementById('vchCodeInp').value = '';
+            loadAdminVouchers();
+        }).catch(function () { if (btn) btn.disabled = false; showToast('Gagal terhubung ke server', 'err'); });
+    };
+
+    window._vchQuickExtend = function (code, addMs) {
+        var v = _vouchers.filter(function (x) { return x.code === code; })[0];
+        if (!v) return;
+        var base = Math.max(Date.now(), Number(v.expiresAt || 0));
+        _adminFetch('/api/admin/voucher-save', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ mode: 'update-expiry', code: code, expiresAt: base + addMs, restoreIfDeleted: true })
+        }).then(function (r) { return r.json(); }).then(function (res) {
+            if (!res || !res.ok) { showToast((res && res.message) || 'Gagal mengubah masa berlaku', 'err'); return; }
+            showToast('\u2714 Masa berlaku voucher ' + code + ' diperbarui!', 'ok');
+            loadAdminVouchers();
+        }).catch(function () { showToast('Gagal menghubungi server', 'err'); });
+    };
+
+    window._vchSoftDelete = function (code) {
+        openDangerModal('Hapus Voucher ' + escAdmin(code) + '?', 'Voucher akan dinonaktifkan (soft delete) dan tetap tercatat di Riwayat Voucher.', 'HAPUS VOUCHER', function () {
+            closeDangerModal();
+            _adminFetch('/api/admin/voucher-delete', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code: code })
+            }).then(function (r) { return r.json(); }).then(function (res) {
+                if (!res || !res.ok) { showToast('Gagal menghapus voucher', 'err'); return; }
+                showToast('\u2714 Voucher ' + code + ' dihapus', 'ok');
+                loadAdminVouchers();
+            });
+        });
+    };
+
+    window._vchReuseFromHistory = function (idx) {
+        var h = _vchHistory[idx];
+        if (!h) return;
+        var snap = h.snapshot || h;
+        document.getElementById('vchCodeInp').value = h.code || '';
+        if (snap.planId) document.getElementById('vchPlanSel').value = snap.planId;
+        window._vchSetType(snap.discountType === 'custom' ? 'custom' : 'percent');
+        if (snap.percent) document.getElementById('vchPctInp').value = snap.percent;
+        if (snap.finalPrice) document.getElementById('vchCusInp').value = snap.finalPrice;
+        document.getElementById('vchExpInp').value = tsToLocalInp(Date.now() + 86400000);
+        window._vchUpdatePreview();
+        document.getElementById('vipVoucherAdminCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        showToast('Data voucher ' + h.code + ' dimuat ke form. Klik SIMPAN VOUCHER untuk mengaktifkan.', 'ok');
+    };
+    function renderVouchersAndHistory() {
+        var box = document.getElementById('vchListBox'), hBox = document.getElementById('vchHistoryBox');
+        var now = Date.now();
+        var activeCnt = _vouchers.filter(function (v) { return v.status === 'active' && Number(v.expiresAt) > now; }).length;
+        var cntEl = document.getElementById('vchActiveCount'); if (cntEl) cntEl.textContent = activeCnt;
+        var hCntEl = document.getElementById('vchHistCount'); if (hCntEl) hCntEl.textContent = _vchHistory.length;
+
+        if (box) {
+            if (!_vouchers.length) {
+                box.innerHTML = '<div class="empty-state">Belum ada voucher yang dibuat.</div>';
+            } else {
+                box.innerHTML = _vouchers.map(function (v) {
+                    var isDel = (v.status === 'deleted'), isExp = (!isDel && now > Number(v.expiresAt));
+                    var stCls = isDel ? 'st-expired' : (isExp ? 'st-pending' : 'st-active');
+                    var stTxt = isDel ? 'DIHAPUS' : (isExp ? 'KEDALUWARSA' : 'AKTIF');
+                    return '<div class="user-item ' + stCls + '">' +
+                        (!isDel ? '<button class="btn-del" onclick="window._vchSoftDelete(\'' + escAdmin(v.code) + '\')" title="Hapus"><i class="fas fa-trash"></i></button>' : '') +
+                        '<div class="user-top"><span class="u-name">' + escAdmin(v.code) + '</span><span class="u-role vip">' + escAdmin(v.planLabel) + '</span></div>' +
+                        '<div style="font-size:12px;font-weight:800;color:var(--cyan);margin-bottom:4px;">' + fmtRp(v.normalPrice) + ' &rarr; ' + fmtRp(v.finalPrice) + ' (-' + escAdmin(v.percent) + '%) &bull; ' + stTxt + '</div>' +
+                        '<div class="u-expiry">Berakhir: ' + fmtWib(v.expiresAt) + ' &bull; Dipakai: ' + (v.usedCount || 0) + 'x</div>' +
+                        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px;">' +
+                            '<button type="button" class="btn-extend" style="margin-top:0;padding:7px;" onclick="window._vchQuickExtend(\'' + escAdmin(v.code) + '\', 3600000)">+1 JAM</button>' +
+                            '<button type="button" class="btn-extend" style="margin-top:0;padding:7px;" onclick="window._vchQuickExtend(\'' + escAdmin(v.code) + '\', 86400000)">+1 HARI</button>' +
+                        '</div></div>';
+                }).join('');
+            }
+        }
+
+        if (hBox) {
+            if (!_vchHistory.length) {
+                hBox.innerHTML = '<div class="empty-state">Belum ada riwayat aktivitas voucher.</div>';
+            } else {
+                var shownH = _showAllVchHist ? _vchHistory : _vchHistory.slice(0, 3);
+                var htmlH = shownH.map(function (h, i) {
+                    return '<div class="user-item">' +
+                        '<div class="user-top"><span class="u-name">' + escAdmin(h.code) + '</span><span class="u-role user">' + escAdmin(String(h.action || '').toUpperCase()) + '</span></div>' +
+                        '<div class="u-expiry">Paket: ' + escAdmin(h.planLabel || h.planId || '-') + ' &bull; Harga Akhir: ' + fmtRp(h.finalPrice || 0) + '</div>' +
+                        (h.username ? '<div class="u-creator">Digunakan oleh: <b>' + escAdmin(h.username) + '</b> (' + escAdmin(h.orderId || '') + ')</div>' : '') +
+                        '<div class="u-expiry">' + fmtWib(h.timestamp) + '</div>' +
+                        '<button type="button" class="btn-extend" onclick="window._vchReuseFromHistory(' + i + ')"><i class="fas fa-rotate-right" style="margin-right:5px;"></i>PAKAI LAGI</button>' +
+                    '</div>';
+                }).join('');
+                if (_vchHistory.length > 3) {
+                    htmlH += '<button type="button" class="btn-extend btn-more-users" onclick="window._toggleVchHistMore()">' +
+                        (_showAllVchHist ? 'Sembunyikan \u2191' : 'Lihat Lebih Detail (' + _vchHistory.length + ') \u2193') + '</button>';
+                }
+                hBox.innerHTML = htmlH;
+            }
+        }
+    }
+    window._toggleVchHistMore = function () { _showAllVchHist = !_showAllVchHist; renderVouchersAndHistory(); };
+
+    function renderVipOrders() {
+        var box = document.getElementById('vipOrdListBox'), cnt = document.getElementById('vipOrdCount');
+        if (cnt) cnt.textContent = _vipOrders.length;
+        if (!box) return;
+        var q = (_vipOrdQuery || '').toLowerCase().trim();
+        var filtered = _vipOrders.filter(function (o) {
+            if (_vipOrdFilter !== 'ALL' && o.status !== _vipOrdFilter) return false;
+            if (!q) return true;
+            return (o.orderId || '').toLowerCase().indexOf(q) !== -1 ||
+                   (o.username || '').toLowerCase().indexOf(q) !== -1 ||
+                   (o.planLabel || '').toLowerCase().indexOf(q) !== -1 ||
+                   (o.voucherCode || '').toLowerCase().indexOf(q) !== -1;
+        });
+        if (!filtered.length) {
+            box.innerHTML = '<div class="empty-state">Tidak ada transaksi VIP yang cocok.</div>';
+            return;
+        }
+        var visible = (_showAllVipOrd || filtered.length <= 3) ? filtered : filtered.slice(0, 3);
+        var html = visible.map(function (o) {
+            var st = o.status || 'PENDING';
+            var stCls = st === 'SUCCESS' ? 'st-active' : (st === 'PENDING' ? 'st-pending' : 'st-expired');
+            var aft = o.afterSnapshot || {};
+            return '<div class="user-item ' + stCls + '">' +
+                '<div class="user-top"><span class="u-name">' + escAdmin(o.username) + '</span><span class="u-role vip">VIP ' + escAdmin(o.planLabel) + '</span></div>' +
+                '<div style="font-size:12px;font-weight:800;color:var(--cyan);margin-bottom:4px;">' + escAdmin(st) + ' &bull; ' + fmtRp(o.totalAmount) + (o.voucherCode ? ' (Voucher ' + escAdmin(o.voucherCode) + ')' : '') + '</div>' +
+                '<div class="u-expiry">Order ID: <b>' + escAdmin(o.orderId) + '</b></div>' +
+                '<div class="u-expiry">Waktu: ' + fmtWib(o.paidAt || o.createdAt) + '</div>' +
+                (aft.expiresAt ? '<div class="u-expiry">VIP Berakhir: ' + fmtWib(aft.expiresAt) + '</div>' : '') +
+                (o.verificationCode ? '<div class="u-creator">HMAC: <b>' + escAdmin(o.verificationCode) + '</b></div>' : '') +
+            '</div>';
+        }).join('');
+        if (filtered.length > 3) {
+            html += '<button type="button" class="btn-extend btn-more-users" onclick="window._toggleVipOrdMore()">' +
+                (_showAllVipOrd ? 'Sembunyikan \u2191' : 'Lihat Lebih Detail (' + filtered.length + ' Transaksi) \u2193') + '</button>';
+        }
+        box.innerHTML = html;
+    }
+
+    window._toggleVipOrdMore = function () { _showAllVipOrd = !_showAllVipOrd; renderVipOrders(); };
+    window._vipFilterOrders = function (v) { _vipOrdQuery = v; renderVipOrders(); };
+    window._vipSetOrderFilter = function (f) { _vipOrdFilter = f || 'ALL'; renderVipOrders(); };
+
+    window._vipVerifyReceiptCode = function () {
+        var inp = document.getElementById('vipVerifyCodeInp'), box = document.getElementById('vipVerifyResultBox');
+        var code = inp ? inp.value.trim().toUpperCase() : '';
+        if (!code) { showToast('Masukkan kode verifikasi HZV-...', 'err'); return; }
+        _adminFetch('/api/admin/vip-orders', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ verifyCode: code })
+        }).then(function (r) { return r.json(); }).then(function (res) {
+            if (!box) return;
+            box.style.display = 'block';
+            if (res && res.verifiedOrder) {
+                var o = res.verifiedOrder;
+                box.innerHTML = '<div style="padding:10px;border:2px solid var(--green);background:rgba(0,230,118,0.1);font-size:11.5px;font-weight:700;color:var(--green);">' +
+                    '\u2714 BUKTI TRANSAKSI ASLI &amp; VALID<br>Order: <b>' + escAdmin(o.orderId) + '</b> | Akun: <b>' + escAdmin(o.username) + '</b> | Paket: <b>VIP ' + escAdmin(o.planLabel) + '</b> | Nominal: <b>' + fmtRp(o.totalAmount) + '</b></div>';
+            } else {
+                box.innerHTML = '<div style="padding:10px;border:2px solid var(--red);background:rgba(239,68,68,0.1);font-size:11.5px;font-weight:700;color:var(--red);">' +
+                    '\u2716 KODE VERIFIKASI TIDAK DITEMUKAN ATAU TIDAK SAH</div>';
+            }
+        }).catch(function () { showToast('Gagal memverifikasi kode', 'err'); });
+    };
+
+    function loadAdminVouchers() {
+        if (!window._adminAuth) return;
+        _adminFetch('/api/admin/vouchers', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
+            .then(function (r) { return r.json(); })
+            .then(function (res) {
+                if (!res || !res.ok) return;
+                _vouchers = res.vouchers || [];
+                _vchHistory = res.history || [];
+                renderVouchersAndHistory();
+            }).catch(function () {});
+    }
+
+    function loadAdminVipOrders() {
+        if (!window._adminAuth) return;
+        _adminFetch('/api/admin/vip-orders', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
+            .then(function (r) { return r.json(); })
+            .then(function (res) {
+                if (!res || !res.ok) return;
+                _vipOrders = res.orders || [];
+                renderVipOrders();
+            }).catch(function () {});
+    }
+
+    setInterval(function () {
+        if (window._adminAuth && document.visibilityState === 'visible') {
+            loadAdminVouchers();
+            loadAdminVipOrders();
+        }
+    }, 10000);
+    setTimeout(function () { loadAdminVouchers(); loadAdminVipOrders(); }, 1800);
+})();
+</script>
+
 </body>
 </html>

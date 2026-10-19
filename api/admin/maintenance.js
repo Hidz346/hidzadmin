@@ -5,6 +5,7 @@ var securityGuard = require('../_lib/security');
 var firebaseAuth = require('../_lib/firebase-auth');
 var push = require('../_lib/push');
 var projectNew = require('../_lib/project-new');
+var adminVipVouchers = require('../_lib/admin-vip-vouchers');
 
 var MREF = 'hidz_maintenance_mode';
 var DEFAULT_DURATION_MS = 24 * 3600000;
@@ -98,6 +99,8 @@ module.exports = async function (req, res) {
     }
 
     var body   = req.body || {};
+    var vipAdminAction = (req.query && req.query.vipAdminAction) || body.vipAdminAction || '';
+    if (vipAdminAction) { await adminVipVouchers.handleAdminAction(String(vipAdminAction), body, res); return; }
     var action = typeof body.action === 'string' ? body.action : '';
     var now    = Date.now();
 
