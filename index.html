@@ -6188,6 +6188,22 @@
         }).catch(function () { showToast('Gagal menghubungi server', 'err'); });
     };
 
+    window._vchSetExpiry = function (code) {
+        var inp = document.getElementById('vchExpEdit_' + code);
+        var val = inp ? inp.value : '';
+        if (!val) { showToast('Tentukan waktu berakhir yang baru!', 'err'); return; }
+        var newExp = new Date(val).getTime();
+        if (!newExp || newExp <= Date.now()) { showToast('Waktu berakhir harus di masa depan. Untuk menonaktifkan voucher, pakai tombol hapus.', 'err'); return; }
+        _adminFetch('/api/admin/voucher-save', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ mode: 'update-expiry', code: code, expiresAt: newExp, restoreIfDeleted: true })
+        }).then(function (r) { return r.json(); }).then(function (res) {
+            if (!res || !res.ok) { showToast((res && res.message) || 'Gagal mengubah masa berlaku', 'err'); return; }
+            showToast('\u2714 Masa berlaku voucher ' + code + ' diperbarui!', 'ok');
+            loadAdminVouchers();
+        }).catch(function () { showToast('Gagal menghubungi server', 'err'); });
+    };
+
     window._vchSoftDelete = function (code) {
         openDangerModal('Hapus Voucher ' + escAdmin(code) + '?', 'Voucher akan dinonaktifkan (soft delete) dan tetap tercatat di Riwayat Voucher.', 'HAPUS VOUCHER', function () {
             closeDangerModal();
@@ -6222,7 +6238,8 @@
         var cntEl = document.getElementById('vchActiveCount'); if (cntEl) cntEl.textContent = activeCnt;
         var hCntEl = document.getElementById('vchHistCount'); if (hCntEl) hCntEl.textContent = _vchHistory.length;
 
-        if (box) {
+        /* Daftar dimuat ulang tiap 10 detik: jangan timpa kalau admin sedang mengetik di kolom masa berlaku. */
+        if (box && !box.contains(document.activeElement)) {
             if (!_vouchers.length) {
                 box.innerHTML = '<div class="empty-state">Belum ada voucher yang dibuat.</div>';
             } else {
@@ -6238,6 +6255,10 @@
                         '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px;">' +
                             '<button type="button" class="btn-extend" style="margin-top:0;padding:7px;" onclick="window._vchQuickExtend(\'' + escAdmin(v.code) + '\', 3600000)">+1 JAM</button>' +
                             '<button type="button" class="btn-extend" style="margin-top:0;padding:7px;" onclick="window._vchQuickExtend(\'' + escAdmin(v.code) + '\', 86400000)">+1 HARI</button>' +
+                        '</div>' +
+                        '<div style="display:grid;grid-template-columns:1fr auto;gap:6px;margin-top:6px;">' +
+                            '<input type="datetime-local" step="1" class="f-inp" id="vchExpEdit_' + escAdmin(v.code) + '" value="' + tsToLocalInp(Number(v.expiresAt) > now ? Number(v.expiresAt) : now + 86400000) + '" style="margin-bottom:0;">' +
+                            '<button type="button" class="btn-extend" style="margin-top:0;padding:7px 14px;" onclick="window._vchSetExpiry(\'' + escAdmin(v.code) + '\')">ATUR</button>' +
                         '</div></div>';
                 }).join('');
             }

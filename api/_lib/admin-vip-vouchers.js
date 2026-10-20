@@ -120,14 +120,13 @@ async function handleAdminAction(action, body, res) {
 
     if (action === 'vip-orders') {
         var rawOrders = (await db.fetchPath('hidz_vip_orders')) || {};
-        var allList = Object.values(rawOrders).filter(function (o) { return o && o.orderId; });
-        for (var i = 0; i < allList.length; i++) {
-            var ord = allList[i];
-            if (ord.status === 'PENDING' && now > Number(ord.expiresAt)) {
-                ord.status = 'EXPIRED'; ord.expiredAt = now;
-                await db.setPath('hidz_vip_orders/' + ord.orderId, ord);
-            }
-        }
+        /* Hanya mengubah tampilan: status di database dipindah oleh alur pembayaran (webhook / order-status)
+           secara atomik. Menulis ulang pesanan dari sini bisa menimpa pembayaran yang baru masuk
+           dan membuat pelanggan yang sudah bayar tidak ter-upgrade. */
+        var allList = Object.values(rawOrders).filter(function (o) { return o && o.orderId; }).map(function (o) {
+            if (o.status === 'PENDING' && now > Number(o.expiresAt)) return Object.assign({}, o, { status: 'EXPIRED' });
+            return o;
+        });
         allList.sort(function (a, b) { return (Number(b.paidAt || b.createdAt) || 0) - (Number(a.paidAt || a.createdAt) || 0); });
         var verifyCodeInput = String(body.verifyCode || '').trim().toUpperCase();
         var verifiedOrder = null;
