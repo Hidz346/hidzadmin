@@ -6318,8 +6318,12 @@
         var cntEl = document.getElementById('vchActiveCount'); if (cntEl) cntEl.textContent = activeCnt;
         var hCntEl = document.getElementById('vchHistCount'); if (hCntEl) hCntEl.textContent = _vchHistory.length;
 
-        /* Daftar dimuat ulang tiap 10 detik: jangan timpa kalau admin sedang mengetik di kolom masa berlaku. */
-        if (box && !box.contains(document.activeElement)) {
+        /* Daftar dimuat ulang tiap 10 detik: jangan timpa kalau admin sedang mengetik di kolom masa berlaku.
+           Hanya kolom isian yang dijaga; tombol yang baru ditekan (hapus, +1 JAM, ATUR) menyimpan fokus,
+           dan itu tidak boleh menahan daftar supaya tidak menampilkan data lama. */
+        var typing = document.activeElement;
+        typing = !!(typing && typing.tagName === 'INPUT' && box && box.contains(typing));
+        if (box && !typing) {
             if (!_vouchers.length) {
                 box.innerHTML = '<div class="empty-state">Belum ada voucher yang dibuat.</div>';
             } else {
