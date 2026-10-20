@@ -30,6 +30,22 @@ async function logVoucherHistory(entry) {
     return record;
 }
 
+/* Hapus permanen voucher beserta seluruh riwayatnya. Riwayat dihapus lebih dulu:
+   kalau langkah kedua gagal, voucher masih tampil di daftar dan bisa dihapus ulang,
+   bukan meninggalkan riwayat yatim yang tidak bisa dibersihkan dari panel. */
+async function purgeVouchers(codes, rawHistory) {
+    var histWipe = {}, vchWipe = {};
+    codes.forEach(function (c) { vchWipe[c] = null; });
+    Object.keys(rawHistory).forEach(function (id) {
+        var h = rawHistory[id];
+        if (h && codes.indexOf(String(h.code || '').toUpperCase()) !== -1) histWipe[id] = null;
+    });
+    if (Object.keys(histWipe).length && !(await db.updatePath('hidz_voucher_history', histWipe))) return false;
+    if (!(await db.updatePath('hidz_vouchers', vchWipe))) return false;
+    Object.keys(histWipe).forEach(function (id) { delete rawHistory[id]; });
+    return true;
+}
+
 function expectedVerificationCode(order) {
     var secret = process.env.VIP_RECEIPT_HMAC_SECRET || process.env.FIREBASE_DB_SECRET || 'hidz_default_hmac';
     var payload = [order.orderId, order.accountId, order.username, order.planId, order.totalAmount, order.paidAt || order.createdAt].join('|');
@@ -43,6 +59,13 @@ async function handleAdminAction(action, body, res) {
     if (action === 'vouchers') {
         var rawVouchers = (await db.fetchPath('hidz_vouchers')) || {};
         var rawHistory = (await db.fetchPath('hidz_voucher_history')) || {};
+
+        /* Voucher yang dulu cuma ditandai "deleted" ikut dibersihkan bersama riwayatnya. */
+        var staleCodes = Object.keys(rawVouchers).filter(function (k) { return rawVouchers[k] && rawVouchers[k].status === 'deleted'; });
+        if (staleCodes.length && await purgeVouchers(staleCodes, rawHistory)) {
+            staleCodes.forEach(function (c) { delete rawVouchers[c]; });
+        }
+
         var vouchers = Object.values(rawVouchers).filter(function (v) { return v && v.code; }).sort(function (a, b) { return (Number(b.updatedAt || b.createdAt) || 0) - (Number(a.updatedAt || a.createdAt) || 0); });
         var history = Object.values(rawHistory).filter(function (h) { return h && h.id; }).sort(function (a, b) { return (Number(b.timestamp) || 0) - (Number(a.timestamp) || 0); }).slice(0, 120);
         res.status(200).json({ ok: true, serverNow: now, plans: plans, vouchers: vouchers, history: history });
@@ -111,10 +134,12 @@ async function handleAdminAction(action, body, res) {
         var delCode = String(body.code || '').trim().toUpperCase();
         var targetV = await db.fetchPath('hidz_vouchers/' + delCode);
         if (!targetV || !targetV.code) { res.status(200).json({ ok: false, message: 'Voucher tidak ditemukan.' }); return; }
-        targetV.status = 'deleted'; targetV.deletedAt = now; targetV.updatedAt = now;
-        await db.setPath('hidz_vouchers/' + delCode, targetV);
-        await logVoucherHistory({ code: delCode, action: 'deleted', oldExpiresAt: targetV.expiresAt, newExpiresAt: targetV.expiresAt, planId: targetV.planId, planLabel: targetV.planLabel, discountType: targetV.discountType, percent: targetV.percent, finalPrice: targetV.finalPrice, snapshot: targetV });
-        res.status(200).json({ ok: true, voucher: targetV });
+        var allHistory = (await db.fetchPath('hidz_voucher_history')) || {};
+        if (!(await purgeVouchers([delCode], allHistory))) {
+            res.status(200).json({ ok: false, message: 'Gagal menghapus voucher dari database. Coba lagi.' });
+            return;
+        }
+        res.status(200).json({ ok: true, code: delCode });
         return;
     }
 

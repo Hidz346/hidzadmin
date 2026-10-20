@@ -6204,16 +6204,16 @@
         }).catch(function () { showToast('Gagal menghubungi server', 'err'); });
     };
 
-    window._vchSoftDelete = function (code) {
-        openDangerModal('Hapus Voucher ' + escAdmin(code) + '?', 'Voucher akan dinonaktifkan (soft delete) dan tetap tercatat di Riwayat Voucher.', 'HAPUS VOUCHER', function () {
+    window._vchDelete = function (code) {
+        openDangerModal('Hapus Voucher ' + escAdmin(code) + '?', 'Voucher beserta seluruh riwayatnya akan dihapus permanen dan tidak bisa dikembalikan.', 'HAPUS VOUCHER', function () {
             closeDangerModal();
             _adminFetch('/api/admin/voucher-delete', {
                 method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code: code })
             }).then(function (r) { return r.json(); }).then(function (res) {
-                if (!res || !res.ok) { showToast('Gagal menghapus voucher', 'err'); return; }
-                showToast('\u2714 Voucher ' + code + ' dihapus', 'ok');
+                if (!res || !res.ok) { showToast((res && res.message) || 'Gagal menghapus voucher', 'err'); return; }
+                showToast('\u2714 Voucher ' + code + ' dan riwayatnya dihapus', 'ok');
                 loadAdminVouchers();
-            });
+            }).catch(function () { showToast('Gagal menghubungi server', 'err'); });
         });
     };
 
@@ -6248,7 +6248,7 @@
                     var stCls = isDel ? 'st-expired' : (isExp ? 'st-pending' : 'st-active');
                     var stTxt = isDel ? 'DIHAPUS' : (isExp ? 'KEDALUWARSA' : 'AKTIF');
                     return '<div class="user-item ' + stCls + '">' +
-                        (!isDel ? '<button class="btn-del" onclick="window._vchSoftDelete(\'' + escAdmin(v.code) + '\')" title="Hapus"><i class="fas fa-trash"></i></button>' : '') +
+                        (!isDel ? '<button class="btn-del" onclick="window._vchDelete(\'' + escAdmin(v.code) + '\')" title="Hapus"><i class="fas fa-trash"></i></button>' : '') +
                         '<div class="user-top"><span class="u-name">' + escAdmin(v.code) + '</span><span class="u-role vip">' + escAdmin(v.planLabel) + '</span></div>' +
                         '<div style="font-size:12px;font-weight:800;color:var(--cyan);margin-bottom:4px;">' + fmtRp(v.normalPrice) + ' &rarr; ' + fmtRp(v.finalPrice) + ' (-' + escAdmin(v.percent) + '%) &bull; ' + stTxt + '</div>' +
                         '<div class="u-expiry">Berakhir: ' + fmtWib(v.expiresAt) + ' &bull; Dipakai: ' + (v.usedCount || 0) + 'x</div>' +
