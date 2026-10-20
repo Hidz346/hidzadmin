@@ -662,6 +662,8 @@
             animation:btnShine 2.5s ease-in-out infinite;
         }
         .btn-create:active { transform:translate(5px,5px); box-shadow:0 0 0 var(--bd); }
+        [data-bk]:disabled { opacity:.75; cursor:default; }
+        .btn-create[data-bk]:disabled:active { transform:none; box-shadow:6px 6px 0 var(--bd); }
 
         /* ===== USER ITEMS ===== */
         .user-item {
@@ -1895,7 +1897,7 @@
             <button type="button" class="dev-btn" data-role="vip" onclick="setRole('vip')">VIP</button>
         </div>
 
-        <button class="btn-create" onclick="createAccess()">
+        <button class="btn-create" id="createAccessBtn" data-bk="create-access" onclick="createAccess()">
             <i class="fas fa-user-plus" style="margin-right:8px;"></i>CREATE ACCESS
         </button>
     </div>
@@ -2027,7 +2029,7 @@
             </p>
         </div>
         <div style="margin-top:10px;">
-            <button class="btn-create" style="background:linear-gradient(135deg,#f59e0b,#d97706);box-shadow:6px 6px 0 var(--bd);" onclick="forceReloginAll()">
+            <button class="btn-create" style="background:linear-gradient(135deg,#f59e0b,#d97706);box-shadow:6px 6px 0 var(--bd);" data-bk="force-relogin" onclick="forceReloginAll()">
                 <i class="fas fa-key" style="margin-right:8px;"></i>FORCE RESET
             </button>
             <p style="font-size:10px;color:var(--tsec);line-height:1.6;margin-top:8px;">
@@ -2084,7 +2086,7 @@
                 <i class="fas fa-eye-slash" style="margin-right:6px;"></i>NONAKTIFKAN
             </button>
         </div>
-        <button class="btn-create" style="margin-top:12px;" onclick="savePromoAnnouncement()">
+        <button class="btn-create" style="margin-top:12px;" data-bk="promo-save" onclick="savePromoAnnouncement()">
             <i class="fas fa-save" style="margin-right:8px;"></i>SIMPAN PROMO
         </button>
     </div>
@@ -2105,7 +2107,7 @@
         <div class="f-lbl">Isi Pengumuman</div>
         <textarea class="f-inp" id="annFeedContentInp" rows="4" placeholder="Tuliskan detail update/fitur/project barunya..." maxlength="1000"></textarea>
 
-        <button class="btn-create" id="annFeedSubmitBtn" onclick="submitAnnFeed()">
+        <button class="btn-create" id="annFeedSubmitBtn" data-bk="ann-submit" onclick="submitAnnFeed()">
             <i class="fas fa-plus" style="margin-right:8px;"></i>TAMBAHKAN PENGUMUMAN
         </button>
         <button class="danger-modal-cancel" id="annFeedCancelBtn" style="display:none;width:100%;margin-top:10px;padding:13px 6px;" onclick="cancelEditAnnFeed()">
@@ -2202,7 +2204,7 @@
         <div class="f-lbl">Voucher Berakhir Pada</div>
         <input type="datetime-local" class="f-inp" id="vchExpInp" step="1">
 
-        <button type="button" class="btn-create" id="vchSubmitBtn" onclick="window._vchSaveNew(false)">
+        <button type="button" class="btn-create" id="vchSubmitBtn" data-bk="vch-save" onclick="window._vchSaveNew(false)">
             <i class="fas fa-ticket-alt" style="margin-right:8px;"></i>SIMPAN VOUCHER
         </button>
 
@@ -2233,7 +2235,7 @@
         <div class="f-lbl">Verifikasi Kode Bukti Transaksi (HMAC)</div>
         <div style="display:grid;grid-template-columns:1fr auto;gap:8px;margin-bottom:12px;">
             <input type="text" class="f-inp" id="vipVerifyCodeInp" placeholder="HZV-XXXXXXXXXXXXXXXX" style="margin-bottom:0;text-transform:uppercase;" autocomplete="off">
-            <button type="button" class="dev-btn active" style="padding:0 14px;" onclick="window._vipVerifyReceiptCode()">CEK KODE</button>
+            <button type="button" class="dev-btn active" style="padding:0 14px;" data-bk="vip-verify" data-bl="" onclick="window._vipVerifyReceiptCode()">CEK KODE</button>
         </div>
         <div id="vipVerifyResultBox" style="display:none;margin-bottom:13px;"></div>
 
@@ -2379,7 +2381,7 @@
         </div>
         <div class="danger-modal-actions">
             <button class="danger-modal-cancel" onclick="closeAnnDeleteModal()">BATAL</button>
-            <button class="danger-modal-confirm" onclick="confirmDeleteAnnFeed()">
+            <button class="danger-modal-confirm" id="annDeleteConfirmBtn" onclick="confirmDeleteAnnFeed()">
                 <i class="fas fa-trash-alt" style="margin-right:6px;"></i>HAPUS
             </button>
         </div>
@@ -2519,6 +2521,31 @@
             options.headers.Authorization = 'Bearer ' + token;
             return fetch(url, options);
         });
+    }
+
+    /* Tombol yang sedang menunggu server berubah jadi spinner + "MEMPROSES...".
+       Statusnya disimpan per kunci (atribut data-bk di tombol), bukan di elemennya, supaya tombol
+       di daftar yang dirender ulang selagi permintaan berjalan tetap terlihat memuat dan tidak
+       bisa dikirim dua kali. data-bl="" membuat tombol sempit cukup menampilkan spinner. */
+    var _busyKeys = {};
+    function paintBusy(root) {
+        Array.prototype.forEach.call((root || document).querySelectorAll('[data-bk]'), function (b) {
+            var on = !!_busyKeys[b.getAttribute('data-bk')];
+            if (on && b.dataset.idleHtml === undefined) {
+                var lbl = b.hasAttribute('data-bl') ? b.getAttribute('data-bl') : 'MEMPROSES...';
+                b.dataset.idleHtml = b.innerHTML;
+                b.disabled = true;
+                b.innerHTML = '<i class="fas fa-spinner fa-spin"' + (lbl ? ' style="margin-right:6px;"' : '') + '></i>' + lbl;
+            } else if (!on && b.dataset.idleHtml !== undefined) {
+                b.innerHTML = b.dataset.idleHtml;
+                delete b.dataset.idleHtml;
+                b.disabled = false;
+            }
+        });
+    }
+    function setBusy(key, on) {
+        if (on) _busyKeys[key] = true; else delete _busyKeys[key];
+        paintBusy();
     }
 
     /* ===== SINKRON DAFTAR AKUN =====
@@ -3002,7 +3029,7 @@
 
             /* Tombol UNBAND jika banned */
             var unbandBtn = isBanned
-                ? '<button class="btn-unband" onclick="unbanUser(\''+u.id+'\')"><i class="fas fa-unlock" style="margin-right:6px;"></i>UNBAND / BUKA BLOKIR</button>'
+                ? '<button class="btn-unband" data-bk="unban:'+u.id+'" onclick="unbanUser(\''+u.id+'\')"><i class="fas fa-unlock" style="margin-right:6px;"></i>UNBAND / BUKA BLOKIR</button>'
                 : '';
 
             /* Waktu pembuatan akun (jam.menit.detik - tanggal bulan tahun) */
@@ -3045,6 +3072,7 @@
                     '</button>';
         }
         box.innerHTML = html;
+        paintBusy(box);
     }
 
     /* Dipanggil dari kolom pencarian Database Users */
@@ -3558,8 +3586,8 @@
         }
 
         var createdRoleLabel = (_selectedRole === 'vip') ? 'VIP' : 'USER';
-        var btn = document.getElementById('createAccessBtn');
-        if (btn) btn.disabled = true;
+        if (_busyKeys['create-access']) return;
+        setBusy('create-access', true);
 
         _adminFetch('/api/admin/create', {
             method: 'POST',
@@ -3572,7 +3600,7 @@
         })
             .then(function (r) { return r.json(); })
             .then(function (res) {
-                if (btn) btn.disabled = false;
+                setBusy('create-access', false);
                 if (!res || !res.ok) {
                     showToast(res && res.reason === 'duplicate' ? 'Username sudah ada!' : 'Gagal membuat akses, coba lagi.', 'err');
                     return;
@@ -3598,7 +3626,7 @@
                 });
             })
             .catch(function () {
-                if (btn) btn.disabled = false;
+                setBusy('create-access', false);
                 showToast('Gagal terhubung ke server, coba lagi.', 'err');
             });
     }
@@ -3680,6 +3708,9 @@
 
     /* ===== UNBAND USER (SMART) ===== */
     function unbanUser(id) {
+        var key = 'unban:' + id;
+        if (_busyKeys[key]) return;
+        setBusy(key, true);
         _adminFetch('/api/admin/unban', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -3687,6 +3718,7 @@
         })
             .then(function (r) { return r.json(); })
             .then(function (res) {
+                setBusy(key, false);
                 if (!res || !res.ok) { showToast('Gagal UNBAND, coba lagi.', 'err'); return; }
                 _adminSyncUsers();
                 if (res.blockedCount > 0) {
@@ -3695,7 +3727,7 @@
                     showToast('\u2714 Akun berhasil di-UNBAND!', 'ok');
                 }
             })
-            .catch(function () { showToast('Gagal terhubung ke server, coba lagi.', 'err'); });
+            .catch(function () { setBusy(key, false); showToast('Gagal terhubung ke server, coba lagi.', 'err'); });
     }
 
     /* ===== TOAST ===== */
@@ -3732,6 +3764,8 @@
 
     /* ===== FORCE RE-LOGIN SEMUA SESI ===== */
     function forceReloginAll() {
+        if (_busyKeys['force-relogin']) return;
+        setBusy('force-relogin', true);
         _adminFetch('/api/admin/force-relogin-all', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -3739,11 +3773,12 @@
         })
             .then(function (r) { return r.json(); })
             .then(function (res) {
+                setBusy('force-relogin', false);
                 if (!res || !res.ok) { showToast('Gagal reset sesi!', 'err'); return; }
                 _adminSyncUsers();
                 showToast('\u2714 Semua sesi direset! User wajib login ulang.', 'ok');
             })
-            .catch(function () { showToast('Gagal terhubung ke server, coba lagi.', 'err'); });
+            .catch(function () { setBusy('force-relogin', false); showToast('Gagal terhubung ke server, coba lagi.', 'err'); });
     }
 
     /* ===== PROJECT BARU — kabar ke semua akun =====
@@ -3914,8 +3949,9 @@
         if (!_nlogDeleteId || _nlogBusy) return;
         var id  = _nlogDeleteId;
         var btn = document.getElementById('nlogDeleteConfirmBtn');
+        var idleHtml = btn ? btn.innerHTML : '';
         _nlogBusy = true;
-        if (btn) btn.disabled = true;
+        if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin" style="margin-right:6px;"></i>MEMPROSES...'; }
 
         _maintRequest({ action: 'notif-delete', id: id })
             .then(function (res) {
@@ -3937,7 +3973,7 @@
             })
             .then(function () {
                 _nlogBusy = false;
-                if (btn) btn.disabled = false;
+                if (btn) { btn.disabled = false; btn.innerHTML = idleHtml; }
             });
     }
 
@@ -4832,11 +4868,14 @@
 
         try {
             if (typeof firebase !== 'undefined' && firebase.apps.length) {
+                if (_busyKeys['promo-save']) return;
+                setBusy('promo-save', true);
                 firebase.database().ref(_PROMO_REF).update({
                     title: title, desc: desc, image: image,
                     btnText: btnText, btnLink: btnLink,
                     endsAt: endsAt, updatedAt: Date.now()
                 }, function(err) {
+                    setBusy('promo-save', false);
                     if (err) {
                         console.error('[Promo] gagal simpan:', err);
                         showToast('Gagal menyimpan promo (' + _fbErrShort(err) + ')', 'err');
@@ -4847,7 +4886,7 @@
             } else {
                 showToast('Firebase tidak tersedia!', 'err');
             }
-        } catch(e) { console.error('[Promo] exception simpan:', e); showToast('Error: ' + e.message, 'err'); }
+        } catch(e) { setBusy('promo-save', false); console.error('[Promo] exception simpan:', e); showToast('Error: ' + e.message, 'err'); }
     }
 
     /* Format timestamp (ms) -> value input datetime-local ("YYYY-MM-DDTHH:mm:ss"), mengikuti waktu lokal perangkat */
@@ -4926,10 +4965,13 @@
             if (typeof firebase === 'undefined' || !firebase.apps.length) {
                 showToast('Firebase tidak tersedia!', 'err'); return;
             }
+            if (_busyKeys['ann-submit']) return;
+            setBusy('ann-submit', true);
             if (_annEditingKey) {
                 firebase.database().ref(_ANN_FEED_REF + '/' + _annEditingKey).update({
                     title: title, content: content, updatedAt: Date.now()
                 }, function(err) {
+                    setBusy('ann-submit', false);
                     if (err) { console.error('[Feed] gagal update:', err); showToast('Gagal menyimpan perubahan (' + _fbErrShort(err) + ')', 'err'); return; }
                     showToast('\u2714 Pengumuman diperbarui!', 'ok');
                     cancelEditAnnFeed();
@@ -4938,13 +4980,14 @@
                 firebase.database().ref(_ANN_FEED_REF).push({
                     title: title, content: content, createdAt: Date.now()
                 }, function(err) {
+                    setBusy('ann-submit', false);
                     if (err) { console.error('[Feed] gagal tambah:', err); showToast('Gagal menambahkan pengumuman (' + _fbErrShort(err) + ')', 'err'); return; }
                     showToast('\u2714 Pengumuman ditambahkan!', 'ok');
                     document.getElementById('annFeedTitleInp').value   = '';
                     document.getElementById('annFeedContentInp').value = '';
                 });
             }
-        } catch(e) { console.error('[Feed] exception submit:', e); showToast('Error: ' + e.message, 'err'); }
+        } catch(e) { setBusy('ann-submit', false); console.error('[Feed] exception submit:', e); showToast('Error: ' + e.message, 'err'); }
     }
 
     /* Masuk mode edit — isi ulang form dengan data pengumuman yang dipilih */
@@ -4980,14 +5023,19 @@
     }
     function confirmDeleteAnnFeed() {
         if (!_annDeleteKey) return;
+        var btn = document.getElementById('annDeleteConfirmBtn');
+        var idleHtml = btn ? btn.innerHTML : '';
+        if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin" style="margin-right:6px;"></i>MEMPROSES...'; }
+        function settle() { if (btn) { btn.disabled = false; btn.innerHTML = idleHtml; } }
         try {
             firebase.database().ref(_ANN_FEED_REF + '/' + _annDeleteKey).remove(function(err) {
+                settle();
                 if (err) { console.error('[Feed] gagal hapus:', err); showToast('Gagal menghapus pengumuman (' + _fbErrShort(err) + ')', 'err'); return; }
                 showToast('\u2714 Pengumuman dihapus', 'ok');
                 if (_annEditingKey === _annDeleteKey) cancelEditAnnFeed();
                 closeAnnDeleteModal();
             });
-        } catch(e) { console.error('[Feed] exception hapus:', e); showToast('Error: ' + e.message, 'err'); closeAnnDeleteModal(); }
+        } catch(e) { settle(); console.error('[Feed] exception hapus:', e); showToast('Error: ' + e.message, 'err'); closeAnnDeleteModal(); }
     }
 
     /* Render semua pengumuman ke DOM, terbaru di atas */
@@ -5974,13 +6022,16 @@
 
     /* Ambil halaman berikutnya & tambahkan ke daftar yang sudah tampil — dipakai tombol "MUAT LEBIH BANYAK" */
     function loadMore() {
+        if (_busyKeys['sec-more']) return;
+        setBusy('sec-more', true);
         fetchPage(eventsOffset).then(function (d) {
+            setBusy('sec-more', false);
             if (!d || !d.ok) return;
             loadedEvents = loadedEvents.concat(d.events || []);
             eventsOffset += pageSize;
             eventsTotal = Number(d.eventsTotal || eventsTotal);
             render();
-        }).catch(function () {});
+        }).catch(function () { setBusy('sec-more', false); });
     }
 
     function render() {
@@ -5998,7 +6049,7 @@
                     '<div><b>' + esc(x.ip) + '</b> <span class="hzsec-bad">BLOCKED</span></div>' +
                     locationHtml(x) +
                     '<div class="hzsec-meta">' + esc(x.reason) + ' · sampai ' + new Date(Number(x.blockedUntil || 0)).toLocaleString() + '</div>' +
-                    '<button class="hzsec-btn" onclick="window._hidzUnblock(\'' + esc(x.ip).replace(/'/g, "\\'") + '\')">BUKA BLOKIR</button>' +
+                    '<button class="hzsec-btn" data-bk="unblock:' + esc(x.ip) + '" onclick="window._hidzUnblock(\'' + esc(x.ip).replace(/'/g, "\\'") + '\')">BUKA BLOKIR</button>' +
                     '</div>';
             });
         }
@@ -6015,13 +6066,13 @@
                     locationHtml(x) +
                     '<div class="hzsec-meta">' + new Date(Number(x.attemptAt || 0)).toLocaleString() + ' · ' + esc(x.method) + ' ' + esc(sanitizeEndpoint(x.endpoint)) + '</div>' +
                     '<div class="hzsec-btn-row">' +
-                    '<button class="hzsec-btn hzsec-btn-danger" onclick="window._hidzDeleteEvent(\'' + esc(x.id) + '\')">HAPUS</button>' +
+                    '<button class="hzsec-btn hzsec-btn-danger" data-bk="delev:' + esc(x.id) + '" onclick="window._hidzDeleteEvent(\'' + esc(x.id) + '\')">HAPUS</button>' +
                     '</div>' +
                     '</div>';
             });
 
             if (loadedEvents.length < eventsTotal) {
-                h += '<button class="hzsec-more" onclick="window._hidzLoadMoreEvents()">MUAT LEBIH BANYAK (' + (eventsTotal - loadedEvents.length) + ' lagi)</button>';
+                h += '<button class="hzsec-more" data-bk="sec-more" data-bl="MEMUAT..." onclick="window._hidzLoadMoreEvents()">MUAT LEBIH BANYAK (' + (eventsTotal - loadedEvents.length) + ' lagi)</button>';
             }
         }
 
@@ -6030,6 +6081,7 @@
         }
 
         el.innerHTML = h;
+        paintBusy(el);
     }
 
     window._hidzOpenSecurity = function () {
@@ -6049,44 +6101,59 @@
     window._hidzUnblock = function (ip) {
         var a = auth();
         if (!a) return;
+        var key = 'unblock:' + ip;
+        if (_busyKeys[key]) return;
+        setBusy(key, true);
         _adminFetch('/api/admin/unblock-ip', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ ip: ip })
-        }).then(function (r) { return r.json(); }).then(function (d) { if (d && d.ok) load(); });
+        }).then(function (r) { return r.json(); }).then(function (d) {
+            setBusy(key, false);
+            if (d && d.ok) load();
+        }).catch(function () { setBusy(key, false); });
     };
 
     window._hidzDeleteEvent = function (id) {
         var a = auth();
         if (!a) return;
+        var key = 'delev:' + id;
+        if (_busyKeys[key]) return;
+        setBusy(key, true);
         _adminFetch('/api/admin/delete-security-event', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ id: id })
         }).then(function (r) { return r.json(); }).then(function (d) {
+            setBusy(key, false);
             if (!d || !d.ok) return;
             loadedEvents = loadedEvents.filter(function (x) { return x.id !== id; });
             eventsTotal = Math.max(0, eventsTotal - 1);
             render();
-        });
+        }).catch(function () { setBusy(key, false); });
     };
 
     window._hidzClearEvents = function () {
         var a = auth();
         if (!a) return;
         openDangerModal('Hapus Riwayat Ancaman?', 'Semua riwayat ancaman terdeteksi akan dihapus permanen.', 'HAPUS SEMUA', function () {
-            closeDangerModal();
+            var btn = document.getElementById('dangerModalConfirmBtn');
+            if (btn) {
+                btn.disabled  = true;
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin" style="margin-right:6px;"></i>MEMPROSES...';
+            }
             _adminFetch('/api/admin/clear-security-events', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({})
-        }).then(function (r) { return r.json(); }).then(function (d) {
-            if (!d || !d.ok) return;
-            loadedEvents = [];
-            eventsOffset = 0;
-            eventsTotal = 0;
-            render();
-        });
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({})
+            }).then(function (r) { return r.json(); }).then(function (d) {
+                closeDangerModal();
+                if (!d || !d.ok) return;
+                loadedEvents = [];
+                eventsOffset = 0;
+                eventsTotal = 0;
+                render();
+            }).catch(function () { closeDangerModal(); });
         });
     };
 
@@ -6161,31 +6228,35 @@
             finalPrice: Number(document.getElementById('vchCusInp').value || 0),
             expiresAt: expiresAt, isReuse: !!isReuse
         };
-        var btn = document.getElementById('vchSubmitBtn');
-        if (btn) btn.disabled = true;
+        if (_busyKeys['vch-save']) return;
+        setBusy('vch-save', true);
         _adminFetch('/api/admin/voucher-save', {
             method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
         }).then(function (r) { return r.json(); }).then(function (res) {
-            if (btn) btn.disabled = false;
+            setBusy('vch-save', false);
             if (!res || !res.ok) { showToast((res && res.message) || 'Gagal menyimpan voucher', 'err'); return; }
             showToast('\u2714 Voucher ' + code + ' berhasil disimpan!', 'ok');
             document.getElementById('vchCodeInp').value = '';
             loadAdminVouchers();
-        }).catch(function () { if (btn) btn.disabled = false; showToast('Gagal terhubung ke server', 'err'); });
+        }).catch(function () { setBusy('vch-save', false); showToast('Gagal terhubung ke server', 'err'); });
     };
 
     window._vchQuickExtend = function (code, addMs) {
         var v = _vouchers.filter(function (x) { return x.code === code; })[0];
         if (!v) return;
         var base = Math.max(Date.now(), Number(v.expiresAt || 0));
+        var key = 'vch-ext:' + code + ':' + addMs;
+        if (_busyKeys[key]) return;
+        setBusy(key, true);
         _adminFetch('/api/admin/voucher-save', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ mode: 'update-expiry', code: code, expiresAt: base + addMs, restoreIfDeleted: true })
         }).then(function (r) { return r.json(); }).then(function (res) {
+            setBusy(key, false);
             if (!res || !res.ok) { showToast((res && res.message) || 'Gagal mengubah masa berlaku', 'err'); return; }
             showToast('\u2714 Masa berlaku voucher ' + code + ' diperbarui!', 'ok');
             loadAdminVouchers();
-        }).catch(function () { showToast('Gagal menghubungi server', 'err'); });
+        }).catch(function () { setBusy(key, false); showToast('Gagal menghubungi server', 'err'); });
     };
 
     window._vchSetExpiry = function (code) {
@@ -6194,26 +6265,35 @@
         if (!val) { showToast('Tentukan waktu berakhir yang baru!', 'err'); return; }
         var newExp = new Date(val).getTime();
         if (!newExp || newExp <= Date.now()) { showToast('Waktu berakhir harus di masa depan. Untuk menonaktifkan voucher, pakai tombol hapus.', 'err'); return; }
+        var key = 'vch-exp:' + code;
+        if (_busyKeys[key]) return;
+        setBusy(key, true);
         _adminFetch('/api/admin/voucher-save', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ mode: 'update-expiry', code: code, expiresAt: newExp, restoreIfDeleted: true })
         }).then(function (r) { return r.json(); }).then(function (res) {
+            setBusy(key, false);
             if (!res || !res.ok) { showToast((res && res.message) || 'Gagal mengubah masa berlaku', 'err'); return; }
             showToast('\u2714 Masa berlaku voucher ' + code + ' diperbarui!', 'ok');
             loadAdminVouchers();
-        }).catch(function () { showToast('Gagal menghubungi server', 'err'); });
+        }).catch(function () { setBusy(key, false); showToast('Gagal menghubungi server', 'err'); });
     };
 
     window._vchDelete = function (code) {
         openDangerModal('Hapus Voucher ' + escAdmin(code) + '?', 'Voucher beserta seluruh riwayatnya akan dihapus permanen dan tidak bisa dikembalikan.', 'HAPUS VOUCHER', function () {
-            closeDangerModal();
+            var btn = document.getElementById('dangerModalConfirmBtn');
+            if (btn) {
+                btn.disabled  = true;
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin" style="margin-right:6px;"></i>MEMPROSES...';
+            }
             _adminFetch('/api/admin/voucher-delete', {
                 method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code: code })
             }).then(function (r) { return r.json(); }).then(function (res) {
+                closeDangerModal();
                 if (!res || !res.ok) { showToast((res && res.message) || 'Gagal menghapus voucher', 'err'); return; }
                 showToast('\u2714 Voucher ' + code + ' dan riwayatnya dihapus', 'ok');
                 loadAdminVouchers();
-            }).catch(function () { showToast('Gagal menghubungi server', 'err'); });
+            }).catch(function () { closeDangerModal(); showToast('Gagal menghubungi server', 'err'); });
         });
     };
 
@@ -6253,14 +6333,15 @@
                         '<div style="font-size:12px;font-weight:800;color:var(--cyan);margin-bottom:4px;">' + fmtRp(v.normalPrice) + ' &rarr; ' + fmtRp(v.finalPrice) + ' (-' + escAdmin(v.percent) + '%) &bull; ' + stTxt + '</div>' +
                         '<div class="u-expiry">Berakhir: ' + fmtWib(v.expiresAt) + ' &bull; Dipakai: ' + (v.usedCount || 0) + 'x</div>' +
                         '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px;">' +
-                            '<button type="button" class="btn-extend" style="margin-top:0;padding:7px;" onclick="window._vchQuickExtend(\'' + escAdmin(v.code) + '\', 3600000)">+1 JAM</button>' +
-                            '<button type="button" class="btn-extend" style="margin-top:0;padding:7px;" onclick="window._vchQuickExtend(\'' + escAdmin(v.code) + '\', 86400000)">+1 HARI</button>' +
+                            '<button type="button" class="btn-extend" style="margin-top:0;padding:7px;" data-bk="vch-ext:' + escAdmin(v.code) + ':3600000" onclick="window._vchQuickExtend(\'' + escAdmin(v.code) + '\', 3600000)">+1 JAM</button>' +
+                            '<button type="button" class="btn-extend" style="margin-top:0;padding:7px;" data-bk="vch-ext:' + escAdmin(v.code) + ':86400000" onclick="window._vchQuickExtend(\'' + escAdmin(v.code) + '\', 86400000)">+1 HARI</button>' +
                         '</div>' +
                         '<div style="display:grid;grid-template-columns:1fr auto;gap:6px;margin-top:6px;">' +
                             '<input type="datetime-local" step="1" class="f-inp" id="vchExpEdit_' + escAdmin(v.code) + '" value="' + tsToLocalInp(Number(v.expiresAt) > now ? Number(v.expiresAt) : now + 86400000) + '" style="margin-bottom:0;">' +
-                            '<button type="button" class="btn-extend" style="margin-top:0;padding:7px 14px;" onclick="window._vchSetExpiry(\'' + escAdmin(v.code) + '\')">ATUR</button>' +
+                            '<button type="button" class="btn-extend" style="margin-top:0;padding:7px 14px;" data-bk="vch-exp:' + escAdmin(v.code) + '" data-bl="" onclick="window._vchSetExpiry(\'' + escAdmin(v.code) + '\')">ATUR</button>' +
                         '</div></div>';
                 }).join('');
+                paintBusy(box);
             }
         }
 
@@ -6334,9 +6415,12 @@
         var inp = document.getElementById('vipVerifyCodeInp'), box = document.getElementById('vipVerifyResultBox');
         var code = inp ? inp.value.trim().toUpperCase() : '';
         if (!code) { showToast('Masukkan kode verifikasi HZV-...', 'err'); return; }
+        if (_busyKeys['vip-verify']) return;
+        setBusy('vip-verify', true);
         _adminFetch('/api/admin/vip-orders', {
             method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ verifyCode: code })
         }).then(function (r) { return r.json(); }).then(function (res) {
+            setBusy('vip-verify', false);
             if (!box) return;
             box.style.display = 'block';
             if (res && res.verifiedOrder) {
@@ -6347,7 +6431,7 @@
                 box.innerHTML = '<div style="padding:10px;border:2px solid var(--red);background:rgba(239,68,68,0.1);font-size:11.5px;font-weight:700;color:var(--red);">' +
                     '\u2716 KODE VERIFIKASI TIDAK DITEMUKAN ATAU TIDAK SAH</div>';
             }
-        }).catch(function () { showToast('Gagal memverifikasi kode', 'err'); });
+        }).catch(function () { setBusy('vip-verify', false); showToast('Gagal memverifikasi kode', 'err'); });
     };
 
     function loadAdminVouchers() {
