@@ -3878,6 +3878,8 @@
         project_new:    ['Project Baru',    'var(--cyan)']
     };
     var _nlogItems    = [];
+    var _showAllNlog  = false;
+    var _NLOG_INITIAL_LIMIT = 3;
     var _nlogSeq      = 0;
     var _nlogApplied  = 0;
     var _nlogMutated  = 0;
@@ -3907,8 +3909,13 @@
             return;
         }
 
+        /* Tampil 3 terbaru dulu, sisanya lewat tombol, sama seperti daftar akun */
+        var total = _nlogItems.length;
+        if (total <= _NLOG_INITIAL_LIMIT) _showAllNlog = false;
+        var visible = _showAllNlog ? _nlogItems : _nlogItems.slice(0, _NLOG_INITIAL_LIMIT);
+
         var html = '';
-        _nlogItems.forEach(function (it) {
+        visible.forEach(function (it) {
             var label = _NLOG_LABEL[it.type] || ['Info', 'var(--pink)'];
             html +=
                 '<div class="nlog-item">' +
@@ -3923,7 +3930,17 @@
                     '<button class="btn-del" onclick="openNlogDelete(\'' + escAdmin(it.id) + '\')" title="Hapus riwayat"><i class="fas fa-trash-alt"></i></button>' +
                 '</div>';
         });
+        if (total > _NLOG_INITIAL_LIMIT) {
+            html += '<button type="button" class="btn-extend btn-more-users" onclick="toggleShowAllNlog()">' +
+                    (_showAllNlog ? 'Sembunyikan \u2191' : 'Lihat Lebih Detail (' + total + ') \u2193') +
+                    '</button>';
+        }
         listEl.innerHTML = html;
+    }
+
+    function toggleShowAllNlog() {
+        _showAllNlog = !_showAllNlog;
+        _renderNotifLog();
     }
 
     function _loadNotifLog() {
