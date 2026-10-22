@@ -89,8 +89,28 @@
       "destination": "/api/admin/maintenance?vipAdminAction=voucher-delete"
     },
     {
+      "source": "/api/admin/voucher-delete-all",
+      "destination": "/api/admin/maintenance?vipAdminAction=voucher-delete-all"
+    },
+    {
+      "source": "/api/admin/history-delete",
+      "destination": "/api/admin/maintenance?vipAdminAction=history-delete"
+    },
+    {
+      "source": "/api/admin/history-delete-all",
+      "destination": "/api/admin/maintenance?vipAdminAction=history-delete-all"
+    },
+    {
       "source": "/api/admin/vip-orders",
       "destination": "/api/admin/maintenance?vipAdminAction=vip-orders"
+    },
+    {
+      "source": "/api/admin/vip-order-delete",
+      "destination": "/api/admin/maintenance?vipAdminAction=vip-order-delete"
+    },
+    {
+      "source": "/api/admin/vip-order-delete-all",
+      "destination": "/api/admin/maintenance?vipAdminAction=vip-order-delete-all"
     }
   ]
 }

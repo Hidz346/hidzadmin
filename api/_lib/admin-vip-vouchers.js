@@ -7,6 +7,9 @@ var MAX_VOUCHER_USES = 1000;
 /* Dua angka ini sama dengan yang dipakai alur pembayaran di HIDZPROJECT (api/_lib/vip-vouchers.js) */
 var RESERVE_GRACE_MS = 60 * 1000;
 var LATE_PAY_GRACE_MS = 15 * 1000;
+var HISTORY_ID_RE = /^vh_[0-9]+_[0-9a-f]+$/;
+var ORDER_ID_RE = /^[A-Za-z0-9_-]{4,80}$/;
+var MAX_BULK_ORDER_IDS = 5000;
 
 var DEFAULT_VIP_PLANS = [
     { id: '1d',  label: '1 Day',   days: 1,   price: 3000,   durationMs: 1 * DAY_MS,   durationLabel: '1 HARI' },
@@ -81,20 +84,18 @@ function planNames(ids, allPlans) {
 
 function rupiah(n) { return 'Rp ' + Number(n).toLocaleString('id-ID'); }
 
-/* Hapus permanen voucher beserta seluruh riwayatnya. Riwayat dihapus lebih dulu:
-   kalau langkah kedua gagal, voucher masih tampil di daftar dan bisa dihapus ulang,
-   bukan meninggalkan riwayat yatim yang tidak bisa dibersihkan dari panel. */
-async function purgeVouchers(codes, rawHistory) {
-    var histWipe = {}, vchWipe = {};
-    codes.forEach(function (c) { vchWipe[c] = null; });
-    Object.keys(rawHistory).forEach(function (id) {
-        var h = rawHistory[id];
-        if (h && codes.indexOf(String(h.code || '').toUpperCase()) !== -1) histWipe[id] = null;
-    });
-    if (Object.keys(histWipe).length && !(await db.updatePath('hidz_voucher_history', histWipe))) return false;
-    if (!(await db.updatePath('hidz_vouchers', vchWipe))) return false;
-    Object.keys(histWipe).forEach(function (id) { delete rawHistory[id]; });
-    return true;
+/* Hapus permanen voucher dari daftar. Riwayat voucher berdiri sendiri dan tidak ikut terhapus:
+   riwayat dihapus lewat aksi history-delete / history-delete-all. */
+async function removeVouchers(codes) {
+    var wipe = {};
+    codes.forEach(function (c) { wipe[c] = null; });
+    return db.updatePath('hidz_vouchers', wipe);
+}
+
+/* Pesanan yang masih bisa dibayar pembeli. Menghapusnya berarti pembayaran yang masuk sesudahnya
+   tidak punya pesanan untuk dicocokkan, jadi tidak boleh dihapus dari panel. */
+function isPayableOrder(o, now) {
+    return o.status === 'PENDING' && now <= Number(o.expiresAt) + LATE_PAY_GRACE_MS;
 }
 
 function expectedVerificationCode(order) {
@@ -111,16 +112,16 @@ async function handleAdminAction(action, body, res) {
         var rawVouchers = (await db.fetchPath('hidz_vouchers')) || {};
         var rawHistory = (await db.fetchPath('hidz_voucher_history')) || {};
 
-        /* Voucher yang dulu cuma ditandai "deleted" ikut dibersihkan bersama riwayatnya. */
+        /* Voucher yang dulu cuma ditandai "deleted" dibersihkan dari daftar (riwayatnya tetap). */
         var staleCodes = Object.keys(rawVouchers).filter(function (k) { return rawVouchers[k] && rawVouchers[k].status === 'deleted'; });
-        if (staleCodes.length && await purgeVouchers(staleCodes, rawHistory)) {
+        if (staleCodes.length && await removeVouchers(staleCodes)) {
             staleCodes.forEach(function (c) { delete rawVouchers[c]; });
         }
 
         var vouchers = Object.values(rawVouchers).filter(function (v) { return v && v.code; }).sort(function (a, b) { return (Number(b.updatedAt || b.createdAt) || 0) - (Number(a.updatedAt || a.createdAt) || 0); });
         vouchers = await Promise.all(vouchers.map(async function (v) { return publicVoucher(v, await holdingCount(v, now)); }));
-        var history = Object.values(rawHistory).filter(function (h) { return h && h.id; }).sort(function (a, b) { return (Number(b.timestamp) || 0) - (Number(a.timestamp) || 0); }).slice(0, 120);
-        res.status(200).json({ ok: true, serverNow: now, plans: plans, vouchers: vouchers, history: history });
+        var historyAll = Object.values(rawHistory).filter(function (h) { return h && h.id; }).sort(function (a, b) { return (Number(b.timestamp) || 0) - (Number(a.timestamp) || 0); });
+        res.status(200).json({ ok: true, serverNow: now, plans: plans, vouchers: vouchers, history: historyAll.slice(0, 120), historyTotal: historyAll.length });
         return;
     }
 
@@ -221,12 +222,46 @@ async function handleAdminAction(action, body, res) {
         var delCode = String(body.code || '').trim().toUpperCase();
         var targetV = await db.fetchPath('hidz_vouchers/' + delCode);
         if (!targetV || !targetV.code) { res.status(200).json({ ok: false, message: 'Voucher tidak ditemukan.' }); return; }
-        var allHistory = (await db.fetchPath('hidz_voucher_history')) || {};
-        if (!(await purgeVouchers([delCode], allHistory))) {
+        if (!(await removeVouchers([delCode]))) {
             res.status(200).json({ ok: false, message: 'Gagal menghapus voucher dari database. Coba lagi.' });
             return;
         }
         res.status(200).json({ ok: true, code: delCode });
+        return;
+    }
+
+    if (action === 'voucher-delete-all') {
+        var allCodes = Object.keys((await db.fetchPath('hidz_vouchers')) || {});
+        if (!allCodes.length) { res.status(200).json({ ok: true, deleted: 0 }); return; }
+        if (!(await removeVouchers(allCodes))) {
+            res.status(200).json({ ok: false, message: 'Gagal menghapus voucher dari database. Coba lagi.' });
+            return;
+        }
+        res.status(200).json({ ok: true, deleted: allCodes.length });
+        return;
+    }
+
+    if (action === 'history-delete') {
+        var histId = String(body.id || '').trim();
+        if (!HISTORY_ID_RE.test(histId)) { res.status(200).json({ ok: false, message: 'ID riwayat tidak valid.' }); return; }
+        var histEntry = await db.fetchPath('hidz_voucher_history/' + histId);
+        if (!histEntry) { res.status(200).json({ ok: false, message: 'Riwayat tidak ditemukan.' }); return; }
+        if (!(await db.deletePath('hidz_voucher_history/' + histId))) {
+            res.status(200).json({ ok: false, message: 'Gagal menghapus riwayat dari database. Coba lagi.' });
+            return;
+        }
+        res.status(200).json({ ok: true, id: histId });
+        return;
+    }
+
+    if (action === 'history-delete-all') {
+        var histCount = Object.keys((await db.fetchPath('hidz_voucher_history')) || {}).length;
+        if (!histCount) { res.status(200).json({ ok: true, deleted: 0 }); return; }
+        if (!(await db.deletePath('hidz_voucher_history'))) {
+            res.status(200).json({ ok: false, message: 'Gagal menghapus riwayat dari database. Coba lagi.' });
+            return;
+        }
+        res.status(200).json({ ok: true, deleted: histCount });
         return;
     }
 
@@ -252,6 +287,48 @@ async function handleAdminAction(action, body, res) {
             }
         }
         res.status(200).json({ ok: true, serverNow: now, orders: allList, verifiedOrder: verifiedOrder });
+        return;
+    }
+
+    if (action === 'vip-order-delete') {
+        var ordId = String(body.orderId || '').trim();
+        if (!ORDER_ID_RE.test(ordId)) { res.status(200).json({ ok: false, message: 'ID pesanan tidak valid.' }); return; }
+        var ordToDelete = await db.fetchPath('hidz_vip_orders/' + ordId);
+        if (!ordToDelete || typeof ordToDelete !== 'object') { res.status(200).json({ ok: false, message: 'Pesanan tidak ditemukan.' }); return; }
+        if (isPayableOrder(ordToDelete, now)) {
+            res.status(200).json({ ok: false, message: 'Pesanan ini masih menunggu pembayaran dan belum bisa dihapus. Tunggu sampai kedaluwarsa atau dibatalkan pembeli.' });
+            return;
+        }
+        if (!(await db.deletePath('hidz_vip_orders/' + ordId))) {
+            res.status(200).json({ ok: false, message: 'Gagal menghapus pesanan dari database. Coba lagi.' });
+            return;
+        }
+        res.status(200).json({ ok: true, orderId: ordId });
+        return;
+    }
+
+    if (action === 'vip-order-delete-all') {
+        /* Panel mengirim daftar ID yang sedang tampil (sesuai filter & pencarian). Status tiap pesanan dibaca
+           ulang di sini: yang masih bisa dibayar tidak dihapus, dan LATE_PAYMENT (pembeli sudah bayar tapi belum
+           ter-upgrade, butuh ditangani admin) hanya dihapus kalau panel memintanya lewat includeLate. */
+        var wantedOrders = Array.isArray(body.orderIds) ? body.orderIds.map(function (id) { return String(id).trim(); }).filter(function (id) { return ORDER_ID_RE.test(id); }) : [];
+        wantedOrders = wantedOrders.filter(function (id, i) { return wantedOrders.indexOf(id) === i; });
+        if (!wantedOrders.length) { res.status(200).json({ ok: true, deleted: 0, skippedActive: 0, skippedLate: 0 }); return; }
+        if (wantedOrders.length > MAX_BULK_ORDER_IDS) { res.status(200).json({ ok: false, message: 'Terlalu banyak pesanan sekaligus. Persempit filter-nya.' }); return; }
+        var currentOrders = (await db.fetchPath('hidz_vip_orders')) || {};
+        var wipeOrders = {}, doomed = 0, skippedActive = 0, skippedLate = 0;
+        wantedOrders.forEach(function (id) {
+            var o = currentOrders[id];
+            if (!o || typeof o !== 'object') return;
+            if (isPayableOrder(o, now)) { skippedActive++; return; }
+            if (o.status === 'LATE_PAYMENT' && body.includeLate !== true) { skippedLate++; return; }
+            wipeOrders[id] = null; doomed++;
+        });
+        if (doomed && !(await db.updatePath('hidz_vip_orders', wipeOrders))) {
+            res.status(200).json({ ok: false, message: 'Gagal menghapus pesanan dari database. Coba lagi.' });
+            return;
+        }
+        res.status(200).json({ ok: true, deleted: doomed, skippedActive: skippedActive, skippedLate: skippedLate });
         return;
     }
 

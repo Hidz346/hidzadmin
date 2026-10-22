@@ -2218,6 +2218,9 @@
             <div class="sec-title" style="font-size:11.5px;">Daftar Voucher <span class="sec-spark">&#9734;</span></div>
         </div>
         <div id="vchListBox"><div class="empty-state">Memuat voucher...</div></div>
+        <button type="button" class="btn-clear-all" id="vchDelAllBtn" style="display:none;" onclick="window._vchDeleteAll()">
+            <i class="fas fa-trash-alt" style="margin-right:6px;"></i>HAPUS SEMUA VOUCHER
+        </button>
 
         <div class="divider" style="margin:18px 0 14px;"></div>
         <div class="sec-hdr">
@@ -2225,6 +2228,9 @@
             <div class="cnt-badge" id="vchHistCount">0</div>
         </div>
         <div id="vchHistoryBox"><div class="empty-state">Belum ada riwayat voucher.</div></div>
+        <button type="button" class="btn-clear-all" id="vchHistDelAllBtn" style="display:none;" onclick="window._vchHistDeleteAll()">
+            <i class="fas fa-trash-alt" style="margin-right:6px;"></i>HAPUS SEMUA RIWAYAT
+        </button>
     </div>
 
     <!-- RIWAYAT UPGRADE VIP & VERIFIKASI BUKTI -->
@@ -2257,6 +2263,7 @@
             <option value="LATE_PAYMENT">LATE_PAYMENT (Bayar Terlambat)</option>
         </select>
         <div id="vipOrdListBox"><div class="empty-state">Memuat transaksi VIP...</div></div>
+        <button type="button" class="btn-clear-all" id="vipOrdDelAllBtn" style="display:none;" onclick="window._vipDeleteAll()"></button>
     </div>
 
     <!-- SECURITY ALERTS -->
@@ -6181,7 +6188,9 @@
         { id: '5m', label: '5 Month', price: 50000 }, { id: '1y', label: '1 Year', price: 100000 }
     ];
     var _vchSel = { '1d': true }, _vchCustom = {}, _vchLimited = false;
-    var _vchType = 'percent', _vouchers = [], _vchHistory = [], _showAllVchHist = false;
+    var _vchType = 'percent', _vouchers = [], _vchHistory = [], _vchHistTotal = 0, _showAllVchHist = false;
+    /* Waktu aksi hapus terakhir: jawaban polling yang dikirim sebelum itu tidak boleh memunculkan lagi yang baru dihapus */
+    var _vchMutatedAt = 0, _ordMutatedAt = 0;
     var MAX_VCH_USES = 1000;
     var _vipOrders = [], _showAllVipOrd = false, _vipOrdQuery = '', _vipOrdFilter = 'ALL';
 
@@ -6382,21 +6391,87 @@
         }).catch(function () { setBusy(key, false); showToast('Gagal menghubungi server', 'err'); });
     };
 
+    /* Kirim aksi hapus dari modal konfirmasi: tombol modal jadi "MEMPROSES...", lalu modal ditutup dan hasilnya diteruskan */
+    function dangerRequest(url, payload, onDone) {
+        var btn = document.getElementById('dangerModalConfirmBtn');
+        if (btn) {
+            btn.disabled  = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin" style="margin-right:6px;"></i>MEMPROSES...';
+        }
+        _adminFetch(url, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+        }).then(function (r) { return r.json(); }).then(function (res) {
+            closeDangerModal();
+            onDone(res);
+        }).catch(function () { closeDangerModal(); showToast('Gagal menghubungi server', 'err'); });
+    }
+
     window._vchDelete = function (code) {
-        openDangerModal('Hapus Voucher ' + escAdmin(code) + '?', 'Voucher beserta seluruh riwayatnya akan dihapus permanen dan tidak bisa dikembalikan.', 'HAPUS VOUCHER', function () {
-            var btn = document.getElementById('dangerModalConfirmBtn');
-            if (btn) {
-                btn.disabled  = true;
-                btn.innerHTML = '<i class="fas fa-spinner fa-spin" style="margin-right:6px;"></i>MEMPROSES...';
-            }
-            _adminFetch('/api/admin/voucher-delete', {
-                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code: code })
-            }).then(function (r) { return r.json(); }).then(function (res) {
-                closeDangerModal();
+        openDangerModal('Hapus Voucher ' + escAdmin(code) + '?',
+            'Voucher dihapus permanen dari Daftar Voucher dan tidak bisa dipakai lagi. <b>Riwayat Voucher tidak ikut terhapus.</b><br><br>' +
+            'Pembeli yang sedang memakai voucher ini langsung melihat harga kembali normal, dan QRIS yang belum dibayar dibatalkan otomatis.',
+            'HAPUS VOUCHER', function () {
+            dangerRequest('/api/admin/voucher-delete', { code: code }, function (res) {
                 if (!res || !res.ok) { showToast((res && res.message) || 'Gagal menghapus voucher', 'err'); return; }
-                showToast('\u2714 Voucher ' + code + ' dan riwayatnya dihapus', 'ok');
-                loadAdminVouchers();
-            }).catch(function () { closeDangerModal(); showToast('Gagal menghubungi server', 'err'); });
+                _vchMutatedAt = Date.now();
+                _vouchers = _vouchers.filter(function (v) { return v.code !== code; });
+                renderVouchersAndHistory();
+                showToast('✔ Voucher ' + code + ' dihapus', 'ok');
+            });
+        });
+    };
+
+    window._vchDeleteAll = function () {
+        if (!_vouchers.length) return;
+        var n = _vouchers.length;
+        openDangerModal('Hapus Semua Voucher?',
+            'Seluruh <b>' + n + ' voucher</b> (aktif maupun kedaluwarsa) dihapus permanen dari Daftar Voucher. <b>Riwayat Voucher tidak ikut terhapus.</b><br><br>' +
+            'Pembeli yang sedang memakai voucher langsung melihat harga kembali normal, dan QRIS yang belum dibayar dibatalkan otomatis.<br><br>' +
+            '<span style="color:var(--red);font-weight:800;">Tindakan ini TIDAK BISA DIBATALKAN.</span>',
+            'HAPUS SEMUA', function () {
+            dangerRequest('/api/admin/voucher-delete-all', {}, function (res) {
+                if (!res || !res.ok) { showToast((res && res.message) || 'Gagal menghapus voucher', 'err'); return; }
+                _vchMutatedAt = Date.now();
+                _vouchers = [];
+                renderVouchersAndHistory();
+                showToast('✔ ' + (Number(res.deleted) || 0) + ' voucher dihapus', 'ok');
+            });
+        });
+    };
+
+    window._vchHistDelete = function (id) {
+        var key = 'hist-del:' + id;
+        if (_busyKeys[key]) return;
+        setBusy(key, true);
+        _adminFetch('/api/admin/history-delete', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: id })
+        }).then(function (r) { return r.json(); }).then(function (res) {
+            setBusy(key, false);
+            if (!res || !res.ok) { showToast((res && res.message) || 'Gagal menghapus riwayat', 'err'); loadAdminVouchers(); return; }
+            _vchMutatedAt = Date.now();
+            _vchHistory = _vchHistory.filter(function (h) { return h.id !== id; });
+            _vchHistTotal = Math.max(0, _vchHistTotal - 1);
+            renderVouchersAndHistory();
+            showToast('✔ Riwayat dihapus', 'ok');
+        }).catch(function () { setBusy(key, false); showToast('Gagal menghubungi server', 'err'); });
+    };
+
+    window._vchHistDeleteAll = function () {
+        var n = Math.max(_vchHistTotal, _vchHistory.length);
+        if (!n) return;
+        openDangerModal('Hapus Semua Riwayat Voucher?',
+            'Seluruh <b>' + n + ' catatan</b> riwayat voucher dihapus permanen. <b>Daftar Voucher dan voucher yang aktif tidak ikut terhapus</b>, dan voucher yang sedang dipakai pembeli tetap berlaku.<br><br>' +
+            '<span style="color:var(--red);font-weight:800;">Tindakan ini TIDAK BISA DIBATALKAN.</span>',
+            'HAPUS SEMUA', function () {
+            dangerRequest('/api/admin/history-delete-all', {}, function (res) {
+                if (!res || !res.ok) { showToast((res && res.message) || 'Gagal menghapus riwayat', 'err'); return; }
+                _vchMutatedAt = Date.now();
+                _vchHistory = [];
+                _vchHistTotal = 0;
+                _showAllVchHist = false;
+                renderVouchersAndHistory();
+                showToast('✔ ' + (Number(res.deleted) || 0) + ' riwayat voucher dihapus', 'ok');
+            });
         });
     };
 
@@ -6445,7 +6520,9 @@
         var now = Date.now();
         var activeCnt = _vouchers.filter(function (v) { return v.status === 'active' && Number(v.expiresAt) > now && !isFull(v); }).length;
         var cntEl = document.getElementById('vchActiveCount'); if (cntEl) cntEl.textContent = activeCnt;
-        var hCntEl = document.getElementById('vchHistCount'); if (hCntEl) hCntEl.textContent = _vchHistory.length;
+        var hCntEl = document.getElementById('vchHistCount'); if (hCntEl) hCntEl.textContent = Math.max(_vchHistTotal, _vchHistory.length);
+        var delAllBtn = document.getElementById('vchDelAllBtn'); if (delAllBtn) delAllBtn.style.display = _vouchers.length ? '' : 'none';
+        var histDelAllBtn = document.getElementById('vchHistDelAllBtn'); if (histDelAllBtn) histDelAllBtn.style.display = _vchHistory.length ? '' : 'none';
 
         /* Daftar dimuat ulang tiap 10 detik: jangan timpa kalau admin sedang mengetik di kolom masa berlaku.
            Hanya kolom isian yang dijaga; tombol yang baru ditekan (hapus, +1 JAM, ATUR) menyimpan fokus,
@@ -6505,6 +6582,7 @@
                     var hLo = Math.min.apply(null, hPrices), hHi = Math.max.apply(null, hPrices);
                     var hPrice = hPrices.length > 1 && hLo !== hHi ? fmtRp(hLo) + ' – ' + fmtRp(hHi) : fmtRp(hPrices.length ? hLo : (h.finalPrice || 0));
                     return '<div class="user-item">' +
+                        (h.id ? '<button type="button" class="btn-del" data-bk="hist-del:' + escAdmin(h.id) + '" data-bl="" onclick="window._vchHistDelete(\'' + escAdmin(h.id) + '\')" title="Hapus riwayat"><i class="fas fa-trash"></i></button>' : '') +
                         '<div class="user-top"><span class="u-name">' + escAdmin(h.code) + '</span><span class="u-role user">' + escAdmin(String(h.action || '').toUpperCase()) + '</span></div>' +
                         '<div class="u-expiry">Paket: ' + escAdmin(h.planLabel || h.planId || '-') + ' &bull; Harga Akhir: ' + hPrice + '</div>' +
                         (Number(h.maxUses) > 0 ? '<div class="u-expiry">Batas: ' + Number(h.maxUses) + ' orang</div>' : '') +
@@ -6518,17 +6596,15 @@
                         (_showAllVchHist ? 'Sembunyikan \u2191' : 'Lihat Lebih Detail (' + _vchHistory.length + ') \u2193') + '</button>';
                 }
                 hBox.innerHTML = htmlH;
+                paintBusy(hBox);
             }
         }
     }
     window._toggleVchHistMore = function () { _showAllVchHist = !_showAllVchHist; renderVouchersAndHistory(); };
 
-    function renderVipOrders() {
-        var box = document.getElementById('vipOrdListBox'), cnt = document.getElementById('vipOrdCount');
-        if (cnt) cnt.textContent = _vipOrders.length;
-        if (!box) return;
+    function filteredVipOrders() {
         var q = (_vipOrdQuery || '').toLowerCase().trim();
-        var filtered = _vipOrders.filter(function (o) {
+        return _vipOrders.filter(function (o) {
             if (_vipOrdFilter !== 'ALL' && o.status !== _vipOrdFilter) return false;
             if (!q) return true;
             return (o.orderId || '').toLowerCase().indexOf(q) !== -1 ||
@@ -6536,6 +6612,28 @@
                    (o.planLabel || '').toLowerCase().indexOf(q) !== -1 ||
                    (o.voucherCode || '').toLowerCase().indexOf(q) !== -1;
         });
+    }
+
+    /* Yang ikut terhapus saat HAPUS SEMUA: pesanan yang masih menunggu pembayaran tidak pernah ikut, dan
+       LATE_PAYMENT (pembeli sudah bayar tapi belum ter-upgrade, butuh ditangani admin) hanya kalau filter-nya LATE_PAYMENT. */
+    function deletableVipOrders(list) {
+        return list.filter(function (o) {
+            return o.status !== 'PENDING' && (o.status !== 'LATE_PAYMENT' || _vipOrdFilter === 'LATE_PAYMENT');
+        });
+    }
+
+    function renderVipOrders() {
+        var box = document.getElementById('vipOrdListBox'), cnt = document.getElementById('vipOrdCount');
+        var delAll = document.getElementById('vipOrdDelAllBtn');
+        if (cnt) cnt.textContent = _vipOrders.length;
+        if (!box) return;
+        var filtered = filteredVipOrders();
+        var deletable = deletableVipOrders(filtered);
+        if (delAll) {
+            delAll.style.display = deletable.length ? '' : 'none';
+            var scoped = (_vipOrdFilter !== 'ALL' || !!(_vipOrdQuery || '').trim());
+            delAll.innerHTML = '<i class="fas fa-trash-alt" style="margin-right:6px;"></i>HAPUS ' + (scoped ? 'YANG TAMPIL' : 'SEMUA') + ' (' + deletable.length + ')';
+        }
         if (!filtered.length) {
             box.innerHTML = '<div class="empty-state">Tidak ada transaksi VIP yang cocok.</div>';
             return;
@@ -6546,6 +6644,7 @@
             var stCls = st === 'SUCCESS' ? 'st-active' : (st === 'PENDING' ? 'st-pending' : 'st-expired');
             var aft = o.afterSnapshot || {};
             return '<div class="user-item ' + stCls + '">' +
+                (st !== 'PENDING' ? '<button type="button" class="btn-del" onclick="window._vipDeleteOrder(\'' + escAdmin(o.orderId) + '\')" title="Hapus transaksi"><i class="fas fa-trash"></i></button>' : '') +
                 '<div class="user-top"><span class="u-name">' + escAdmin(o.username) + '</span><span class="u-role vip">VIP ' + escAdmin(o.planLabel) + '</span></div>' +
                 '<div style="font-size:12px;font-weight:800;color:var(--cyan);margin-bottom:4px;">' + escAdmin(st) + ' &bull; ' + fmtRp(o.totalAmount) + (o.voucherCode ? ' (Voucher ' + escAdmin(o.voucherCode) + ')' : '') + '</div>' +
                 '<div class="u-expiry">Order ID: <b>' + escAdmin(o.orderId) + '</b></div>' +
@@ -6556,10 +6655,64 @@
         }).join('');
         if (filtered.length > 3) {
             html += '<button type="button" class="btn-extend btn-more-users" onclick="window._toggleVipOrdMore()">' +
-                (_showAllVipOrd ? 'Sembunyikan \u2191' : 'Lihat Lebih Detail (' + filtered.length + ' Transaksi) \u2193') + '</button>';
+                (_showAllVipOrd ? 'Sembunyikan ↑' : 'Lihat Lebih Detail (' + filtered.length + ' Transaksi) ↓') + '</button>';
         }
         box.innerHTML = html;
     }
+
+    window._vipDeleteOrder = function (orderId) {
+        var o = _vipOrders.filter(function (x) { return x.orderId === orderId; })[0];
+        if (!o) return;
+        var note = '';
+        if (o.status === 'SUCCESS') note = '<br><br>Ini transaksi <b>BERHASIL</b>. Bukti transaksi di akun pembeli ikut hilang dan Kode Verifikasi (HMAC)-nya tidak bisa dicek lagi dari panel ini.';
+        else if (o.status === 'LATE_PAYMENT') note = '<br><br>Pembeli ini sudah membayar tetapi akunnya belum ter-upgrade. Pastikan sudah ditangani sebelum dihapus.';
+        openDangerModal('Hapus Transaksi?',
+            'Transaksi <b>' + escAdmin(o.orderId) + '</b> (' + escAdmin(o.username) + ', VIP ' + escAdmin(o.planLabel) + ', ' + escAdmin(o.status) + ') dihapus permanen dari riwayat.' + note +
+            '<br><br><span style="color:var(--red);font-weight:800;">Tindakan ini TIDAK BISA DIBATALKAN.</span>',
+            'HAPUS TRANSAKSI', function () {
+            dangerRequest('/api/admin/vip-order-delete', { orderId: orderId }, function (res) {
+                if (!res || !res.ok) { showToast((res && res.message) || 'Gagal menghapus transaksi', 'err'); loadAdminVipOrders(); return; }
+                _ordMutatedAt = Date.now();
+                _vipOrders = _vipOrders.filter(function (x) { return x.orderId !== orderId; });
+                renderVipOrders();
+                showToast('✔ Transaksi dihapus', 'ok');
+            });
+        });
+    };
+
+    window._vipDeleteAll = function () {
+        var filtered = filteredVipOrders(), targets = deletableVipOrders(filtered);
+        if (!targets.length) return;
+        var byStatus = {};
+        targets.forEach(function (o) { byStatus[o.status] = (byStatus[o.status] || 0) + 1; });
+        var breakdown = Object.keys(byStatus).map(function (k) { return escAdmin(k) + ': ' + byStatus[k]; }).join(' &bull; ');
+        var pending = filtered.filter(function (o) { return o.status === 'PENDING'; }).length;
+        var late = (_vipOrdFilter === 'LATE_PAYMENT') ? 0 : filtered.filter(function (o) { return o.status === 'LATE_PAYMENT'; }).length;
+        var scoped = (_vipOrdFilter !== 'ALL' || !!(_vipOrdQuery || '').trim());
+        var note = '';
+        if (byStatus.SUCCESS) note += '<br><br>Termasuk <b>' + byStatus.SUCCESS + ' transaksi BERHASIL</b>: bukti transaksi di akun pembeli ikut hilang dan Kode Verifikasi (HMAC)-nya tidak bisa dicek lagi dari panel ini.';
+        if (byStatus.LATE_PAYMENT) note += '<br><br>Termasuk transaksi <b>BAYAR TERLAMBAT</b>: pembeli sudah membayar tetapi belum ter-upgrade. Pastikan sudah ditangani.';
+        if (pending) note += '<br><br>' + pending + ' pesanan masih menunggu pembayaran dan <b>tidak ikut dihapus</b>.';
+        if (late) note += '<br><br>' + late + ' transaksi bayar terlambat <b>tidak ikut dihapus</b> karena perlu ditangani. Hapus satu per satu, atau pilih filter LATE_PAYMENT.';
+        openDangerModal('Hapus ' + (scoped ? 'Transaksi yang Tampil' : 'Semua Transaksi') + '?',
+            '<b>' + targets.length + ' transaksi</b> dihapus permanen dari Riwayat Upgrade VIP' + (scoped ? ' (sesuai filter &amp; pencarian saat ini)' : '') + '.<br>' + breakdown + note +
+            '<br><br><span style="color:var(--red);font-weight:800;">Tindakan ini TIDAK BISA DIBATALKAN.</span>',
+            'HAPUS ' + (scoped ? 'YANG TAMPIL' : 'SEMUA'), function () {
+            dangerRequest('/api/admin/vip-order-delete-all', {
+                orderIds: targets.map(function (o) { return o.orderId; }), includeLate: _vipOrdFilter === 'LATE_PAYMENT'
+            }, function (res) {
+                if (!res || !res.ok) { showToast((res && res.message) || 'Gagal menghapus transaksi', 'err'); loadAdminVipOrders(); return; }
+                _ordMutatedAt = Date.now();
+                var gone = {};
+                targets.forEach(function (o) { gone[o.orderId] = true; });
+                _vipOrders = _vipOrders.filter(function (o) { return !gone[o.orderId]; });
+                _showAllVipOrd = false;
+                renderVipOrders();
+                var skipped = (Number(res.skippedActive) || 0) + (Number(res.skippedLate) || 0);
+                showToast('✔ ' + (Number(res.deleted) || 0) + ' transaksi dihapus' + (skipped ? ', ' + skipped + ' dilewati' : ''), 'ok');
+            });
+        });
+    };
 
     window._toggleVipOrdMore = function () { _showAllVipOrd = !_showAllVipOrd; renderVipOrders(); };
     window._vipFilterOrders = function (v) { _vipOrdQuery = v; renderVipOrders(); };
@@ -6603,23 +6756,29 @@
 
     function loadAdminVouchers() {
         if (!window._adminAuth) return;
+        var startedAt = Date.now();
         _adminFetch('/api/admin/vouchers', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
             .then(function (r) { return r.json(); })
             .then(function (res) {
                 if (!res || !res.ok) return;
                 syncPlans(res.plans);
+                /* Ada yang baru dihapus selagi permintaan ini berjalan: datanya sudah usang, tunggu putaran berikutnya */
+                if (_vchMutatedAt >= startedAt) return;
                 _vouchers = res.vouchers || [];
                 _vchHistory = res.history || [];
+                _vchHistTotal = Number(res.historyTotal) || _vchHistory.length;
                 renderVouchersAndHistory();
             }).catch(function () {});
     }
 
     function loadAdminVipOrders() {
         if (!window._adminAuth) return;
+        var startedAt = Date.now();
         _adminFetch('/api/admin/vip-orders', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
             .then(function (r) { return r.json(); })
             .then(function (res) {
                 if (!res || !res.ok) return;
+                if (_ordMutatedAt >= startedAt) return;
                 _vipOrders = res.orders || [];
                 renderVipOrders();
             }).catch(function () {});
