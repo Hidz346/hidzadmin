@@ -2796,10 +2796,6 @@
         if (mn>0) return mn+' menit '+sc+' detik';
         return sc+' detik';
     }
-    function fmtRemain(ts) {
-        if (!ts) return 'Unlimited';
-        return _fmtMsDiff(ts - Date.now());
-    }
     function fmtRemainUser(u) {
         if (!u || u.durationMs === null || u.durationMs === undefined || !u.expiresAt) return 'Unlimited';
         var rem = _getEffectiveRemainMs(u);
@@ -3751,28 +3747,6 @@
         clearTimeout(_tt);
         _tt = setTimeout(function(){ t.className='toast'; }, 3200);
     }
-
-    /* Live ticker: update sisa waktu setiap detik & re-render langsung saat ada akun expired */
-    function liveTickRemaining() {
-        var users = getUsers();
-        var needFullRender = false;
-        users.forEach(function(u) {
-            if (!u.expiresAt) return; /* unlimited, skip */
-            var itemEl = document.getElementById('uid-' + u.id);
-            if (!itemEl) return;
-            var wasExpired = itemEl.classList.contains('exp');
-            var isNowExpired = isExpired(u);
-            /* Status baru saja berubah jadi expired → butuh full render */
-            if (!wasExpired && isNowExpired) { needFullRender = true; return; }
-            /* Masih aktif → update teks sisa waktu saja tanpa rebuild DOM */
-            if (!isNowExpired) {
-                var remainEl = itemEl.querySelector('.u-remain');
-                if (remainEl) remainEl.textContent = fmtRemain(u.expiresAt);
-            }
-        });
-        if (needFullRender) renderUsers();
-    }
-    setInterval(liveTickRemaining, 1000);
 
     /* ===== FORCE RE-LOGIN SEMUA SESI ===== */
     function forceReloginAll() {
@@ -4780,7 +4754,9 @@
         } catch(e) {}
     }
 
-    /* Update durasi kartu akun setiap detik secara real-time (langsung berhenti saat maintenance aktif) */
+    /* Update durasi kartu akun setiap detik secara real-time (langsung berhenti saat maintenance aktif).
+       Ini satu-satunya ticker sisa waktu di daftar akun: memakai sisa waktu efektif (fmtRemainUser),
+       jadi akun yang sedang dibekukan maintenance tidak ikut berdetak. */
     setInterval(function() {
         if (_isMaintFreezeActive()) return;
         var users = getUsers();
