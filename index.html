@@ -416,23 +416,6 @@
             opacity: .025;
         }
 
-        @keyframes gradSlide {
-            0%   { background-position: 0% 0; }
-            100% { background-position: 200% 0; }
-        }
-        @keyframes sparkle {
-            0%,100% { opacity:1; transform:scale(1); }
-            50%      { opacity:.3; transform:scale(.8); }
-        }
-        @keyframes btnShine {
-            0%  { left:-100%; }
-            50% { left:120%; }
-            100%{ left:120%; }
-        }
-        @keyframes pulseDot {
-            0%,100% { transform:scale(1); opacity:1; }
-            50%      { transform:scale(1.4); opacity:.6; }
-        }
         @keyframes slideUp {
             from { opacity:0; transform:translateY(14px); }
             to   { opacity:1; transform:translateY(0); }
@@ -452,8 +435,6 @@
             content: ''; position: absolute;
             bottom:0; left:0; right:0; height:3px;
             background: linear-gradient(90deg, var(--lime),var(--pink),var(--cyan),var(--lime));
-            background-size: 200% 100%;
-            animation: gradSlide 3s linear infinite;
         }
         .panel-logo {
             width:68px; height:68px;
@@ -491,7 +472,6 @@
         .srv-dot {
             width:10px; height:10px; background:var(--green);
             border:2px solid var(--bd); border-radius:50%;
-            animation:pulseDot 1.5s ease-in-out infinite;
         }
         .srv-clock {
             background:var(--sur2); border:2px solid var(--bd);
@@ -531,7 +511,7 @@
             border-left:4px solid var(--cyan); padding-left:9px;
             display:flex; align-items:center; gap:7px;
         }
-        .sec-spark { color:var(--pink); font-size:11px; animation:sparkle 2s ease-in-out infinite; }
+        .sec-spark { color:var(--pink); font-size:11px; }
         .cnt-badge {
             background:var(--sur2); border:2px solid var(--bd); box-shadow:2px 2px 0 var(--bd);
             width:28px; height:28px; display:flex; align-items:center; justify-content:center;
@@ -655,11 +635,6 @@
             font-size:13px; font-weight:700; text-transform:uppercase; letter-spacing:1px;
             cursor:pointer; position:relative; overflow:hidden;
             transition:transform .15s, box-shadow .15s;
-        }
-        .btn-create::before {
-            content:''; position:absolute; top:0; left:-100%; width:100%; height:100%;
-            background:linear-gradient(90deg,transparent,rgba(255,255,255,.2),transparent);
-            animation:btnShine 2.5s ease-in-out infinite;
         }
         .btn-create:active { transform:translate(5px,5px); box-shadow:0 0 0 var(--bd); }
         [data-bk]:disabled { opacity:.75; cursor:default; }
@@ -787,7 +762,7 @@
         }
         .maint-pulse-dot {
             width:8px; height:8px; border-radius:50%; border:1.5px solid currentColor;
-            background:currentColor; animation:pulseDot 1.5s ease-in-out infinite;
+            background:currentColor;
         }
         .btn-site {
             padding:14px 6px;
@@ -797,17 +772,11 @@
             position:relative; overflow:hidden;
             transition:transform .15s, box-shadow .15s, opacity .2s;
         }
-        .btn-site::before {
-            content:''; position:absolute; top:0; left:-100%; width:100%; height:100%;
-            background:linear-gradient(90deg,transparent,rgba(255,255,255,.2),transparent);
-            animation:btnShine 2.5s ease-in-out infinite;
-        }
         .btn-site:active { transform:translate(4px,4px); box-shadow:0 0 0 var(--bd); }
         .btn-s-on    { background:linear-gradient(135deg,var(--green),#059669); color:#09090f; box-shadow:var(--sh); }
         .btn-s-maint { background:linear-gradient(135deg,#f97316,#b91c1c); color:#fff; box-shadow:var(--sh); }
         .btn-s-update { width:100%; margin-top:10px; background:linear-gradient(135deg,var(--cyan),#0e7490); color:#09090f; box-shadow:var(--sh); }
         .btn-s-update:disabled { opacity:.4; box-shadow:1px 1px 0 var(--bd); cursor:not-allowed; pointer-events:none; }
-        .btn-s-update:disabled::before { animation:none; }
         .btn-site.is-active   { opacity:1; box-shadow:var(--shlg); pointer-events:none; cursor:default; }
         .btn-site.is-inactive { opacity:.55; box-shadow:1px 1px 0 var(--bd); }
 
@@ -837,10 +806,6 @@
             text-transform:uppercase; letter-spacing:.5px;
             color:#ef4444; background:rgba(239,68,68,.1);
             border:1.5px solid #ef4444; margin-top:5px;
-            animation: warnPulse 1.5s ease-in-out infinite;
-        }
-        @keyframes warnPulse {
-            0%,100% { opacity:1; } 50% { opacity:.5; }
         }
         .btn-unband {
             margin-top:8px; width:100%; padding:9px;
@@ -973,7 +938,6 @@
         .danger-modal-overlay.show .danger-modal-box { transform: translateY(0) scale(1); }
         .danger-modal-icon {
             font-size: 36px; color: var(--red); margin-bottom: 10px;
-            animation: warnPulse 1.5s ease-in-out infinite;
         }
         .danger-modal-title {
             font-family: 'Orbitron', sans-serif; font-size: 14px; font-weight: 900;
@@ -1297,53 +1261,7 @@
             color:var(--tsec); background:none; border:none;
         }
 
-        /* ═══════════════════════════════════════════════════════════
-           HIASAN LAMPU KOTAK NEOBRUTALISM (ringan)
-           Cincin outline warna-warni yang pelan-pelan gonta-ganti
-           warna — cuma outline-color, bukan mask/filter, biar ringan.
-           ═══════════════════════════════════════════════════════════ */
-        @keyframes lampuPendar {
-            0%     { outline-color: var(--red); }
-            16.6%  { outline-color: var(--yellow); }
-            33.3%  { outline-color: var(--lime); }
-            50%    { outline-color: var(--green); }
-            66.6%  { outline-color: var(--cyan); }
-            83.3%  { outline-color: var(--purple); }
-            100%   { outline-color: var(--pink); }
-        }
-
-        .panel-hdr, .panel-logo, .badge-res, .server-card, .stat-card, .cnt-badge,
-        .user-search-wrap input, .card, .f-inp, .f-sel, .progress-slider, .btn-create,
-        .user-item, .toast, .maint-status-bar, .dev-btn, .btn-unband, .btn-extend,
-        .sec-alert-card, .btn-clear-all, .danger-modal-box, .danger-modal-cancel,
-        .danger-modal-confirm, .extend-modal-box, .extend-modal-cancel,
-        .extend-modal-confirm, .promo-status-bar, .ann-feed-item {
-            outline: 2px solid var(--red);
-            outline-offset: 2px;
-        }
-        .panel-hdr, .panel-logo, .badge-res, .server-card, .stat-card, .cnt-badge,
-        .user-search-wrap input, .card, .f-inp, .f-sel, .progress-slider, .btn-create,
-        .toast, .maint-status-bar, .dev-btn, .btn-unband, .btn-extend,
-        .sec-alert-card, .btn-clear-all, .danger-modal-box, .danger-modal-cancel,
-        .danger-modal-confirm, .extend-modal-box, .extend-modal-cancel,
-        .extend-modal-confirm, .promo-status-bar {
-            animation: lampuPendar 6s ease-in-out infinite;
-        }
-        .panel-hdr:nth-child(even), .panel-logo:nth-child(even), .badge-res:nth-child(even),
-        .server-card:nth-child(even), .stat-card:nth-child(even), .cnt-badge:nth-child(even),
-        .card:nth-child(even), .f-inp:nth-child(even), .f-sel:nth-child(even),
-        .btn-create:nth-child(even), .toast:nth-child(even), .dev-btn:nth-child(even),
-        .btn-unband:nth-child(even), .btn-extend:nth-child(even), .sec-alert-card:nth-child(even),
-        .danger-modal-cancel:nth-child(even), .extend-modal-cancel:nth-child(even) {
-            animation-delay: -3s;
-        }
-        .f-inp:focus, .f-sel:focus, .user-search-wrap input:focus, .progress-slider:focus {
-            animation-play-state: paused;
-        }
-        /* Elemen yang sudah punya animasi sendiri — digabung, bukan ditimpa */
-        .user-item { animation: slideUp .25s ease, lampuPendar 6s ease-in-out infinite; }
-        .ann-feed-item { animation: slideUp .25s ease, lampuPendar 6s ease-in-out infinite; }
-
+        /* Pengguna yang memilih "kurangi gerakan": animasi masuk dimatikan */
         @media (prefers-reduced-motion: reduce) {
             .panel-hdr, .panel-logo, .badge-res, .server-card, .stat-card, .cnt-badge,
             .user-search-wrap input, .card, .f-inp, .f-sel, .progress-slider, .btn-create,
@@ -2635,7 +2553,7 @@
     function _adminBoot() {
         if (_adminSyncTimer) return; /* sudah jalan, jangan dobel */
         _adminSyncUsers();
-        _adminSyncTimer = setInterval(_adminSyncUsers, 6000);
+        _adminSyncTimer = setInterval(function () { if (!document.hidden) _adminSyncUsers(); }, 6000);
         watchLoginAttempts();
     }
     /* Kalau gerbang tadi sudah lolos duluan (sesi sebelumnya di tab yang sama),
@@ -2951,11 +2869,16 @@
     });
 
     /* ===== RENDER USERS ===== */
+    /* Tanda isi daftar yang terakhir digambar. Sinkron berkala (tiap 6 detik) memanggil
+       renderUsers() walau datanya sama; membangun ulang seluruh kartu tiap kali bikin layar
+       berkedip, animasi masuk terulang, dan tombol yang sedang disentuh hilang dari bawah jari. */
+    var _usersDrawnSig = null;
     function renderUsers() {
         updateStats();
         var users = getUsers();
         var box   = document.getElementById('userList');
         if (!users.length) {
+            _usersDrawnSig = null;
             box.innerHTML = '<div class="empty-state"><i class="fas fa-user-slash" style="font-size:22px;margin-bottom:8px;display:block;opacity:.35;"></i>Belum ada user terdaftar.</div>';
             return;
         }
@@ -2965,6 +2888,7 @@
             return (u.username||'').toLowerCase().indexOf(q) !== -1 || roleTxt.indexOf(q) !== -1;
         });
         if (!shown.length) {
+            _usersDrawnSig = null;
             box.innerHTML = '<div class="empty-state"><i class="fas fa-search" style="font-size:22px;margin-bottom:8px;display:block;opacity:.35;"></i>Nggak ada user yang cocok dengan pencarian "'+_userSearchQuery+'".</div>';
             return;
         }
@@ -3079,6 +3003,11 @@
                     (_showAllUsers ? 'Sembunyikan ↑' : 'Lihat Lebih Detail ↓') +
                     '</button>';
         }
+        /* Teks sisa waktu sengaja tidak ikut dibandingkan: itu diperbarui per detik oleh ticker
+           di bawah. Yang dibandingkan: kartu, status, tombol, dan status freeze maintenance. */
+        var sig = html.replace(/<span class="u-remain">[^<]*<\/span>/g, '') + '|' + _isMaintFreezeActive();
+        if (sig === _usersDrawnSig && box.firstChild) return;
+        _usersDrawnSig = sig;
         box.innerHTML = html;
         paintBusy(box);
     }
