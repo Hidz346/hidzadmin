@@ -2496,7 +2496,8 @@
         </button>
     </div>
     <div class="kons-msg-menu" id="gcAdminMsgMenu">
-        <button type="button" onclick="window._gcAdminDeleteMsg()"><i class="fas fa-trash"></i> Hapus pesan ini</button>
+        <button type="button" onclick="window._gcAdminDeleteForMe()"><i class="fas fa-trash"></i> Hapus untuk saya</button>
+        <button type="button" id="gcAdminDeleteAllBtn" onclick="window._gcAdminDeleteForEveryone()"><i class="fas fa-trash-can"></i> Hapus untuk semua</button>
         <button type="button" onclick="window._gcAdminCloseMenu()">Batal</button>
     </div>
 </div>
@@ -6117,6 +6118,8 @@
     var GC_REF     = 'hidz_global_chat/messages';
     var GC_LIMIT   = 100;                    // jumlah pesan terbaru yang dimuat
     var SEEN_KEY   = 'hidz_gc_admin_seen';   // pesan setelah waktu ini dianggap belum dibaca
+    var HIDE_KEY   = 'hidz_gc_admin_hide';   // daftar "hapus untuk saya" (hanya di perangkat ini)
+    var HIDE_MAX   = 400;
     var ADMIN_NAME = 'Hidz';
     var MAX_TEXT   = 500;
     var GROUP_MS   = 5 * 60 * 1000;          // pesan beruntun dari orang yang sama dirapatkan
@@ -6130,7 +6133,8 @@
     var _offsetRef    = null;
     var _srvOffset    = 0;       // selisih jam perangkat dengan jam server Firebase
     var _menuKey      = null;
-    var _sending      = false;
+    var _hideMe       = {};      // pushKey -> disembunyikan untuk admin di perangkat ini
+    var _forceBottom  = false;   // setelah kirim pesan, layar selalu turun ke paling bawah
     var _renderQueued = false;
 
     function byId(id) { return document.getElementById(id); }
@@ -6157,12 +6161,28 @@
     function saveSeen() {
         try { localStorage.setItem(SEEN_KEY, String(_seenTs)); } catch (e) {}
     }
-    function sortedKeys() { return Object.keys(_msgs).sort(); }
+    function loadHidden() {
+        _hideMe = {};
+        try {
+            (JSON.parse(localStorage.getItem(HIDE_KEY) || '[]') || []).forEach(function (k) {
+                if (typeof k === 'string') _hideMe[k] = true;
+            });
+        } catch (e) {}
+    }
+    function saveHidden() {
+        var keys = Object.keys(_hideMe).sort();
+        if (keys.length > HIDE_MAX) {
+            keys.slice(0, keys.length - HIDE_MAX).forEach(function (k) { delete _hideMe[k]; });
+            keys = keys.slice(-HIDE_MAX);
+        }
+        try { localStorage.setItem(HIDE_KEY, JSON.stringify(keys)); } catch (e) {}
+    }
+    function sortedKeys() { return Object.keys(_msgs).sort().filter(function (k) { return !_hideMe[k]; }); }
     function unreadCount() {
         var me = adminUid(), n = 0;
         Object.keys(_msgs).forEach(function (k) {
             var m = _msgs[k];
-            if (m.uid !== me && m.ts > _seenTs) n++;
+            if (m.uid !== me && m.ts > _seenTs && m.delAll !== true && !_hideMe[k]) n++;
         });
         return n;
     }
@@ -6191,7 +6211,7 @@
         var preview;
         if (_failed) preview = 'Belum bisa dimuat. Pastikan Rules Firebase sudah di-publish.';
         else if (!_loaded) preview = 'Memuat pesan...';
-        else if (last) preview = (last.uid === adminUid() ? 'Kamu' : (last.name || 'User')) + ': ' + last.text;
+        else if (last) preview = (last.uid === adminUid() ? 'Kamu' : (last.name || 'User')) + ': ' + (last.delAll === true ? 'Pesan ini telah dihapus' : last.text);
         else preview = 'Belum ada pesan. Ketuk untuk membuka.';
 
         wrap.innerHTML =
@@ -6227,9 +6247,11 @@
         /* Pesan dari akun lain ditampilkan lengkap (jam:menit:detik + tanggal), pesan admin cukup jam:menit */
         var time = mine ? fmt('fmtTime', m.ts) : fmt('fmtFullTime', m.ts);
         return '<div class="kons-row ' + (mine ? 'me' : 'them') + '"><div class="kons-bubble-wrap">' + label +
-            '<div class="kons-bubble">' + escAdmin(m.text) + '</div>' +
+            (m.delAll === true
+                ? '<div class="kons-bubble deleted"><i class="fas fa-ban" style="margin-right:5px;"></i>Pesan ini telah dihapus</div>'
+                : '<div class="kons-bubble">' + escAdmin(m.text) + '</div>') +
             '<div class="kons-bubble-meta"><span class="kons-bubble-time">' + time + '</span>' +
-            '<button type="button" class="kons-bubble-more" title="Hapus pesan" data-key="' + escAdmin(k) + '" onclick="window._gcAdminOpenMenu(this.getAttribute(\'data-key\'))"><i class="fas fa-ellipsis"></i></button>' +
+            '<button type="button" class="kons-bubble-more" title="Opsi" data-key="' + escAdmin(k) + '" onclick="window._gcAdminOpenMenu(this.getAttribute(\'data-key\'))"><i class="fas fa-ellipsis"></i></button>' +
             '</div></div></div>';
     }
 
@@ -6257,7 +6279,8 @@
             prev = m;
         });
         box.innerHTML = html;
-        if (forceBottom || wasEmpty || nearBottom) box.scrollTop = box.scrollHeight;
+        if (forceBottom || wasEmpty || nearBottom || _forceBottom) box.scrollTop = box.scrollHeight;
+        _forceBottom = false;
     }
 
     function scheduleRender() {
@@ -6274,6 +6297,7 @@
         var ov = byId('gcAdminOverlay');
         if (!ov) return;
         _open = true;
+        loadHidden();
         markSeen();
         ov.classList.add('show');
         renderMessages(true);
@@ -6299,6 +6323,12 @@
         }
         scheduleRender();
     }
+    function onChanged(snap) {
+        var m = snap.val();
+        if (!m || typeof m.text !== 'string' || typeof m.ts !== 'number') return;
+        _msgs[snap.key] = m;
+        scheduleRender();
+    }
     function onRemoved(snap) {
         delete _msgs[snap.key];
         scheduleRender();
@@ -6319,6 +6349,7 @@
         _offsetRef.on('value', function (s) { _srvOffset = s.val() || 0; });
         _query = database.ref(GC_REF).orderByKey().limitToLast(GC_LIMIT);
         _query.on('child_added', onAdded, onFail);
+        _query.on('child_changed', onChanged, onFail);
         _query.on('child_removed', onRemoved, onFail);
         _query.once('value', function () { _loaded = true; _failed = false; scheduleRender(); }, onFail);
     }
@@ -6339,31 +6370,30 @@
     }
 
     window._gcAdminSend = function () {
-        if (_sending) return;
         var inp = byId('gcAdminInput');
-        var btn = byId('gcAdminSendBtn');
         var text = cleanText(inp ? inp.value : '');
         if (!text) return;
         if (text.length > MAX_TEXT) { showToast('Pesan maksimal ' + MAX_TEXT + ' karakter', 'err'); return; }
 
+        /* Pesan langsung tampil (Firebase memasangnya di layar sebelum server membalas); kalau ditolak,
+           teksnya dikembalikan ke kolom ketik */
         var ts = Date.now() + _srvOffset;
-        _sending = true;
-        if (btn) btn.disabled = true;
+        if (inp) inp.value = '';
+        _forceBottom = true;
         firebase.database().ref(GC_REF + '/' + newKey(ts)).set({
             uid: adminUid(), name: ADMIN_NAME, role: 'admin', text: text, ts: ts
-        }).then(function () {
-            if (inp && cleanText(inp.value) === text) inp.value = '';
         }).catch(function (err) {
+            if (inp && !inp.value) inp.value = text;
             showToast('Gagal mengirim pesan (' + _fbErrShort(err) + ')', 'err');
-        }).then(function () {
-            _sending = false;
-            if (btn) btn.disabled = false;
         });
     };
 
     window._gcAdminOpenMenu = function (key) {
-        if (!_msgs[key]) return;
+        var m = _msgs[key];
+        if (!m) return;
         _menuKey = key;
+        var allBtn = byId('gcAdminDeleteAllBtn');
+        if (allBtn) allBtn.style.display = (m.delAll === true) ? 'none' : 'flex';
         var menu = byId('gcAdminMsgMenu');
         if (menu) menu.classList.add('show');
     };
@@ -6372,11 +6402,22 @@
         var menu = byId('gcAdminMsgMenu');
         if (menu) menu.classList.remove('show');
     };
-    window._gcAdminDeleteMsg = function () {
+    /* Hanya hilang dari layar admin di perangkat ini */
+    window._gcAdminDeleteForMe = function () {
         var key = _menuKey;
         window._gcAdminCloseMenu();
         if (!key) return;
-        firebase.database().ref(GC_REF + '/' + key).remove().catch(function (err) {
+        _hideMe[key] = true;
+        saveHidden();
+        scheduleRender();
+    };
+    /* Hilang untuk semua orang: isi dikosongkan dan semua layar menampilkan "Pesan ini telah dihapus" */
+    window._gcAdminDeleteForEveryone = function () {
+        var key = _menuKey;
+        window._gcAdminCloseMenu();
+        var m = key && _msgs[key];
+        if (!m || m.delAll === true) return;
+        firebase.database().ref(GC_REF + '/' + key).update({ delAll: true, text: '' }).catch(function (err) {
             showToast('Gagal menghapus pesan (' + _fbErrShort(err) + ')', 'err');
         });
     };
