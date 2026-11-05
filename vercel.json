@@ -69,6 +69,10 @@
       "destination": "/api/admin/duration"
     },
     {
+      "source": "/api/admin/upgrade-vip",
+      "destination": "/api/admin/duration?action=upgrade"
+    },
+    {
       "source": "/api/admin/delete-security-event",
       "destination": "/api/admin/security-alerts?action=delete"
     },

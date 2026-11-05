@@ -18,6 +18,76 @@ function msToLabel(ms) {
     return Math.max(1, Math.round(ms / DAY)) + ' HARI';
 }
 
+/* Batas wajar durasi VIP yang diberikan manual dari panel (10 tahun). */
+var MAX_UPGRADE_MS = 10 * 365 * 86400000;
+
+/* Naikkan akun USER jadi VIP dari panel admin tanpa membuat akun baru. Aturannya sama dengan
+   pembelian paket di HidzProject: masa VIP yang baru menggantikan sisa durasi USER dan dihitung
+   dari sekarang. Akun yang belum pernah login atau sudah kedaluwarsa tetap menunggu login berikutnya
+   sebelum jamnya berjalan, sama seperti akun baru. */
+async function upgradeToVip(targetId, durationMs, res) {
+    if (!targetId || typeof durationMs !== 'number' || !isFinite(durationMs) ||
+        durationMs < 1000 || durationMs > MAX_UPGRADE_MS) {
+        res.status(200).json({ ok: false, reason: 'invalid' });
+        return;
+    }
+    durationMs = Math.round(durationMs);
+
+    var maint = await db.fetchPath('hidz_maintenance_mode');
+    var maintActive = !!(maint && maint.active === true);
+
+    var out = await db.mutateAccounts(function (list) {
+        var target = list.filter(function (u) { return u.id === targetId; })[0];
+        if (!target) return { save: false, result: { ok: false, reason: 'not_found' } };
+        if (db.isProtectedAccount(target)) return { save: false, result: { ok: false, reason: 'protected' } };
+        if (target.role === 'vip') return { save: false, result: { ok: false, reason: 'already_vip' } };
+
+        var now      = Date.now();
+        var hasPause = (typeof target.pausedRemainingMs === 'number' && target.pausedRemainingMs > 0) ||
+                       !!(maintActive && maint.startedAt && target.expiresAt > maint.startedAt);
+        var expired  = target.activated !== false && !hasPause && !!target.expiresAt &&
+                       target.durationMs !== null && target.durationMs !== undefined && now > target.expiresAt;
+
+        target.role = 'vip';
+        target.durationMs = durationMs;
+        if (target.activated === false || expired) {
+            target.activated = false;
+            target.expiresAt = null;
+            delete target.pausedRemainingMs;
+            delete target.pausedAt;
+        } else {
+            target.activated = true;
+            target.loggedOut = false;
+            target.expiresAt = now + durationMs;
+            if (maintActive) {
+                target.pausedRemainingMs = durationMs;
+                target.pausedAt = (maint && maint.startedAt) || now;
+            } else {
+                delete target.pausedRemainingMs;
+                delete target.pausedAt;
+            }
+        }
+        target.durationLabel = msToLabel(durationMs);
+
+        var fresh = {};
+        Object.keys(target).forEach(function (k) { if (k !== 'password') fresh[k] = target[k]; });
+        return { save: true, result: { ok: true, username: target.username, user: fresh } };
+    });
+
+    if (!out.ok) {
+        res.status(200).json({ ok: false, error: true });
+        return;
+    }
+    if (out.result && out.result.ok) {
+        await push.notifyUser(targetId, {
+            type:  'role_upgraded',
+            title: 'Akun Di-upgrade ke VIP',
+            body:  'Akunmu sekarang VIP selama ' + push.describeDuration(durationMs) + '. Fitur VIP sudah bisa langsung dipakai.'
+        });
+    }
+    res.status(200).json(out.result);
+}
+
 module.exports = async function (req, res) {
     if (!(await securityGuard.guard(req, res))) return;
     if (req.method !== 'POST') {
@@ -32,6 +102,13 @@ module.exports = async function (req, res) {
 
     try { await firebaseAuth.requireAdmin(req); } catch (e) {
         res.status(401).json({ ok: false, error: 'AUTH_REQUIRED' });
+        return;
+    }
+
+    /* Upgrade USER -> VIP dilayani di endpoint ini juga (lewat /api/admin/upgrade-vip), bukan file
+       api/admin/ tersendiri, supaya jumlah Serverless Function di paket Hobby tidak bertambah. */
+    if (req.query && req.query.action === 'upgrade') {
+        await upgradeToVip(targetId, body.durationMs, res);
         return;
     }
 

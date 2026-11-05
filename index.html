@@ -1043,6 +1043,37 @@
         }
         .extend-modal-confirm:active { transform: translate(2px,2px); box-shadow: 0 0 0; }
 
+        /* ===== UPGRADE USER KE VIP — modal (aksen emas) ===== */
+        .btn-upgrade-vip {
+            background:rgba(251,191,36,.1); border-color:#fbbf24; color:#fbbf24;
+            box-shadow:2px 2px 0 #fbbf24;
+        }
+        .upg-modal { border-color:#fbbf24; box-shadow:7px 7px 0 #fbbf24; }
+        .upg-modal .extend-modal-icon, .upg-modal .extend-modal-title { color:#fbbf24; }
+        .upg-modal .extend-modal-confirm {
+            background:linear-gradient(135deg,#fbbf24,#d97706);
+            border-color:#fbbf24; color:#2b1b00;
+        }
+        .upg-modal .f-lbl { text-align:left; }
+        .upg-plan-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:6px; margin-bottom:13px; }
+        .upg-plan-grid .dev-btn { padding:9px 2px; font-size:11px; }
+        .upg-plan-grid .dev-btn.active { background:#fbbf24; border-color:#fbbf24; box-shadow:2px 2px 0 #fbbf24; }
+
+        /* ===== CHAT GLOBAL (admin) — kartu ringkas + jendela chat, tampilan sama dengan Konseling ===== */
+        .gc-admin-ico {
+            width:44px; height:44px; flex-shrink:0;
+            display:flex; align-items:center; justify-content:center;
+            background:var(--purple); color:#fff; font-size:18px;
+            border:2px solid var(--bd); box-shadow:2px 2px 0 var(--bd);
+        }
+        .gc-admin-role {
+            margin-left:5px; padding:1px 4px; font-size:8px; font-weight:800; letter-spacing:.4px;
+            color:#09090f; border:1.5px solid var(--bd);
+        }
+        .gc-admin-role.vip   { background:#fbbf24; }
+        .gc-admin-role.admin { background:#a78bfa; }
+        .cnt-badge.gc-hot { background:var(--red); color:#fff; }
+
         /* ===== PENGUMUMAN: PROMO BANNER ===== */
         .promo-status-bar {
             display:flex; align-items:center; justify-content:center; gap:8px;
@@ -1876,7 +1907,7 @@
         <div class="sec-hdr">
             <div class="sec-title">Konseling <span class="sec-spark">&#128172;</span></div>
             <div style="display:flex;align-items:center;gap:8px;">
-                <button type="button" class="icon-sm-btn" id="konsMuteBtn" onclick="window._konsToggleMute()" title="Bisukan/nyalakan notifikasi suara"><i class="fas fa-volume-high"></i></button>
+                <button type="button" class="icon-sm-btn" id="konsMuteBtn" onclick="window._konsToggleMute()" title="Bisukan/nyalakan notifikasi suara (Konseling & Chat Global)"><i class="fas fa-volume-high"></i></button>
                 <button type="button" class="icon-sm-btn" onclick="window.openKonsPicker()" title="Mulai percakapan baru"><i class="fas fa-plus"></i></button>
                 <div class="cnt-badge" id="konsAdminBadge">0</div>
             </div>
@@ -1888,6 +1919,23 @@
             <div class="empty-state">
                 <i class="fas fa-comments" style="font-size:22px;margin-bottom:8px;display:block;opacity:.35;"></i>
                 Belum ada percakapan konseling.
+            </div>
+        </div>
+    </div>
+
+    <!-- CHAT GLOBAL -->
+    <div class="card">
+        <div class="sec-hdr">
+            <div class="sec-title">Chat Global <span class="sec-spark">&#127760;</span></div>
+            <div class="cnt-badge" id="gcAdminBadge">0</div>
+        </div>
+        <p style="font-size:11px;color:var(--tsec);line-height:1.7;margin-bottom:13px;">
+            Ruang obrolan bersama <b style="color:var(--text);">VIP</b> &amp; <b style="color:var(--text);">ADMIN</b> di <b style="color:var(--text);">HidzProject</b>, real-time. Ketuk di bawah buat membaca, membalas, atau menghapus pesan (satu per satu maupun semuanya).
+        </p>
+        <div id="gcAdminEntry">
+            <div class="empty-state">
+                <i class="fas fa-globe" style="font-size:22px;margin-bottom:8px;display:block;opacity:.35;"></i>
+                Memuat Chat Global...
             </div>
         </div>
     </div>
@@ -2264,6 +2312,48 @@
     </div>
 </div>
 
+<!-- UPGRADE USER KE VIP — MODAL -->
+<div class="extend-modal-overlay" id="upgradeVipModal">
+    <div class="extend-modal-box upg-modal">
+        <div class="extend-modal-icon"><i class="fas fa-crown"></i></div>
+        <div class="extend-modal-title">Upgrade ke VIP</div>
+        <div class="extend-modal-desc">
+            Ubah akun <b id="upgradeVipUsername">-</b> dari USER menjadi VIP tanpa membuat akun baru. Masa VIP dihitung dari sekarang dan menggantikan sisa durasi USER (<b id="upgradeVipCurrent">-</b>).
+        </div>
+        <div class="f-lbl">Pilih Paket</div>
+        <div class="upg-plan-grid" id="upgradePlanGrid">
+            <button type="button" class="dev-btn" data-val="1" data-unit="hari"  onclick="_pickUpgradePlan(this)">1 Day</button>
+            <button type="button" class="dev-btn" data-val="3" data-unit="hari"  onclick="_pickUpgradePlan(this)">3 Day</button>
+            <button type="button" class="dev-btn" data-val="7" data-unit="hari"  onclick="_pickUpgradePlan(this)">7 Day</button>
+            <button type="button" class="dev-btn" data-val="14" data-unit="hari" onclick="_pickUpgradePlan(this)">14 Day</button>
+            <button type="button" class="dev-btn" data-val="1" data-unit="bulan" onclick="_pickUpgradePlan(this)">1 Month</button>
+            <button type="button" class="dev-btn" data-val="3" data-unit="bulan" onclick="_pickUpgradePlan(this)">3 Month</button>
+            <button type="button" class="dev-btn" data-val="5" data-unit="bulan" onclick="_pickUpgradePlan(this)">5 Month</button>
+            <button type="button" class="dev-btn" data-val="1" data-unit="tahun" onclick="_pickUpgradePlan(this)">1 Year</button>
+        </div>
+        <div class="f-lbl">Atau Atur Durasi Sendiri</div>
+        <div class="dur-row">
+            <input type="number" class="f-inp" id="upgradeVipVal" value="1" min="1" oninput="_onUpgradeVipDurInput()">
+            <select class="f-sel" id="upgradeVipUnit" onchange="_onUpgradeVipDurInput()">
+                <option value="detik">DETIK</option>
+                <option value="menit">MENIT</option>
+                <option value="jam">JAM</option>
+                <option value="hari">HARI</option>
+                <option value="minggu">MINGGU</option>
+                <option value="bulan" selected>BULAN</option>
+                <option value="tahun">TAHUN</option>
+            </select>
+        </div>
+        <p class="extend-modal-hint" id="upgradeVipHint"></p>
+        <div class="extend-modal-actions">
+            <button class="extend-modal-cancel" onclick="closeUpgradeVipModal()">BATAL</button>
+            <button class="extend-modal-confirm" id="upgradeVipConfirmBtn" onclick="confirmUpgradeVip()">
+                <i class="fas fa-crown" style="margin-right:6px;"></i>UPGRADE VIP
+            </button>
+        </div>
+    </div>
+</div>
+
 <!-- ATUR DURASI MAINTENANCE — MODAL (cara kerjanya sama dengan Atur Durasi akun) -->
 <div class="extend-modal-overlay" id="maintModal">
     <div class="extend-modal-box">
@@ -2375,6 +2465,39 @@
         <button type="button" onclick="window._konsAdminSetReaction('\u{2764}\u{FE0F}')">&#10084;&#65039;</button>
         <button type="button" onclick="window._konsAdminSetReaction('\u{1F602}')">&#128514;</button>
         <button type="button" class="kons-react-cancel" onclick="window._konsAdminCloseReactPicker()">Batal</button>
+    </div>
+</div>
+
+<!-- CHAT GLOBAL — jendela chat full-screen -->
+<div class="kons-chat-overlay" id="gcAdminOverlay">
+    <div class="kons-chat-hdr">
+        <button type="button" class="kons-back-btn" onclick="window.closeGlobalChatAdmin()" title="Kembali">
+            <i class="fas fa-arrow-left"></i>
+        </button>
+        <div class="gc-admin-ico" style="width:34px;height:34px;font-size:14px;"><i class="fas fa-globe"></i></div>
+        <div>
+            <div class="kons-chat-hdr-name">Chat Global</div>
+            <div class="kons-chat-hdr-sub">VIP &amp; ADMIN &mdash; HidzProject</div>
+        </div>
+        <button type="button" class="kons-trash-btn" onclick="window.requestClearGlobalChat()" title="Hapus semua pesan Chat Global">
+            <i class="fas fa-trash-can"></i>
+        </button>
+    </div>
+    <div class="kons-messages" id="gcAdminMessages">
+        <div class="kons-empty">
+            <i class="fas fa-comments"></i>
+            <p>Memuat pesan...</p>
+        </div>
+    </div>
+    <div class="kons-chat-input-bar">
+        <input type="text" class="kons-chat-text-input" id="gcAdminInput" maxlength="500" placeholder="Tulis pesan sebagai ADMIN..." autocomplete="off" onkeydown="if(event.key==='Enter'&&!event.isComposing){event.preventDefault();window._gcAdminSend();}">
+        <button type="button" class="kons-chat-send-btn" id="gcAdminSendBtn" title="Kirim" onclick="window._gcAdminSend()">
+            <i class="fas fa-paper-plane"></i>
+        </button>
+    </div>
+    <div class="kons-msg-menu" id="gcAdminMsgMenu">
+        <button type="button" onclick="window._gcAdminDeleteMsg()"><i class="fas fa-trash"></i> Hapus pesan ini</button>
+        <button type="button" onclick="window._gcAdminCloseMenu()">Batal</button>
     </div>
 </div>
 
@@ -2954,6 +3077,12 @@
                 ? '<button class="btn-extend" onclick="requestExtendUser(\''+u.id+'\')"><i class="fas fa-calendar-days" style="margin-right:6px;"></i>ATUR DURASI</button>'
                 : '';
 
+            /* Tombol UPGRADE KE VIP — hanya untuk akun USER biasa, supaya naik plan tidak perlu
+               membuat akun baru. Akun VIP & akun admin tidak punya tombol ini. */
+            var upgradeBtn = (!prot && roleKey === 'user')
+                ? '<button class="btn-extend btn-upgrade-vip" onclick="requestUpgradeVip(\''+u.id+'\')"><i class="fas fa-crown" style="margin-right:6px;"></i>UPGRADE KE VIP</button>'
+                : '';
+
             /* Warning badge jika banned */
             var warnBadge = isBanned
                 ? '<div class="u-warn-badge"><i class="fas fa-exclamation-triangle"></i> MELEBIHI LIMIT DEVICE — DIBLOKIR</div>'
@@ -2992,6 +3121,7 @@
                 '<div class="u-expiry">Durasi: '+(u.durationLabel||'-')+'</div>' +
                 logoutLoginInfo +
                 '<div class="u-device"><i class="fas fa-mobile-alt" style="margin-right:4px;opacity:.5;"></i>Limit: '+devLimitLabel+'</div>' +
+                upgradeBtn +
                 extendBtn +
                 resetPassBtn +
                 warnBadge +
@@ -3493,6 +3623,115 @@
             });
     }
 
+    /* ===== UPGRADE USER -> VIP (tanpa membuat akun baru) =====
+       Pilihan durasinya sama dengan paket di HidzProject dan kolom Durasi Akses di Generate Access
+       (satuan DETIK sampai TAHUN). Perhitungan akhirnya dilakukan di server (/api/admin/upgrade-vip). */
+    var _upgradeTargetId = null;
+    var _UPGRADE_UNIT_MS = {
+        detik: 1000, menit: 60000, jam: 3600000, hari: 86400000,
+        minggu: 7 * 86400000, bulan: 30 * 86400000, tahun: 365 * 86400000
+    };
+    var _UPGRADE_MAX_MS = 10 * 365 * 86400000;
+
+    function _upgradeTarget() {
+        var users = getUsers();
+        for (var i = 0; i < users.length; i++) { if (users[i].id === _upgradeTargetId) return users[i]; }
+        return null;
+    }
+    function _readUpgradeMs() {
+        var v = parseInt(document.getElementById('upgradeVipVal').value, 10) || 0;
+        var unit = document.getElementById('upgradeVipUnit').value;
+        return Math.max(0, v) * (_UPGRADE_UNIT_MS[unit] || 0);
+    }
+    /* Kolom durasi berubah: tandai paket yang durasinya sama persis, lalu perbarui teks bantuan */
+    function _onUpgradeVipDurInput() {
+        var ms = _readUpgradeMs();
+        document.querySelectorAll('#upgradePlanGrid .dev-btn').forEach(function (b) {
+            var planMs = parseInt(b.getAttribute('data-val'), 10) * _UPGRADE_UNIT_MS[b.getAttribute('data-unit')];
+            b.classList.toggle('active', planMs === ms);
+        });
+
+        var hint = document.getElementById('upgradeVipHint');
+        var target = _upgradeTarget();
+        if (!hint || !target) return;
+        hint.className = 'extend-modal-hint';
+        if (ms < 1000) { hint.textContent = 'Masukkan durasi minimal 1 detik.'; hint.className += ' err'; return; }
+        if (ms > _UPGRADE_MAX_MS) { hint.textContent = 'Durasi maksimal 10 tahun.'; hint.className += ' err'; return; }
+        var waiting = isPending(target) || isExpired(target);
+        hint.textContent = 'Akun menjadi VIP selama ' + _msToFullLabel(ms) + '. ' +
+            (waiting ? 'Durasi mulai berjalan saat akun ini login berikutnya.' : 'Berlaku mulai sekarang, tanpa perlu login ulang.');
+    }
+    function _pickUpgradePlan(btn) {
+        document.getElementById('upgradeVipVal').value  = btn.getAttribute('data-val');
+        document.getElementById('upgradeVipUnit').value = btn.getAttribute('data-unit');
+        _onUpgradeVipDurInput();
+    }
+    function requestUpgradeVip(id) {
+        var users = getUsers();
+        var target = null;
+        for (var i = 0; i < users.length; i++) { if (users[i].id === id) { target = users[i]; break; } }
+        if (!target) { showToast('User tidak ditemukan!', 'err'); return; }
+        if (isProtected(target)) { showToast('Akun ini dilindungi, tidak bisa diubah!', 'err'); return; }
+        if (target.role === 'vip') { showToast('Akun ini sudah VIP, gunakan ATUR DURASI.', 'err'); return; }
+
+        _upgradeTargetId = id;
+        document.getElementById('upgradeVipUsername').textContent = target.username;
+        var remain = _accountRemainingMs(target);
+        document.getElementById('upgradeVipCurrent').textContent = remain === null ? 'UNLIMITED' : _msToFullLabel(remain);
+
+        document.getElementById('upgradeVipVal').value  = '1';
+        document.getElementById('upgradeVipUnit').value = 'bulan';
+        _onUpgradeVipDurInput();
+        document.getElementById('upgradeVipModal').classList.add('show');
+    }
+    function closeUpgradeVipModal() {
+        var m = document.getElementById('upgradeVipModal');
+        if (m) m.classList.remove('show');
+        _upgradeTargetId = null;
+    }
+    function confirmUpgradeVip() {
+        if (!_upgradeTargetId) return;
+        var ms = _readUpgradeMs();
+        if (ms < 1000 || ms > _UPGRADE_MAX_MS) { showToast('Masukkan durasi yang valid!', 'err'); return; }
+
+        var btn = document.getElementById('upgradeVipConfirmBtn');
+        if (btn && btn.disabled) return;
+        var idleLabel = btn ? btn.innerHTML : '';
+        if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin" style="margin-right:6px;"></i>MEMPROSES...'; }
+        var restore = function () { if (btn) { btn.disabled = false; btn.innerHTML = idleLabel; } };
+
+        _adminFetch('/api/admin/upgrade-vip', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ targetId: _upgradeTargetId, durationMs: ms })
+        })
+            .then(function (r) { return r.json(); })
+            .then(function (res) {
+                restore();
+                if (!res || !res.ok) {
+                    var msg = (res && res.reason === 'not_found') ? 'User tidak ditemukan!'
+                            : (res && res.reason === 'protected') ? 'Akun ini dilindungi, tidak bisa diubah!'
+                            : (res && res.reason === 'already_vip') ? 'Akun ini sudah VIP, gunakan ATUR DURASI.'
+                            : (res && res.reason === 'invalid') ? 'Durasi tidak valid!'
+                            : 'Gagal memproses, coba lagi.';
+                    showToast(msg, 'err');
+                    if (res && (res.reason === 'not_found' || res.reason === 'protected' || res.reason === 'already_vip')) {
+                        closeUpgradeVipModal();
+                        _adminSyncUsers();
+                    }
+                    return;
+                }
+                closeUpgradeVipModal();
+                if (res.user) _applyUserPatch(res.user);
+                _adminSyncUsers();
+                showToast('\u2714 ' + res.username + ' sekarang VIP (' + _msToFullLabel(ms) + ')', 'ok');
+            })
+            .catch(function () {
+                restore();
+                showToast('Gagal terhubung ke server, coba lagi.', 'err');
+            });
+    }
+
     /* ===== CREATE ACCESS ===== */
     function createAccess() {
         var username = document.getElementById('newUser').value.trim();
@@ -3777,6 +4016,7 @@
     var _NLOG_LABEL = {
         reset_password: ['Reset Password',  'var(--yellow)'],
         duration_added: ['Durasi Ditambah', 'var(--green)'],
+        role_upgraded:  ['Upgrade VIP',     'var(--yellow)'],
         maintenance:    ['Maintenance',     'var(--red)'],
         project_new:    ['Project Baru',    'var(--cyan)']
     };
@@ -5409,7 +5649,7 @@
         try { localStorage.setItem(KONS_MUTE_KEY, muted ? '1' : '0'); } catch (e) {}
         var btn = document.getElementById('konsMuteBtn');
         if (btn) btn.innerHTML = '<i class="fas ' + (muted ? 'fa-volume-xmark' : 'fa-volume-high') + '"></i>';
-        showToast(muted ? 'Notifikasi suara Konseling dimatikan' : 'Notifikasi suara Konseling dinyalakan', 'ok');
+        showToast(muted ? 'Notifikasi suara chat dimatikan' : 'Notifikasi suara chat dinyalakan', 'ok');
     };
     (function syncMuteBtnIcon() {
         var btn = document.getElementById('konsMuteBtn');
@@ -5844,6 +6084,12 @@
     /* Refresh titik online/last-seen begitu presence akun manapun berubah —
        daftar percakapan, picker, & header chat aktif semua ikut ter-update
        tanpa perlu reload/buka-tutup halaman. */
+    /* Format waktu & bunyi notifikasi dipakai juga oleh modul Chat Global (di bawah) */
+    window._hidzChatShared = {
+        fmtTime: fmtTime, fmtFullTime: fmtFullTime, fmtDay: fmtDay, fmtRelative: fmtRelative,
+        playSound: playKonsNotifSound
+    };
+
     window.addEventListener('hidz:presence-updated', function (e) {
         var uid = e.detail && e.detail.uid;
         if (Object.keys(_convMeta).length) renderConvList();
@@ -5855,6 +6101,345 @@
 
 })();
 </script>
+
+<!-- ============================================================
+     FITUR CHAT GLOBAL (ADMIN) - memantau, membalas, dan menghapus pesan
+     Chat Global HidzProject secara real-time. Skema Firebase sama dengan
+     yang dipakai HidzProject: hidz_global_chat/messages/{id}. Admin menulis
+     langsung ke Firebase (diizinkan oleh claim admin di Rules), sama seperti
+     Konseling. Modul terpisah & mandiri, tidak menyentuh logika user,
+     maintenance, pengumuman, atau Konseling yang sudah ada.
+     ============================================================ -->
+<script>
+(function () {
+    'use strict';
+
+    var GC_REF     = 'hidz_global_chat/messages';
+    var GC_LIMIT   = 100;                    // jumlah pesan terbaru yang dimuat
+    var SEEN_KEY   = 'hidz_gc_admin_seen';   // pesan setelah waktu ini dianggap belum dibaca
+    var ADMIN_NAME = 'Hidz';
+    var MAX_TEXT   = 500;
+    var GROUP_MS   = 5 * 60 * 1000;          // pesan beruntun dari orang yang sama dirapatkan
+
+    var _msgs         = {};      // pushKey -> pesan
+    var _loaded       = false;
+    var _failed       = false;
+    var _open         = false;
+    var _seenTs       = 0;
+    var _query        = null;
+    var _offsetRef    = null;
+    var _srvOffset    = 0;       // selisih jam perangkat dengan jam server Firebase
+    var _menuKey      = null;
+    var _sending      = false;
+    var _renderQueued = false;
+
+    function byId(id) { return document.getElementById(id); }
+    function adminUid() { return window._hidzAdminUid || 'admin_hidz_protected'; }
+    function fmt(name, ts) {
+        var f = window._hidzChatShared && window._hidzChatShared[name];
+        return f ? f(ts) : '';
+    }
+    function ensureFb(cb) {
+        try {
+            if (typeof firebase !== 'undefined' && firebase.apps.length) { cb(); return; }
+        } catch (e) {}
+        setTimeout(function () { ensureFb(cb); }, 700);
+    }
+
+    /* ---------- penanda "sudah dibaca" (disimpan per perangkat) ---------- */
+    function loadSeen() {
+        var v = 0;
+        try { v = parseInt(localStorage.getItem(SEEN_KEY), 10) || 0; } catch (e) {}
+        /* Pertama kali dipakai: pesan lama tidak dihitung belum dibaca */
+        _seenTs = v > 0 ? v : Date.now();
+        saveSeen();
+    }
+    function saveSeen() {
+        try { localStorage.setItem(SEEN_KEY, String(_seenTs)); } catch (e) {}
+    }
+    function sortedKeys() { return Object.keys(_msgs).sort(); }
+    function unreadCount() {
+        var me = adminUid(), n = 0;
+        Object.keys(_msgs).forEach(function (k) {
+            var m = _msgs[k];
+            if (m.uid !== me && m.ts > _seenTs) n++;
+        });
+        return n;
+    }
+    function markSeen() {
+        var me = adminUid(), latest = _seenTs;
+        Object.keys(_msgs).forEach(function (k) {
+            var m = _msgs[k];
+            if (m.uid !== me && m.ts > latest) latest = m.ts;
+        });
+        if (latest !== _seenTs) { _seenTs = latest; saveSeen(); }
+    }
+
+    /* ---------- kartu ringkas di panel ---------- */
+    function renderEntry() {
+        var wrap = byId('gcAdminEntry');
+        var badge = byId('gcAdminBadge');
+        var unread = unreadCount();
+        if (badge) {
+            badge.textContent = unread > 99 ? '99+' : unread;
+            badge.classList.toggle('gc-hot', unread > 0);
+        }
+        if (!wrap) return;
+
+        var keys = sortedKeys();
+        var last = keys.length ? _msgs[keys[keys.length - 1]] : null;
+        var preview;
+        if (_failed) preview = 'Belum bisa dimuat. Pastikan Rules Firebase sudah di-publish.';
+        else if (!_loaded) preview = 'Memuat pesan...';
+        else if (last) preview = (last.uid === adminUid() ? 'Kamu' : (last.name || 'User')) + ': ' + last.text;
+        else preview = 'Belum ada pesan. Ketuk untuk membuka.';
+
+        wrap.innerHTML =
+            '<div class="user-item kons-conv-item' + (unread > 0 ? ' unread' : '') + '" onclick="window.openGlobalChatAdmin()" style="display:flex;gap:10px;align-items:center;">' +
+                '<div class="gc-admin-ico"><i class="fas fa-globe"></i></div>' +
+                '<div style="flex:1;min-width:0;">' +
+                    '<div class="user-top" style="margin-bottom:2px;">' +
+                        '<div class="u-name">Chat Global</div>' +
+                        (unread > 0 ? '<span class="kons-unread-pill">' + (unread > 99 ? '99+' : unread) + '</span>' : '') +
+                    '</div>' +
+                    '<div class="kons-conv-preview">' + escAdmin(preview) + '</div>' +
+                    (last && _loaded && !_failed ? '<div class="kons-conv-time">' + fmt('fmtRelative', last.ts) + '</div>' : '') +
+                '</div>' +
+            '</div>';
+    }
+
+    /* ---------- jendela chat ---------- */
+    function messageHtml(k, m, prev) {
+        var mine = (m.uid === adminUid());
+        var role = (m.role === 'vip' || m.role === 'admin') ? m.role : '';
+        var lead = !prev || prev.uid !== m.uid || (m.ts - prev.ts) > GROUP_MS;
+
+        var label = '';
+        if (lead) {
+            var url = (typeof window._hidzPhotoUrl === 'function') ? window._hidzPhotoUrl(m.uid) : '';
+            if (typeof window._hidzWatchPhoto === 'function') window._hidzWatchPhoto(m.uid);
+            label = '<div class="kons-sender-lbl' + (role === 'admin' ? ' is-admin' : '') + '">' +
+                (url ? '<img class="kons-sender-avatar role-' + (role || 'user') + '" src="' + escAdmin(url) + '" alt="">' : '') +
+                escAdmin(m.name || 'User') +
+                (role ? '<span class="gc-admin-role ' + role + '">' + role.toUpperCase() + '</span>' : '') +
+                '</div>';
+        }
+        /* Pesan dari akun lain ditampilkan lengkap (jam:menit:detik + tanggal), pesan admin cukup jam:menit */
+        var time = mine ? fmt('fmtTime', m.ts) : fmt('fmtFullTime', m.ts);
+        return '<div class="kons-row ' + (mine ? 'me' : 'them') + '"><div class="kons-bubble-wrap">' + label +
+            '<div class="kons-bubble">' + escAdmin(m.text) + '</div>' +
+            '<div class="kons-bubble-meta"><span class="kons-bubble-time">' + time + '</span>' +
+            '<button type="button" class="kons-bubble-more" title="Hapus pesan" data-key="' + escAdmin(k) + '" onclick="window._gcAdminOpenMenu(this.getAttribute(\'data-key\'))"><i class="fas fa-ellipsis"></i></button>' +
+            '</div></div></div>';
+    }
+
+    function renderMessages(forceBottom) {
+        var box = byId('gcAdminMessages');
+        if (!box || !_open) return;
+
+        if (_failed) { box.innerHTML = '<div class="kons-empty"><i class="fas fa-triangle-exclamation"></i><p>Chat Global belum bisa dimuat.<br>Pastikan Rules Firebase sudah di-publish.</p></div>'; return; }
+        if (!_loaded) { box.innerHTML = '<div class="kons-empty"><i class="fas fa-spinner fa-spin"></i><p>Memuat pesan...</p></div>'; return; }
+
+        var keys = sortedKeys();
+        if (!keys.length) {
+            box.innerHTML = '<div class="kons-empty"><i class="fas fa-comments"></i><p>Belum ada pesan di Chat Global.</p></div>';
+            return;
+        }
+
+        var nearBottom = (box.scrollHeight - box.scrollTop - box.clientHeight) < 80;
+        var wasEmpty = !box.querySelector('.kons-row');
+        var html = '', prev = null, prevDay = '';
+        keys.forEach(function (k) {
+            var m = _msgs[k];
+            var day = fmt('fmtDay', m.ts);
+            if (day !== prevDay) { html += '<div class="kons-day-sep">' + day + '</div>'; prevDay = day; prev = null; }
+            html += messageHtml(k, m, prev);
+            prev = m;
+        });
+        box.innerHTML = html;
+        if (forceBottom || wasEmpty || nearBottom) box.scrollTop = box.scrollHeight;
+    }
+
+    function scheduleRender() {
+        if (_renderQueued) return;
+        _renderQueued = true;
+        requestAnimationFrame(function () {
+            _renderQueued = false;
+            if (_open) { markSeen(); renderMessages(false); }
+            renderEntry();
+        });
+    }
+
+    window.openGlobalChatAdmin = function () {
+        var ov = byId('gcAdminOverlay');
+        if (!ov) return;
+        _open = true;
+        markSeen();
+        ov.classList.add('show');
+        renderMessages(true);
+        renderEntry();
+    };
+    window.closeGlobalChatAdmin = function () {
+        var ov = byId('gcAdminOverlay');
+        if (ov) ov.classList.remove('show');
+        _open = false;
+        window._gcAdminCloseMenu();
+        renderEntry();
+    };
+
+    /* ---------- Firebase (baca real-time) ---------- */
+    function onAdded(snap) {
+        var m = snap.val();
+        if (!m || typeof m.text !== 'string' || typeof m.ts !== 'number') return;
+        var isNew = !_msgs[snap.key];
+        _msgs[snap.key] = m;
+        /* Bunyi hanya untuk pesan baru dari akun lain saat jendela chat sedang tertutup */
+        if (isNew && _loaded && !_open && m.uid !== adminUid() && m.ts > _seenTs && window._hidzChatShared) {
+            window._hidzChatShared.playSound();
+        }
+        scheduleRender();
+    }
+    function onRemoved(snap) {
+        delete _msgs[snap.key];
+        scheduleRender();
+    }
+    function onFail(err) {
+        console.error('[Chat Global] gagal membaca pesan:', err);
+        var firstFail = !_failed;
+        _failed = true;
+        if (firstFail && typeof showToast === 'function') showToast('Gagal memuat Chat Global (' + _fbErrShort(err) + ')', 'err');
+        scheduleRender();
+    }
+
+    function startListener() {
+        if (_query) return;
+        _failed = false;
+        var database = firebase.database();
+        _offsetRef = database.ref('.info/serverTimeOffset');
+        _offsetRef.on('value', function (s) { _srvOffset = s.val() || 0; });
+        _query = database.ref(GC_REF).orderByKey().limitToLast(GC_LIMIT);
+        _query.on('child_added', onAdded, onFail);
+        _query.on('child_removed', onRemoved, onFail);
+        _query.once('value', function () { _loaded = true; _failed = false; scheduleRender(); }, onFail);
+    }
+    function stopListener() {
+        if (_query) { try { _query.off(); } catch (e) {} _query = null; }
+        if (_offsetRef) { try { _offsetRef.off(); } catch (e) {} _offsetRef = null; }
+    }
+
+    /* ---------- kirim & hapus ---------- */
+    function cleanText(raw) {
+        return String(raw || '')
+            .replace(new RegExp('[\\u0000-\\u001f\\u007f\\u200b-\\u200f\\u2028\\u2029\\ufeff]', 'g'), ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+    }
+    function newKey(ts) {
+        return String(ts).padStart(13, '0') + '-' + Math.random().toString(36).slice(2, 8).padEnd(6, '0');
+    }
+
+    window._gcAdminSend = function () {
+        if (_sending) return;
+        var inp = byId('gcAdminInput');
+        var btn = byId('gcAdminSendBtn');
+        var text = cleanText(inp ? inp.value : '');
+        if (!text) return;
+        if (text.length > MAX_TEXT) { showToast('Pesan maksimal ' + MAX_TEXT + ' karakter', 'err'); return; }
+
+        var ts = Date.now() + _srvOffset;
+        _sending = true;
+        if (btn) btn.disabled = true;
+        firebase.database().ref(GC_REF + '/' + newKey(ts)).set({
+            uid: adminUid(), name: ADMIN_NAME, role: 'admin', text: text, ts: ts
+        }).then(function () {
+            if (inp && cleanText(inp.value) === text) inp.value = '';
+        }).catch(function (err) {
+            showToast('Gagal mengirim pesan (' + _fbErrShort(err) + ')', 'err');
+        }).then(function () {
+            _sending = false;
+            if (btn) btn.disabled = false;
+        });
+    };
+
+    window._gcAdminOpenMenu = function (key) {
+        if (!_msgs[key]) return;
+        _menuKey = key;
+        var menu = byId('gcAdminMsgMenu');
+        if (menu) menu.classList.add('show');
+    };
+    window._gcAdminCloseMenu = function () {
+        _menuKey = null;
+        var menu = byId('gcAdminMsgMenu');
+        if (menu) menu.classList.remove('show');
+    };
+    window._gcAdminDeleteMsg = function () {
+        var key = _menuKey;
+        window._gcAdminCloseMenu();
+        if (!key) return;
+        firebase.database().ref(GC_REF + '/' + key).remove().catch(function (err) {
+            showToast('Gagal menghapus pesan (' + _fbErrShort(err) + ')', 'err');
+        });
+    };
+
+    /* ---------- hapus semua pesan (khusus admin) ---------- */
+    window.requestClearGlobalChat = function () {
+        openDangerModal(
+            'Hapus Semua Pesan Global?',
+            'Seluruh pesan di <b>Chat Global</b> HidzProject akan <b>dihapus permanen</b> dari Firebase dan langsung hilang dari layar semua pengguna yang sedang membukanya.<br><br>' +
+            '<span style="color:var(--red);font-weight:800;">Tindakan ini TIDAK BISA DIBATALKAN.</span>',
+            'HAPUS SEMUA PESAN',
+            executeClearGlobalChat
+        );
+    };
+
+    function executeClearGlobalChat() {
+        var cb = byId('dangerModalCheck');
+        if (!cb || !cb.checked) return; /* wajib centang dulu sebelum lanjut */
+
+        var btn = byId('dangerModalConfirmBtn');
+        if (btn) {
+            btn.disabled  = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin" style="margin-right:6px;"></i>MEMPROSES...';
+        }
+        firebase.database().ref(GC_REF).remove().then(function () {
+            closeDangerModal();
+            showToast('Semua pesan Chat Global berhasil dihapus', 'ok');
+        }).catch(function (err) {
+            _resetDangerConfirmBtn('HAPUS SEMUA PESAN');
+            closeDangerModal();
+            showToast('Gagal menghapus pesan (' + _fbErrShort(err) + ')', 'err');
+        });
+    }
+
+    /* Foto akun yang baru berubah ikut diperbarui di jendela yang sedang terbuka */
+    window.addEventListener('hidz:photo-updated', function () { if (_open) scheduleRender(); });
+
+    /* Waktu relatif ("5 menit lalu") di kartu ikut berjalan walau tidak ada pesan baru */
+    setInterval(function () { if (document.visibilityState === 'visible') renderEntry(); }, 60000);
+
+    /* ---------- mulai setelah login admin (claim admin sudah ada di token) ---------- */
+    loadSeen();
+    renderEntry();
+    ensureFb(function () {
+        if (!firebase.auth) return;
+        firebase.auth().onAuthStateChanged(function (user) {
+            stopListener();
+            if (!user) {
+                _msgs = {}; _loaded = false; _failed = false;
+                renderEntry();
+                return;
+            }
+            user.getIdTokenResult(true).then(function (result) {
+                if (result && result.claims && result.claims.admin === true) startListener();
+                else console.warn('[Chat Global] sesi Firebase tidak memiliki claim admin.');
+            }).catch(function (err) {
+                console.error('[Chat Global] gagal memverifikasi token admin:', err);
+            });
+        });
+    });
+})();
+</script>
+
 <div id="hidzSecurityOverlay" onclick="if(event.target===this)window._hidzCloseSecurity()">
  <div id="hidzSecurityBox">
   <div class="hzsec-head"><div class="hzsec-title">HIDZ SECURITY MONITOR</div><button class="hzsec-close" onclick="window._hidzCloseSecurity()">TUTUP</button></div>
