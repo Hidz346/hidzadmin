@@ -4019,7 +4019,8 @@
         duration_added: ['Durasi Ditambah', 'var(--green)'],
         role_upgraded:  ['Upgrade VIP',     'var(--yellow)'],
         maintenance:    ['Maintenance',     'var(--red)'],
-        project_new:    ['Project Baru',    'var(--cyan)']
+        project_new:    ['Project Baru',    'var(--cyan)'],
+        voucher_new:    ['Voucher Baru',    'var(--pink)']
     };
     var _nlogItems    = [];
     var _showAllNlog  = false;
@@ -6895,7 +6896,8 @@
         }).then(function (r) { return r.json(); }).then(function (res) {
             setBusy('vch-save', false);
             if (!res || !res.ok) { showToast((res && res.message) || 'Gagal menyimpan voucher', 'err'); return; }
-            showToast('\u2714 Voucher ' + code + ' berhasil disimpan!', 'ok');
+            if (res.notified) showToast('\u2714 Voucher ' + code + ' berhasil disimpan, notifikasi dikirim ke ' + res.notified.accounts + ' akun!', 'ok');
+            else showToast('Voucher ' + code + ' tersimpan, tetapi notifikasi ke user gagal dikirim.', 'err');
             document.getElementById('vchCodeInp').value = '';
             loadAdminVouchers();
         }).catch(function () { setBusy('vch-save', false); showToast('Gagal terhubung ke server', 'err'); });

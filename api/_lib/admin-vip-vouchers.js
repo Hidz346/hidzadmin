@@ -1,5 +1,6 @@
 var crypto = require('crypto');
 var db = require('./db');
+var push = require('./push');
 
 var DAY_MS = 86400000;
 var MIN_PROVIDER_AMOUNT = 1000;
@@ -83,6 +84,70 @@ function planNames(ids, allPlans) {
 }
 
 function rupiah(n) { return 'Rp ' + Number(n).toLocaleString('id-ID'); }
+
+/* ===== NOTIFIKASI VOUCHER BARU =====
+   Setiap voucher yang baru ditambahkan (atau dihidupkan lagi lewat "pakai ulang") dikabarkan ke semua
+   akun lewat push.announce: pesan dalam halaman untuk akun yang sedang online, notifikasi Chrome untuk
+   yang tab-nya tertutup. Isi pesannya dibangun dari voucher yang baru disimpan itu sendiri — kode, paket,
+   diskon / harga akhir, kuota orang, dan batas waktunya — jadi selalu sama dengan yang admin isi. */
+var MONTHS_ID = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+var WIB_OFFSET_MS = 7 * 3600000;
+var NOTE_MAX_LISTED_PLANS = 3;
+
+function pad2(n) { return n < 10 ? '0' + n : String(n); }
+
+/* "12 Nov 2026, 23.59 WIB" — dihitung manual dari UTC+7 (WIB tidak punya DST), jadi hasilnya sama
+   di server mana pun dan tidak bergantung pada data locale Node. */
+function wibStamp(ms) {
+    var d = new Date(Number(ms) + WIB_OFFSET_MS);
+    return d.getUTCDate() + ' ' + MONTHS_ID[d.getUTCMonth()] + ' ' + d.getUTCFullYear() + ', ' + pad2(d.getUTCHours()) + '.' + pad2(d.getUTCMinutes()) + ' WIB';
+}
+
+function rupiahPlain(n) { return 'Rp ' + String(Math.round(Number(n))).replace(/\B(?=(\d{3})+(?!\d))/g, '.'); }
+
+function percentText(p) { return (Math.round(Number(p) * 10) / 10).toString().replace('.', ',') + '%'; }
+
+/* Judul + isi notifikasi untuk satu voucher. `voucher` = record yang tersimpan (hidz_vouchers/{kode}),
+   `allPlans` = daftar paket VIP saat ini (untuk menentukan "semua paket"). */
+function voucherNote(voucher, allPlans) {
+    var ids = Array.isArray(voucher.planIds) && voucher.planIds.length ? voucher.planIds : Object.keys(voucherPlans(voucher));
+    var data = voucherPlans(voucher);
+    var everyPlan = ids.length === allPlans.length;
+    var labels = ids.map(function (id) { return (data[id] && data[id].planLabel) || id; });
+    var percents = ids.map(function (id) { return Number(data[id] && data[id].percent) || 0; });
+    var lo = Math.min.apply(null, percents), hi = Math.max.apply(null, percents);
+    var rangeText = lo === hi ? percentText(lo) : percentText(lo) + '\u2013' + percentText(hi);
+    var target = everyPlan ? 'semua paket VIP' : 'paket ' + labels.join(', ');
+
+    var offer;
+    if (voucher.discountType === 'custom') {
+        if (ids.length <= NOTE_MAX_LISTED_PLANS) {
+            offer = ids.map(function (id, i) {
+                var pl = data[id] || {};
+                return 'Paket ' + labels[i] + ' jadi ' + rupiahPlain(pl.finalPrice) + ' (hemat ' + percentText(pl.percent) + ')';
+            }).join(', ');
+        } else {
+            offer = 'Harga spesial hingga ' + percentText(hi) + ' untuk ' + target;
+        }
+    } else {
+        offer = 'Diskon ' + rangeText + ' untuk ' + target;
+    }
+
+    var maxUses = Math.floor(Number(voucher.maxUses)) > 0 ? Math.floor(Number(voucher.maxUses)) : 0;
+    var quota = maxUses ? 'Kuota ' + maxUses + ' orang' : 'Untuk semua orang';
+
+    return {
+        type:  'voucher_new',
+        title: 'Voucher VIP Baru: ' + voucher.code,
+        body:  offer + '. ' + quota + ', berlaku sampai ' + wibStamp(voucher.expiresAt) + '. Masukkan kode ' + voucher.code + ' saat membeli VIP.'
+    };
+}
+
+/* Kabari semua akun. Best-effort: gagal mengirim tidak boleh menggagalkan voucher yang sudah tersimpan.
+   Balikan: { accounts, pushed } atau null kalau tidak ada yang terkirim. */
+async function announceVoucher(voucher, allPlans) {
+    try { return await push.announce(voucherNote(voucher, allPlans)); } catch (e) { return null; }
+}
 
 /* Hapus permanen voucher dari daftar. Riwayat voucher berdiri sendiri dan tidak ikut terhapus:
    riwayat dihapus lewat aksi history-delete / history-delete-all. */
@@ -214,7 +279,8 @@ async function handleAdminAction(action, body, res) {
         if (!(await db.setPath('hidz_vouchers/' + code, voucherRecord))) { res.status(200).json({ ok: false, message: 'Gagal menyimpan voucher ke database. Coba lagi.' }); return; }
         var savedView = publicVoucher(voucherRecord, 0);
         await logVoucherHistory({ code: code, action: (existing && isReuse) ? 'restored' : 'created', oldExpiresAt: existing ? existing.expiresAt : null, newExpiresAt: expiresAt, planId: chosenIds[0], planIds: chosenIds, planLabel: voucherRecord.planLabel, discountType: discountType, percent: percent, finalPrice: firstPlan.finalPrice, maxUses: maxUses, snapshot: savedView });
-        res.status(200).json({ ok: true, voucher: savedView });
+        var notified = await announceVoucher(voucherRecord, plans);
+        res.status(200).json({ ok: true, voucher: savedView, notified: notified ? { accounts: notified.accounts, pushed: notified.pushed } : null });
         return;
     }
 
@@ -335,4 +401,4 @@ async function handleAdminAction(action, body, res) {
     res.status(200).json({ ok: false, message: 'Aksi admin VIP tidak dikenali.' });
 }
 
-module.exports = { handleAdminAction: handleAdminAction };
+module.exports = { handleAdminAction: handleAdminAction, voucherNote: voucherNote };
