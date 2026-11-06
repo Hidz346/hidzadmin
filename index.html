@@ -1137,6 +1137,14 @@
             overflow:hidden; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical;
             word-break:break-word;
         }
+        .nlog-item.is-open .nlog-body { display:block; overflow:visible; -webkit-line-clamp:unset; }
+        .nlog-more {
+            display:block; margin:-3px 0 8px; padding:2px 0;
+            background:none; border:none; cursor:pointer;
+            font-family:inherit; font-size:10.5px; font-weight:800; letter-spacing:.5px; text-transform:uppercase;
+            color:var(--cyan); text-decoration:underline;
+        }
+        .nlog-more[hidden] { display:none; }
         .nlog-meta { font-size:10px; color:var(--tmut); font-weight:700; line-height:1.8; }
         .nlog-meta i { margin-right:4px; opacity:.6; }
 
@@ -4033,6 +4041,45 @@
     var _nlogMutated  = 0;
     var _nlogDeleteId = null;
     var _nlogBusy     = false;
+    var _nlogOpen     = {};   /* id riwayat -> isinya sedang dibentangkan penuh */
+
+    /* Isi notifikasi dipotong 3 baris; kalau memang terpotong, muncul "Lihat Lebih Detail" untuk membacanya utuh.
+       Diukur ulang tiap ukurannya berubah (layar diputar, tab baru terbuka, font selesai dimuat). */
+    function _fitNlogBody(item) {
+        var body = item.querySelector('.nlog-body');
+        var btn  = item.querySelector('.nlog-more');
+        if (!body || !btn) return;
+        var open = item.classList.contains('is-open');
+        btn.hidden = !(open || body.scrollHeight > body.clientHeight + 1);
+        btn.innerHTML = open ? 'Sembunyikan \u2191' : 'Lihat Lebih Detail \u2193';
+    }
+
+    var _nlogBodyWatch = (typeof ResizeObserver === 'function') ? new ResizeObserver(function (entries) {
+        entries.forEach(function (en) {
+            var item = en.target.closest('.nlog-item');
+            if (item) _fitNlogBody(item);
+        });
+    }) : null;
+    if (!_nlogBodyWatch) window.addEventListener('resize', function () { _watchNlogBodies(); });
+
+    function _watchNlogBodies() {
+        var list = document.getElementById('nlogList');
+        if (!list) return;
+        if (_nlogBodyWatch) _nlogBodyWatch.disconnect();
+        Array.prototype.forEach.call(list.querySelectorAll('.nlog-item'), function (item) {
+            _fitNlogBody(item);
+            var body = item.querySelector('.nlog-body');
+            if (_nlogBodyWatch && body) _nlogBodyWatch.observe(body);
+        });
+    }
+
+    function toggleNlogBody(btn) {
+        var item = btn.closest('.nlog-item');
+        if (!item) return;
+        item.classList.toggle('is-open');
+        _nlogOpen[item.getAttribute('data-id')] = item.classList.contains('is-open');
+        _fitNlogBody(item);
+    }
 
     function _nlogWho(it) {
         if (it.scope !== 'user') return 'Semua akun' + (it.accounts ? ' (' + it.accounts + ')' : '');
@@ -4068,10 +4115,11 @@
         visible.forEach(function (it) {
             var label = _NLOG_LABEL[it.type] || ['Info', 'var(--pink)'];
             html +=
-                '<div class="nlog-item">' +
+                '<div class="nlog-item' + (_nlogOpen[it.id] ? ' is-open' : '') + '" data-id="' + escAdmin(it.id) + '">' +
                     '<span class="nlog-tag" style="color:' + label[1] + ';">' + label[0] + '</span>' +
                     '<div class="nlog-title">' + escAdmin(it.title) + '</div>' +
-                    (it.body ? '<div class="nlog-body">' + escAdmin(it.body) + '</div>' : '') +
+                    (it.body ? '<div class="nlog-body">' + escAdmin(it.body) + '</div>' +
+                        '<button type="button" class="nlog-more" hidden onclick="toggleNlogBody(this)">Lihat Lebih Detail \u2193</button>' : '') +
                     '<div class="nlog-meta">' +
                         '<div><i class="fas fa-user"></i>' + escAdmin(_nlogWho(it)) + '</div>' +
                         '<div><i class="fas fa-bell"></i>Notifikasi Chrome: ' + it.pushed + ' perangkat</div>' +
@@ -4087,6 +4135,7 @@
                     '</button>';
         }
         listEl.innerHTML = html;
+        _watchNlogBodies();
     }
 
     function toggleShowAllNlog() {
@@ -6997,14 +7046,14 @@
     window._vchDelete = function (code) {
         openDangerModal('Hapus Voucher ' + escAdmin(code) + '?',
             'Voucher dihapus permanen dari Daftar Voucher dan tidak bisa dipakai lagi. <b>Riwayat Voucher tidak ikut terhapus.</b><br><br>' +
-            'Pembeli yang sedang memakai voucher ini langsung melihat harga kembali normal, dan QRIS yang belum dibayar dibatalkan otomatis.',
+            'Pembeli yang sedang memakai voucher ini langsung melihat harga kembali normal, dan QRIS yang belum dibayar dibatalkan otomatis. Notifikasi voucher ini juga ditarik dari riwayat notifikasi semua akun di HIDZPROJECT.',
             'HAPUS VOUCHER', function () {
             dangerRequest('/api/admin/voucher-delete', { code: code }, function (res) {
                 if (!res || !res.ok) { showToast((res && res.message) || 'Gagal menghapus voucher', 'err'); return; }
                 _vchMutatedAt = Date.now();
                 _vouchers = _vouchers.filter(function (v) { return v.code !== code; });
                 renderVouchersAndHistory();
-                showToast('✔ Voucher ' + code + ' dihapus', 'ok');
+                showToast('✔ Voucher ' + code + ' dihapus' + (Number(res.withdrawn) > 0 ? ', ' + res.withdrawn + ' notifikasi ikut ditarik' : ''), 'ok');
             });
         });
     };
@@ -7014,7 +7063,7 @@
         var n = _vouchers.length;
         openDangerModal('Hapus Semua Voucher?',
             'Seluruh <b>' + n + ' voucher</b> (aktif maupun kedaluwarsa) dihapus permanen dari Daftar Voucher. <b>Riwayat Voucher tidak ikut terhapus.</b><br><br>' +
-            'Pembeli yang sedang memakai voucher langsung melihat harga kembali normal, dan QRIS yang belum dibayar dibatalkan otomatis.<br><br>' +
+            'Pembeli yang sedang memakai voucher langsung melihat harga kembali normal, dan QRIS yang belum dibayar dibatalkan otomatis. Notifikasi voucher-voucher ini juga ditarik dari riwayat notifikasi semua akun di HIDZPROJECT.<br><br>' +
             '<span style="color:var(--red);font-weight:800;">Tindakan ini TIDAK BISA DIBATALKAN.</span>',
             'HAPUS SEMUA', function () {
             dangerRequest('/api/admin/voucher-delete-all', {}, function (res) {
@@ -7022,7 +7071,7 @@
                 _vchMutatedAt = Date.now();
                 _vouchers = [];
                 renderVouchersAndHistory();
-                showToast('✔ ' + (Number(res.deleted) || 0) + ' voucher dihapus', 'ok');
+                showToast('✔ ' + (Number(res.deleted) || 0) + ' voucher dihapus' + (Number(res.withdrawn) > 0 ? ', ' + res.withdrawn + ' notifikasi ikut ditarik' : ''), 'ok');
             });
         });
     };

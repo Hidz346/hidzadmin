@@ -141,6 +141,8 @@ function voucherNote(voucher, allPlans) {
         title: 'Voucher VIP Baru: ' + voucher.code,
         /* Notifikasinya berakhir bersama voucher-nya: setelah itu terhapus sendiri dari riwayat penerima. */
         expiresAt: Number(voucher.expiresAt),
+        /* Penanda untuk menarik notifikasinya kalau voucher ini dihapus sebelum waktunya. */
+        ref:   'voucher:' + voucher.code,
         body:  offer + '. ' + quota + ', berlaku sampai ' + wibStamp(voucher.expiresAt) + '. Masukkan kode ' + voucher.code + ' saat membeli VIP.'
     };
 }
@@ -294,7 +296,9 @@ async function handleAdminAction(action, body, res) {
             res.status(200).json({ ok: false, message: 'Gagal menghapus voucher dari database. Coba lagi.' });
             return;
         }
-        res.status(200).json({ ok: true, code: delCode });
+        /* Voucher-nya sudah tidak ada, jadi notifikasinya juga ditarik dari riwayat semua akun. */
+        var withdrawnOne = await push.withdrawByRef('voucher:' + delCode);
+        res.status(200).json({ ok: true, code: delCode, withdrawn: withdrawnOne });
         return;
     }
 
@@ -305,7 +309,8 @@ async function handleAdminAction(action, body, res) {
             res.status(200).json({ ok: false, message: 'Gagal menghapus voucher dari database. Coba lagi.' });
             return;
         }
-        res.status(200).json({ ok: true, deleted: allCodes.length });
+        var withdrawnAll = await push.withdrawByRef(allCodes.map(function (c) { return 'voucher:' + c; }));
+        res.status(200).json({ ok: true, deleted: allCodes.length, withdrawn: withdrawnAll });
         return;
     }
 

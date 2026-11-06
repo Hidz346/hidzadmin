@@ -55,6 +55,9 @@ var ADMIN_ID   = 'admin_hidz_protected';
 var ID_PATTERN = /^[A-Za-z0-9_-]{1,128}$/;
 
 var LOG_ID_PATTERN = /^l_[0-9]{10,16}_[0-9a-f]{6}$/;
+/* Penanda opsional di tiap pesan antrean ("voucher:HEMAT20") supaya satu kelompok pesan bisa ditarik
+   sekaligus lewat withdrawByRef(), mis. saat voucher-nya dihapus sebelum waktunya. */
+var REF_PATTERN = /^[A-Za-z0-9:_-]{1,80}$/;
 var LOG_KEEP = 50;   /* riwayat yang disimpan; sisanya dipangkas saat daftar dibuka */
 
 /* Masa berlaku notifikasi di riwayat HIDZPROJECT, menurut jenisnya. Setelah lewat, notifikasi
@@ -380,6 +383,7 @@ async function announce(note) {
 
         var now = Date.now();
         var endsAt = expiryFor(note, now);
+        var ref = REF_PATTERN.test(String(note.ref || '')) ? note.ref : '';
         await pruneExpired();
         var recipients = accounts.filter(function (u) {
             if (!u || !ID_PATTERN.test(String(u.id || ''))) return false;
@@ -403,6 +407,7 @@ async function announce(note) {
                 expiresAt: endsAt,
                 logId:     logId
             };
+            if (ref) inbox[u.id + '/' + id].ref = ref;
         });
         if (!(await db.updatePath(INBOX_PATH, inbox))) return null;
 
@@ -501,6 +506,37 @@ async function removeHistory(id) {
     }
 }
 
+/* Tarik semua pesan antrean bertanda salah satu `refs` dari riwayat HIDZPROJECT para penerima — yang sudah
+   dibaca maupun belum. Catatan di Riwayat Notifikasi admin tidak disentuh (itu catatan apa yang pernah
+   dikirim). Best-effort: tidak pernah melempar error, balikan jumlah pesan yang ditarik (0 kalau gagal). */
+async function withdrawByRef(refs) {
+    try {
+        var wanted = {};
+        (Array.isArray(refs) ? refs : [refs]).forEach(function (r) {
+            if (REF_PATTERN.test(String(r || ''))) wanted[r] = true;
+        });
+        if (!Object.keys(wanted).length) return 0;
+
+        var inbox = await db.fetchPath(INBOX_PATH);
+        if (!inbox || typeof inbox !== 'object') return 0;
+
+        var retract = {};
+        Object.keys(inbox).forEach(function (uid) {
+            var notes = inbox[uid];
+            if (!ID_PATTERN.test(uid) || !notes || typeof notes !== 'object') return;
+            Object.keys(notes).forEach(function (noteId) {
+                if (notes[noteId] && wanted[notes[noteId].ref]) retract[uid + '/' + noteId] = null;
+            });
+        });
+
+        var count = Object.keys(retract).length;
+        if (count && !(await db.updatePath(INBOX_PATH, retract))) return 0;
+        return count;
+    } catch (e) {
+        return 0;
+    }
+}
+
 /* Hapus SELURUH riwayat: semua catatan di panel admin dan semua notifikasi di riwayat HIDZPROJECT
    milik semua akun. Dihapus tanpa melihat isinya dulu, jadi tetap tuntas walau pembacaan gagal.
    Balikan: false kalau database gagal, selain itu { deleted, retracted } — jumlah catatan riwayat
@@ -533,5 +569,6 @@ module.exports = {
     listHistory: listHistory,
     removeHistory: removeHistory,
     removeAllHistory: removeAllHistory,
+    withdrawByRef: withdrawByRef,
     describeDuration: describeDuration
 };
