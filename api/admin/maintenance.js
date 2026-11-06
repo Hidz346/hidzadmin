@@ -114,6 +114,13 @@ module.exports = async function (req, res) {
         return;
     }
 
+    if (action === 'notif-delete-all') {
+        var wiped = await push.removeAllHistory();
+        if (!wiped) { res.status(200).json({ ok: false, error: true }); return; }
+        res.status(200).json({ ok: true, deleted: wiped.deleted, retracted: wiped.retracted });
+        return;
+    }
+
     if (action === 'notif-delete') {
         var removed = await push.removeHistory(body.id);
         if (removed === null) { fail(res, 'invalid'); return; }

@@ -9,9 +9,14 @@
       Pesan ditulis ke antrean milik akun tujuan. hidzproject.html
       mendengarkan antrean itu hanya saat akunnya sedang login & tab-nya
       terlihat (ONLINE), menampilkan pesannya paling banyak 3 kali
-      (sekali per membuka halaman), lalu menghapus catatannya. Kalau akunnya
-      sedang tidak membuka halaman, pesan menunggu di antrean sampai akun itu
-      aktif lagi — tidak ada yang dikirim ke halaman yang tidak sedang dibuka.
+      (sekali per membuka halaman) sebagai kartu. Kalau akunnya sedang tidak
+      membuka halaman, pesan menunggu di antrean sampai akun itu aktif lagi —
+      tidak ada yang dikirim ke halaman yang tidak sedang dibuka.
+
+      Antrean ini sekaligus jadi RIWAYAT NOTIFIKASI di HIDZPROJECT: pesan yang
+      sudah dibaca tetap tersimpan supaya bisa dilihat lagi, dan baru hilang
+      kalau penerimanya menghapusnya, admin menghapus riwayatnya, atau masa
+      berlakunya (expiresAt) habis — lihat expiryFor() dan pruneExpired().
 
    2) WEB PUSH (notifikasi Chrome) — hidz_push_subs/{userId}/{deviceId}
       Dikirim ke setiap device yang sudah mengaktifkan notifikasi. Service
@@ -24,8 +29,9 @@
       Tiap pengiriman dicatat untuk kartu "Riwayat Notifikasi" di panel
       admin (jenis, isi, penerima, jumlah device Chrome yang terkirim). Path
       ini tertutup untuk browser; dibaca dan dihapus lewat action 'notif-list'
-      / 'notif-delete' di api/admin/maintenance.js. Menghapus riwayat juga
-      menarik pesan antrean yang belum dibaca (ditandai logId).
+      / 'notif-delete' / 'notif-delete-all' di api/admin/maintenance.js.
+      Menghapus riwayat juga menarik pesan yang sama dari riwayat notifikasi
+      penerimanya di HIDZPROJECT (ditandai logId), sudah dibaca maupun belum.
 
    Semuanya best-effort: kegagalan di sini TIDAK boleh menggagalkan aksi
    admin yang sudah berhasil, jadi tidak ada fungsi di bawah yang melempar
@@ -50,6 +56,21 @@ var ID_PATTERN = /^[A-Za-z0-9_-]{1,128}$/;
 
 var LOG_ID_PATTERN = /^l_[0-9]{10,16}_[0-9a-f]{6}$/;
 var LOG_KEEP = 50;   /* riwayat yang disimpan; sisanya dipangkas saat daftar dibuka */
+
+/* Masa berlaku notifikasi di riwayat HIDZPROJECT, menurut jenisnya. Setelah lewat, notifikasi
+   terhapus sendiri. Pemanggil boleh menentukan sendiri lewat note.expiresAt (mis. voucher: sampai
+   voucher berakhir), tetapi tidak lebih dari NOTE_TTL_MAX supaya riwayat tidak menumpuk. */
+var DAY_MS = 86400000;
+var NOTE_TTL = {
+    reset_password: 7 * DAY_MS,
+    duration_added: 14 * DAY_MS,
+    role_upgraded:  14 * DAY_MS,
+    project_new:    30 * DAY_MS
+};
+var NOTE_TTL_DEFAULT = 14 * DAY_MS;
+var NOTE_TTL_MAX     = 365 * DAY_MS;
+/* Pesan lama yang ditulis sebelum ada expiresAt: dianggap berlaku 7 hari sejak dibuat. */
+var NOTE_TTL_LEGACY  = 7 * DAY_MS;
 
 var BATCH_SIZE   = 10;
 var SEND_TIMEOUT = 4000;   /* batas tiap pengiriman ke layanan push */
@@ -175,6 +196,22 @@ async function sendAll(targets, note, tag, ttl) {
     return sent;
 }
 
+/* Kapan notifikasi ini berakhir (epoch ms). */
+function expiryFor(note, now) {
+    var wanted = Number(note && note.expiresAt);
+    var ttl = NOTE_TTL[note && note.type] || NOTE_TTL_DEFAULT;
+    var end = wanted > now ? wanted : now + ttl;
+    return Math.min(end, now + NOTE_TTL_MAX);
+}
+
+function isExpiredNote(n, now) {
+    if (!n || typeof n !== 'object') return false;
+    var end = Number(n.expiresAt);
+    if (end > 0) return end <= now;
+    var created = Number(n.createdAt);
+    return created > 0 && now - created > NOTE_TTL_LEGACY;
+}
+
 function newInboxId() {
     return 'n_' + Date.now() + '_' + crypto.randomBytes(3).toString('hex');
 }
@@ -194,12 +231,42 @@ async function logHistory(id, entry) {
         pushed:    entry.pushed || 0,
         createdAt: entry.createdAt || Date.now()
     };
-    if (entry.userId)   rec.userId   = entry.userId;
-    if (entry.accounts) rec.accounts = entry.accounts;
+    if (entry.userId)    rec.userId    = entry.userId;
+    if (entry.accounts)  rec.accounts  = entry.accounts;
+    if (entry.expiresAt) rec.expiresAt = entry.expiresAt;
 
     var saved = await db.setPath(LOG_PATH + '/' + id, rec);
     if (!saved) console.warn('[push] riwayat notifikasi gagal ditulis ke Firebase.');
     return saved;
+}
+
+/* Buang notifikasi yang masa berlakunya sudah habis. Halaman penerima juga menghapus miliknya sendiri
+   saat terbuka, tapi akun yang lama tidak dibuka akan menumpuk — jadi dibersihkan di sini setiap ada
+   pengiriman baru. Satu akun saja kalau `userId` diisi, kalau tidak semua akun.
+   Balikan: jumlah yang dibuang (0 kalau tidak ada atau gagal — tidak pernah melempar error). */
+async function pruneExpired(userId) {
+    try {
+        var now = Date.now();
+        var inbox = {};
+        if (userId) inbox[userId] = await db.fetchPath(INBOX_PATH + '/' + userId);
+        else inbox = await db.fetchPath(INBOX_PATH);
+        if (!inbox || typeof inbox !== 'object') return 0;
+
+        var stale = {};
+        Object.keys(inbox).forEach(function (uid) {
+            var notes = inbox[uid];
+            if (!ID_PATTERN.test(uid) || !notes || typeof notes !== 'object') return;
+            Object.keys(notes).forEach(function (noteId) {
+                if (isExpiredNote(notes[noteId], now)) stale[uid + '/' + noteId] = null;
+            });
+        });
+
+        var count = Object.keys(stale).length;
+        if (count && !(await db.updatePath(INBOX_PATH, stale))) return 0;
+        return count;
+    } catch (e) {
+        return 0;
+    }
 }
 
 /* Kabari satu akun: antrean dalam halaman + Web Push ke semua device-nya.
@@ -211,11 +278,15 @@ async function notifyUser(userId, note) {
     try {
         var id    = newInboxId();
         var logId = newLogId();
+        var now   = Date.now();
+        var endsAt = expiryFor(note, now);
+        await pruneExpired(userId);
         var queued = await db.setPath(INBOX_PATH + '/' + userId + '/' + id, {
             type:      note.type || 'info',
             title:     note.title,
             body:      note.body,
-            createdAt: Date.now(),
+            createdAt: now,
+            expiresAt: endsAt,
             logId:     logId
         });
         if (!queued) console.warn('[push] pesan dalam halaman gagal ditulis ke Firebase (cek FIREBASE_DB_SECRET).');
@@ -233,7 +304,7 @@ async function notifyUser(userId, note) {
         if (queued || pushed > 0) {
             await logHistory(logId, {
                 type: note.type, title: note.title, body: note.body,
-                scope: 'user', userId: userId, pushed: pushed
+                scope: 'user', userId: userId, pushed: pushed, createdAt: now, expiresAt: endsAt
             });
         }
     } catch (e) { /* best-effort */ }
@@ -308,6 +379,8 @@ async function announce(note) {
         if (accounts === null) return null;
 
         var now = Date.now();
+        var endsAt = expiryFor(note, now);
+        await pruneExpired();
         var recipients = accounts.filter(function (u) {
             if (!u || !ID_PATTERN.test(String(u.id || ''))) return false;
             if (u.id === ADMIN_ID || String(u.role || '').toLowerCase() === 'admin') return false;
@@ -327,6 +400,7 @@ async function announce(note) {
                 title:     note.title,
                 body:      note.body,
                 createdAt: now,
+                expiresAt: endsAt,
                 logId:     logId
             };
         });
@@ -354,7 +428,7 @@ async function announce(note) {
 
         await logHistory(logId, {
             type: note.type, title: note.title, body: note.body,
-            scope: 'all', accounts: recipients.length, pushed: pushed, createdAt: now
+            scope: 'all', accounts: recipients.length, pushed: pushed, createdAt: now, expiresAt: endsAt
         });
         return { accounts: recipients.length, pushed: pushed };
     } catch (e) {
@@ -382,7 +456,8 @@ async function listHistory() {
                 userId:    e.userId ? String(e.userId) : '',
                 accounts:  Number(e.accounts) || 0,
                 pushed:    Number(e.pushed) || 0,
-                createdAt: Number(e.createdAt) || 0
+                createdAt: Number(e.createdAt) || 0,
+                expiresAt: Number(e.expiresAt) || 0
             };
         })
         .sort(function (a, b) { return b.createdAt - a.createdAt; });
@@ -396,10 +471,11 @@ async function listHistory() {
     return items;
 }
 
-/* Hapus satu catatan riwayat sekaligus menarik pesan antrean yang masih
-   belum dibaca penerimanya (yang sudah dibaca/terhapus tidak ada lagi).
+/* Hapus satu catatan riwayat sekaligus menarik pesannya dari riwayat
+   notifikasi para penerima di HIDZPROJECT — yang sudah dibaca maupun belum
+   (yang sudah dihapus penerimanya sendiri tentu tidak ada lagi).
    Balikan: null kalau id tidak valid, false kalau database gagal,
-   selain itu { retracted } — jumlah pesan antrean yang ditarik. */
+   selain itu { retracted } — jumlah pesan yang ditarik. */
 async function removeHistory(id) {
     if (typeof id !== 'string' || !LOG_ID_PATTERN.test(id)) return null;
 
@@ -425,11 +501,37 @@ async function removeHistory(id) {
     }
 }
 
+/* Hapus SELURUH riwayat: semua catatan di panel admin dan semua notifikasi di riwayat HIDZPROJECT
+   milik semua akun. Dihapus tanpa melihat isinya dulu, jadi tetap tuntas walau pembacaan gagal.
+   Balikan: false kalau database gagal, selain itu { deleted, retracted } — jumlah catatan riwayat
+   dan jumlah notifikasi penerima yang terhapus. */
+async function removeAllHistory() {
+    try {
+        var log   = await db.fetchPath(LOG_PATH);
+        var inbox = await db.fetchPath(INBOX_PATH);
+
+        var deleted = log && typeof log === 'object' ? Object.keys(log).length : 0;
+        var retracted = 0;
+        if (inbox && typeof inbox === 'object') {
+            Object.keys(inbox).forEach(function (uid) {
+                if (inbox[uid] && typeof inbox[uid] === 'object') retracted += Object.keys(inbox[uid]).length;
+            });
+        }
+
+        if (!(await db.deletePath(INBOX_PATH))) return false;
+        if (!(await db.deletePath(LOG_PATH))) return false;
+        return { deleted: deleted, retracted: retracted };
+    } catch (e) {
+        return false;
+    }
+}
+
 module.exports = {
     notifyUser: notifyUser,
     broadcast: broadcast,
     announce: announce,
     listHistory: listHistory,
     removeHistory: removeHistory,
+    removeAllHistory: removeAllHistory,
     describeDuration: describeDuration
 };

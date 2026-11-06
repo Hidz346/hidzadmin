@@ -2115,11 +2115,14 @@
             <div class="cnt-badge" id="nlogCount">0</div>
         </div>
         <p style="font-size:11px;color:var(--tsec);line-height:1.7;margin-bottom:4px;">
-            Notifikasi yang sudah dikirim, terbaru di atas. Menghapus riwayat juga menarik pesan dalam halaman yang <b style="color:var(--text);">belum dibaca</b> penerimanya. Notifikasi Chrome yang sudah masuk ke perangkat tidak bisa ditarik.
+            Notifikasi yang sudah dikirim, terbaru di atas. Di HIDZPROJECT, tiap notifikasi masuk ke riwayat penerimanya dan terhapus sendiri saat masa berlakunya habis. Menghapus riwayat di sini juga <b style="color:var(--text);">menghapusnya dari riwayat notifikasi HIDZPROJECT</b> semua penerimanya, yang sudah dibaca maupun belum. Notifikasi Chrome yang sudah masuk ke perangkat tidak bisa ditarik.
         </p>
         <div id="nlogList">
             <div class="empty-state">Memuat riwayat...</div>
         </div>
+        <button type="button" class="btn-clear-all" id="nlogDelAllBtn" style="display:none;" onclick="requestNlogDeleteAll()">
+            <i class="fas fa-trash-alt" style="margin-right:6px;"></i>HAPUS SEMUA RIWAYAT
+        </button>
     </div>
 
 
@@ -2414,7 +2417,7 @@
         <div class="danger-modal-icon"><i class="fas fa-trash-alt"></i></div>
         <div class="danger-modal-title">Hapus Riwayat</div>
         <div class="danger-modal-desc">
-            Riwayat <b id="nlogDeleteTitle">-</b> akan dihapus. Pesan dalam halaman yang belum dibaca penerimanya ikut ditarik; notifikasi Chrome yang sudah masuk ke perangkat tidak bisa ditarik.
+            Riwayat <b id="nlogDeleteTitle">-</b> akan dihapus, termasuk dari riwayat notifikasi HIDZPROJECT semua penerimanya (yang sudah dibaca maupun belum). Notifikasi Chrome yang sudah masuk ke perangkat tidak bisa ditarik.
         </div>
         <div class="danger-modal-actions">
             <button class="danger-modal-cancel" onclick="closeNlogDelete()">BATAL</button>
@@ -4044,6 +4047,8 @@
         var listEl  = document.getElementById('nlogList');
         var countEl = document.getElementById('nlogCount');
         if (countEl) countEl.textContent = _nlogItems.length;
+        var delAllBtn = document.getElementById('nlogDelAllBtn');
+        if (delAllBtn) delAllBtn.style.display = _nlogItems.length ? '' : 'none';
         if (!listEl) return;
 
         if (!_nlogItems.length) {
@@ -4071,6 +4076,7 @@
                         '<div><i class="fas fa-user"></i>' + escAdmin(_nlogWho(it)) + '</div>' +
                         '<div><i class="fas fa-bell"></i>Notifikasi Chrome: ' + it.pushed + ' perangkat</div>' +
                         '<div><i class="fas fa-clock"></i>' + fmtAnnFeedDate(it.createdAt) + '</div>' +
+                        (it.expiresAt ? '<div><i class="fas fa-hourglass-end"></i>Berakhir: ' + fmtAnnFeedDate(it.expiresAt) + '</div>' : '') +
                     '</div>' +
                     '<button class="btn-del" onclick="openNlogDelete(\'' + escAdmin(it.id) + '\')" title="Hapus riwayat"><i class="fas fa-trash-alt"></i></button>' +
                 '</div>';
@@ -4138,7 +4144,7 @@
                 _nlogItems = _nlogItems.filter(function (it) { return it.id !== id; });
                 _renderNotifLog();
                 showToast(res.retracted > 0
-                    ? '\u2714 Riwayat dihapus, ' + res.retracted + ' pesan belum dibaca ditarik'
+                    ? '\u2714 Riwayat dihapus, ' + res.retracted + ' notifikasi ikut dihapus dari HIDZPROJECT'
                     : '\u2714 Riwayat dihapus', 'ok');
             })
             .catch(function (e) {
@@ -4149,6 +4155,38 @@
                 _nlogBusy = false;
                 if (btn) { btn.disabled = false; btn.innerHTML = idleHtml; }
             });
+    }
+
+    /* Hapus semua riwayat sekaligus: catatan di panel ini + semua notifikasi di riwayat HIDZPROJECT milik semua akun. */
+    function requestNlogDeleteAll() {
+        if (!_nlogItems.length || _nlogBusy) return;
+        openDangerModal('Hapus Semua Riwayat Notifikasi?',
+            'Seluruh <b>' + _nlogItems.length + ' catatan</b> riwayat dihapus, dan semua notifikasi di riwayat HIDZPROJECT milik <b>semua akun</b> ikut terhapus, yang sudah dibaca maupun belum. Notifikasi Chrome yang sudah masuk ke perangkat tidak bisa ditarik.<br><br>' +
+            '<span style="color:var(--red);font-weight:800;">Tindakan ini TIDAK BISA DIBATALKAN.</span>',
+            'HAPUS SEMUA', function () {
+            var btn = document.getElementById('dangerModalConfirmBtn');
+            if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin" style="margin-right:6px;"></i>MEMPROSES...'; }
+            _nlogBusy = true;
+            _maintRequest({ action: 'notif-delete-all' })
+                .then(function (res) {
+                    closeDangerModal();
+                    if (!res.ok) {
+                        showToast(_maintFailText(res, 'Gagal menghapus riwayat, coba lagi.'), 'err');
+                        return;
+                    }
+                    _nlogMutated = Date.now();
+                    _nlogItems = [];
+                    _showAllNlog = false;
+                    _renderNotifLog();
+                    showToast('\u2714 ' + (Number(res.deleted) || 0) + ' riwayat dihapus' +
+                        (res.retracted > 0 ? ', ' + res.retracted + ' notifikasi ikut dihapus dari HIDZPROJECT' : ''), 'ok');
+                })
+                .catch(function (e) {
+                    closeDangerModal();
+                    showToast(_maintCatchText(e), 'err');
+                })
+                .then(function () { _nlogBusy = false; });
+        });
     }
 
     (function _watchNotifLog() {

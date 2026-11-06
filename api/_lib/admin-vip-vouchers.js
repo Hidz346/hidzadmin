@@ -139,6 +139,8 @@ function voucherNote(voucher, allPlans) {
     return {
         type:  'voucher_new',
         title: 'Voucher VIP Baru: ' + voucher.code,
+        /* Notifikasinya berakhir bersama voucher-nya: setelah itu terhapus sendiri dari riwayat penerima. */
+        expiresAt: Number(voucher.expiresAt),
         body:  offer + '. ' + quota + ', berlaku sampai ' + wibStamp(voucher.expiresAt) + '. Masukkan kode ' + voucher.code + ' saat membeli VIP.'
     };
 }
