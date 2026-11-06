@@ -1,6 +1,6 @@
 /* Pengirim notifikasi dari panel admin ke HidzProject. Dipanggil dari
-   endpoint admin setelah RESET PASSWORD, TAMBAH DURASI, MAINTENANCE ON, dan
-   PROJECT BARU — file bantu saja, bukan endpoint (nama folder _lib), jadi
+   endpoint admin setelah RESET PASSWORD, TAMBAH DURASI, MAINTENANCE ON,
+   PROJECT BARU, dan VOUCHER VIP BARU — file bantu saja, bukan endpoint (nama folder _lib), jadi
    jumlah Serverless Function di paket Hobby tidak bertambah.
 
    Ada dua jalur pengiriman yang saling melengkapi:
@@ -68,12 +68,15 @@ var NOTE_TTL = {
     reset_password: 7 * DAY_MS,
     duration_added: 14 * DAY_MS,
     role_upgraded:  14 * DAY_MS,
-    project_new:    30 * DAY_MS
+    project_new:    30 * DAY_MS,
+    maintenance:     3 * DAY_MS
 };
 var NOTE_TTL_DEFAULT = 14 * DAY_MS;
 var NOTE_TTL_MAX     = 365 * DAY_MS;
 /* Pesan lama yang ditulis sebelum ada expiresAt: dianggap berlaku 7 hari sejak dibuat. */
 var NOTE_TTL_LEGACY  = 7 * DAY_MS;
+/* Nilai `shown` yang membuat kartu pop-up tidak muncul lagi (sama dengan INBOX_MAX_SHOWS di hidzproject). */
+var NOTE_SHOWN_DONE  = 3;
 
 var BATCH_SIZE   = 10;
 var SEND_TIMEOUT = 4000;   /* batas tiap pengiriman ke layanan push */
@@ -314,62 +317,19 @@ async function notifyUser(userId, note) {
     return pushed;
 }
 
-/* Kabari SEMUA device yang sudah mengaktifkan notifikasi (mis. maintenance
-   dimulai). Tidak lewat antrean dalam halaman — yang sedang membuka halaman
-   sudah melihat layar maintenance langsung dari listener-nya. Device milik
-   akun admin dilewati: admin tetap bisa masuk saat maintenance.
+/* Kabari SEMUA akun biasa lewat dua jalur sekaligus (project baru, voucher baru, maintenance dimulai):
+   antrean dalam halaman milik tiap akun — sekaligus jadi riwayat notifikasinya — ditambah Web Push ke
+   semua device yang sudah mengaktifkan notifikasi.
 
-   Langganan milik akun yang sudah dihapus tidak dikirimi apa-apa dan
-   dibersihkan sekalian, supaya orang yang akunnya sudah tidak ada tidak
-   terus menerima notifikasi. */
-async function broadcast(note, tag) {
-    if (!note) return 0;
+   Penerima: SEMUA akun user/VIP yang sudah dibuat, baik yang sudah pernah login maupun yang belum, baik
+   yang durasinya masih jalan maupun yang sudah habis. Pesannya menunggu di antrean akun itu: akun yang
+   sedang online langsung melihat kartunya, akun yang offline atau belum pernah login melihatnya (dan
+   riwayatnya) begitu login, selama masa berlaku notifikasinya belum habis. Hanya akun admin yang dilewati.
+   Notifikasi Chrome memakai id antrean akun itu sebagai tag, jadi begitu kartu dalam halaman tampil,
+   notifikasi sistemnya ikut ditutup (sama seperti notifyUser).
 
-    try {
-        if (!pushReady()) return 0;
-
-        var all = await db.fetchPath(SUBS_PATH);
-        if (!all || typeof all !== 'object') return 0;
-
-        var accounts = await db.fetchAllAccounts();
-        if (accounts === null) return 0;
-        var alive = {};
-        accounts.forEach(function (u) { alive[u.id] = true; });
-
-        var targets = [];
-        var orphans = [];
-        var reached = {};
-        Object.keys(all).forEach(function (userId) {
-            if (userId === ADMIN_ID || !all[userId] || typeof all[userId] !== 'object') return;
-            if (!alive[userId]) { orphans.push(userId); return; }
-            Object.keys(all[userId]).forEach(function (deviceId) {
-                reached[userId] = true;
-                targets.push({ path: SUBS_PATH + '/' + userId + '/' + deviceId, sub: all[userId][deviceId] });
-            });
-        });
-
-        await Promise.all(orphans.map(function (userId) { return db.deletePath(SUBS_PATH + '/' + userId); }));
-        var sent = await sendAll(targets, note, tag || 'hidz-info', 21600);
-        await logHistory(newLogId(), {
-            type: note.type, title: note.title, body: note.body,
-            scope: 'all', accounts: Object.keys(reached).length, pushed: sent
-        });
-        return sent;
-    } catch (e) {
-        return 0;
-    }
-}
-
-/* Kabari SEMUA akun biasa lewat dua jalur sekaligus (mis. project baru
-   dirilis): antrean dalam halaman milik tiap akun — akun yang sedang online
-   langsung melihat kartunya, yang offline melihatnya begitu aktif lagi —
-   ditambah Web Push ke semua device yang sudah mengaktifkan notifikasi.
-
-   Penerima: akun user/VIP yang durasinya belum habis. Akun admin dilewati,
-   begitu juga akun yang sudah expired (tidak bisa login, antreannya cuma
-   jadi sampah). Notifikasi Chrome memakai id antrean akun itu sebagai tag,
-   jadi begitu kartu dalam halaman tampil, notifikasi sistemnya ikut ditutup
-   (sama seperti notifyUser).
+   note.silent = true: masuk riwayat saja, tanpa kartu pop-up. Dipakai maintenance — layar maintenance
+   sudah jadi peringatannya, dan kartu yang baru muncul sesudah maintenance selesai cuma menyesatkan.
 
    Balikan: { accounts, pushed } — jumlah akun penerima & push yang
    terkirim. null kalau daftar akun gagal dibaca atau antrean gagal ditulis,
@@ -387,8 +347,7 @@ async function announce(note) {
         await pruneExpired();
         var recipients = accounts.filter(function (u) {
             if (!u || !ID_PATTERN.test(String(u.id || ''))) return false;
-            if (u.id === ADMIN_ID || String(u.role || '').toLowerCase() === 'admin') return false;
-            return !(u.expiresAt && now > u.expiresAt);
+            return !(u.id === ADMIN_ID || String(u.role || '').toLowerCase() === 'admin');
         });
         if (!recipients.length) return { accounts: 0, pushed: 0 };
 
@@ -408,6 +367,7 @@ async function announce(note) {
                 logId:     logId
             };
             if (ref) inbox[u.id + '/' + id].ref = ref;
+            if (note.silent === true) inbox[u.id + '/' + id].shown = NOTE_SHOWN_DONE;
         });
         if (!(await db.updatePath(INBOX_PATH, inbox))) return null;
 
@@ -415,6 +375,13 @@ async function announce(note) {
         if (pushReady()) {
             var subs = await db.fetchPath(SUBS_PATH);
             if (subs && typeof subs === 'object') {
+                /* Langganan milik akun yang sudah dihapus tidak dikirimi apa-apa dan dibersihkan sekalian. */
+                var alive = {};
+                accounts.forEach(function (u) { alive[u.id] = true; });
+                await Promise.all(Object.keys(subs).filter(function (uid) {
+                    return uid !== ADMIN_ID && !alive[uid];
+                }).map(function (uid) { return db.deletePath(SUBS_PATH + '/' + uid); }));
+
                 var targets = [];
                 recipients.forEach(function (u) {
                     var devices = subs[u.id];
@@ -564,7 +531,6 @@ async function removeAllHistory() {
 
 module.exports = {
     notifyUser: notifyUser,
-    broadcast: broadcast,
     announce: announce,
     listHistory: listHistory,
     removeHistory: removeHistory,

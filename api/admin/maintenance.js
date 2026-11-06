@@ -147,13 +147,14 @@ module.exports = async function (req, res) {
 
         await freezeActiveAccountDurations(now);
 
-        await push.broadcast({
-            type:  'maintenance',
-            title: 'Maintenance HidzProject',
-            body:  'Website sedang dalam perbaikan' +
-                   (startMs > 0 ? ', estimasi ' + push.describeDuration(startMs) : '') +
-                   '. Akses dibuka lagi setelah selesai.'
-        }, 'hidz-maintenance');
+        await push.announce({
+            type:   'maintenance',
+            title:  'Maintenance HidzProject',
+            body:   'Website sedang dalam perbaikan' +
+                    (startMs > 0 ? ', estimasi ' + push.describeDuration(startMs) : '') +
+                    '. Akses dibuka lagi setelah selesai.',
+            silent: true
+        });
         res.status(200).json({ ok: true, data: onData });
         return;
     }
