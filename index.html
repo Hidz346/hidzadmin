@@ -1300,6 +1300,59 @@
             color:var(--tsec); background:none; border:none;
         }
 
+        /* ===== BALAS PESAN — kutipan di bubble, bar "Membalas", geser untuk membalas ===== */
+        .kons-messages { overflow-x:hidden; }
+        .kons-row { position:relative; touch-action:pan-y; }
+        .kons-quote {
+            margin:0 0 7px; padding:5px 9px;
+            background:rgba(128,128,128,.18); border-left:4px solid var(--cyan);
+            cursor:pointer; text-align:left; font-style:normal;
+        }
+        .kons-quote.solo {
+            margin:0 0 4px; background:var(--sur2); color:var(--text);
+            border:2px solid var(--bd); border-left:4px solid var(--cyan); box-shadow:2px 2px 0 var(--bd);
+        }
+        .kons-quote-name { display:block; font-size:11px; font-weight:800; line-height:1.4; color:var(--cyan); }
+        .kons-quote-text {
+            display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
+            font-size:12px; font-weight:600; line-height:1.4; opacity:.85; word-break:break-word;
+        }
+        .kons-quote-text i { margin-right:5px; opacity:.8; }
+        .kons-row.me .kons-quote:not(.solo) { background:rgba(0,0,0,.24); border-left-color:#fff; }
+        .kons-row.me .kons-quote:not(.solo) .kons-quote-name { color:#fff; }
+        .kons-reply-btn { background:none; border:none; color:var(--tmut); font-size:11px; cursor:pointer; padding:2px 4px; }
+        .kons-swipe-ico {
+            position:absolute; left:4px; top:50%; width:30px; height:30px; margin-top:-15px;
+            display:flex; align-items:center; justify-content:center;
+            background:var(--sur2); color:var(--tsec); border:2px solid var(--bd); border-radius:50%;
+            font-size:12px; opacity:0; pointer-events:none;
+        }
+        .kons-swipe-ico.hit { background:var(--cyan); border-color:var(--cyan); color:#09090f; }
+        .kons-flash .kons-bubble { animation:konsFlash 1.3s ease-out; }
+        @keyframes konsFlash {
+            0%, 55% { outline:3px solid var(--cyan); outline-offset:2px; }
+            100%    { outline:3px solid transparent; outline-offset:2px; }
+        }
+        .kons-reply-bar {
+            display:none; align-items:center; gap:10px; flex-shrink:0;
+            padding:8px 12px; border-top:3px solid var(--bd); background:var(--sur);
+        }
+        .kons-reply-bar.show { display:flex; }
+        .kons-reply-bar.show + .kons-chat-input-bar { border-top-width:0; }
+        .kons-reply-body {
+            flex:1; min-width:0; padding:5px 9px;
+            background:var(--sur2); border:2px solid var(--bd); border-left:4px solid var(--cyan);
+        }
+        .kons-reply-name { display:block; font-size:11px; font-weight:800; color:var(--cyan); line-height:1.4; }
+        .kons-reply-text { display:block; font-size:12px; font-weight:600; color:var(--tsec); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .kons-reply-text i { margin-right:5px; opacity:.8; }
+        .kons-reply-x {
+            flex-shrink:0; width:30px; height:30px;
+            background:var(--sur2); color:var(--text); border:2px solid var(--bd);
+            font-size:12px; cursor:pointer; display:flex; align-items:center; justify-content:center;
+        }
+        .kons-reply-x:active { transform:translate(2px,2px); }
+
         /* Pengguna yang memilih "kurangi gerakan": animasi masuk dimatikan */
         @media (prefers-reduced-motion: reduce) {
             .panel-hdr, .panel-logo, .badge-res, .server-card, .stat-card, .cnt-badge,
@@ -2460,6 +2513,10 @@
     <div class="kons-typing-row" id="konsChatTypingRow">
         <span class="kons-typing-bubble"><i class="fas fa-ellipsis"></i> User sedang mengetik...</span>
     </div>
+    <div class="kons-reply-bar" id="konsAdminReplyBar">
+        <div class="kons-reply-body"><span class="kons-reply-name"></span><span class="kons-reply-text"></span></div>
+        <button type="button" class="kons-reply-x" title="Batal membalas" onclick="window._konsAdminCancelReply()"><i class="fas fa-xmark"></i></button>
+    </div>
     <div class="kons-chat-input-bar">
         <input type="text" class="kons-chat-text-input" id="konsChatTextInput" placeholder="Balas pesan..." autocomplete="off" oninput="window._konsAdminHandleTyping()" onkeydown="if(event.key==='Enter'){event.preventDefault();window._konsAdminSendText();}">
         <button type="button" class="kons-chat-send-btn" title="Kirim" onclick="window._konsAdminSendText()">
@@ -2467,6 +2524,7 @@
         </button>
     </div>
     <div class="kons-msg-menu" id="konsAdminMsgMenu">
+        <button type="button" id="konsAdminReplyBtn" onclick="window._konsAdminReplyFromMenu()"><i class="fas fa-reply"></i> Balas</button>
         <button type="button" onclick="window._konsAdminDeleteForMe()"><i class="fas fa-trash"></i> Hapus untuk saya</button>
         <button type="button" id="konsAdminDeleteAllBtn" onclick="window._konsAdminDeleteForEveryone()"><i class="fas fa-trash-can"></i> Hapus untuk semua</button>
         <button type="button" onclick="window._konsAdminCloseMsgMenu()">Batal</button>
@@ -2500,6 +2558,10 @@
             <p>Memuat pesan...</p>
         </div>
     </div>
+    <div class="kons-reply-bar" id="gcAdminReplyBar">
+        <div class="kons-reply-body"><span class="kons-reply-name"></span><span class="kons-reply-text"></span></div>
+        <button type="button" class="kons-reply-x" title="Batal membalas" onclick="window._gcAdminCancelReply()"><i class="fas fa-xmark"></i></button>
+    </div>
     <div class="kons-chat-input-bar">
         <input type="text" class="kons-chat-text-input" id="gcAdminInput" maxlength="500" placeholder="Tulis pesan sebagai ADMIN..." autocomplete="off" onkeydown="if(event.key==='Enter'&&!event.isComposing){event.preventDefault();window._gcAdminSend();}">
         <button type="button" class="kons-chat-send-btn" id="gcAdminSendBtn" title="Kirim" onclick="window._gcAdminSend()">
@@ -2507,6 +2569,7 @@
         </button>
     </div>
     <div class="kons-msg-menu" id="gcAdminMsgMenu">
+        <button type="button" id="gcAdminReplyBtn" onclick="window._gcAdminReplyFromMenu()"><i class="fas fa-reply"></i> Balas</button>
         <button type="button" onclick="window._gcAdminDeleteForMe()"><i class="fas fa-trash"></i> Hapus untuk saya</button>
         <button type="button" id="gcAdminDeleteAllBtn" onclick="window._gcAdminDeleteForEveryone()"><i class="fas fa-trash-can"></i> Hapus untuk semua</button>
         <button type="button" onclick="window._gcAdminCloseMenu()">Batal</button>
@@ -5463,6 +5526,165 @@
 </script>
 
 <!-- ============================================================
+     BALAS PESAN — dipakai bersama oleh Konseling dan Chat Global:
+     kutipan di dalam bubble, bar "Membalas ..." di atas kolom ketik,
+     geser bubble ke kanan untuk membalas, dan ketuk kutipan untuk
+     melompat ke pesan aslinya. Modul mandiri, tidak menyentuh logika
+     kirim/hapus/reaksi yang sudah ada.
+     ============================================================ -->
+<script>
+(function () {
+    'use strict';
+
+    var PREVIEW_MAX   = 120;   // panjang kutipan yang disimpan di pesan balasan
+    var SWIPE_START   = 12;    // geseran horizontal minimal sebelum dianggap swipe (px)
+    var SWIPE_MAX     = 72;    // bubble tidak ikut tergeser lebih jauh dari ini (px)
+    var SWIPE_HIT     = 48;    // jarak geser yang memicu balasan (px)
+
+    function esc(str) {
+        return String(str == null ? '' : str)
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+
+    /* Satu baris, dipotong dengan "…" kalau kepanjangan */
+    function clip(str, max) {
+        var s = String(str == null ? '' : str).replace(/\s+/g, ' ').trim();
+        max = max || PREVIEW_MAX;
+        if (s.length <= max) return s;
+        var cut = s.slice(0, max - 1);
+        if (/[\ud800-\udbff]$/.test(cut)) cut = cut.slice(0, -1);   // jangan memenggal emoji
+        return cut.replace(/\s+$/, '') + '…';
+    }
+
+    /* Ringkasan satu pesan Konseling untuk kutipannya: { kind, text } */
+    function describe(m) {
+        if (m.type === 'text')    return { kind: 'text', text: clip(m.text) };
+        if (m.type === 'sticker') return { kind: 'sticker', text: clip(m.text, 8) };
+        if (m.type === 'image' || m.type === 'video') return { kind: m.type, text: clip(m.text) };
+        return { kind: 'file', text: clip(m.name || 'File', 60) };
+    }
+
+    /* Isi satu baris kutipan menurut jenis pesannya */
+    function preview(q) {
+        var t = esc(q.text);
+        if (q.kind === 'deleted') return '<i class="fas fa-ban"></i>Pesan ini telah dihapus';
+        if (q.kind === 'image')   return '<i class="fas fa-image"></i>' + (t || 'Foto');
+        if (q.kind === 'video')   return '<i class="fas fa-video"></i>' + (t || 'Video');
+        if (q.kind === 'file')    return '<i class="fas fa-file"></i>' + (t || 'File');
+        if (q.kind === 'sticker') return t || 'Stiker';
+        return t;
+    }
+
+    /* Kutipan di dalam bubble: q = { id, name, kind, text, solo } */
+    function quote(q) {
+        return '<div class="kons-quote' + (q.solo ? ' solo' : '') + '" data-qid="' + esc(q.id) + '">' +
+            '<span class="kons-quote-name">' + esc(q.name) + '</span>' +
+            '<span class="kons-quote-text">' + preview(q) + '</span></div>';
+    }
+
+    /* Bar "Membalas ..." di atas kolom ketik */
+    function showBar(barId, q) {
+        var bar = document.getElementById(barId);
+        if (!bar) return;
+        var name = bar.querySelector('.kons-reply-name');
+        var text = bar.querySelector('.kons-reply-text');
+        if (name) name.textContent = q.name;
+        if (text) text.innerHTML = preview(q);
+        bar.classList.add('show');
+    }
+    function hideBar(barId) {
+        var bar = document.getElementById(barId);
+        if (bar) bar.classList.remove('show');
+    }
+
+    /* Ketuk kutipan: gulir ke pesan aslinya dan sorot sebentar. Kalau pesannya tidak ada di layar
+       (di luar pesan yang dimuat, atau sudah disembunyikan), onMissing yang dipanggil. */
+    function jump(box, id, onMissing) {
+        var rows = box ? box.querySelectorAll('[data-k]') : [], target = null;
+        for (var i = 0; i < rows.length; i++) {
+            if (rows[i].getAttribute('data-k') === id) { target = rows[i]; break; }
+        }
+        if (!target) { if (onMissing) onMissing(); return; }
+        try { target.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
+        catch (e) { target.scrollIntoView(); }
+        target.classList.remove('kons-flash');
+        void target.offsetWidth;
+        target.classList.add('kons-flash');
+        setTimeout(function () { target.classList.remove('kons-flash'); }, 1400);
+    }
+
+    /* Geser bubble ke kanan untuk membalas (seperti WhatsApp). Geser vertikal tetap menggulir daftar
+       seperti biasa. canReply() boleh false (mis. akun USER di Chat Global) -> gesernya mati. */
+    function bindSwipe(box, rowSelector, canReply, onReply) {
+        if (!box || box._replySwipe) return;
+        box._replySwipe = true;
+        var st = null;
+
+        function finish(animate) {
+            if (!st) return;
+            if (st.wrap) {
+                st.wrap.style.transition = animate ? 'transform 0.18s ease' : '';
+                st.wrap.style.transform = '';
+            }
+            if (st.ico && st.ico.parentNode) st.ico.parentNode.removeChild(st.ico);
+            st = null;
+        }
+
+        box.addEventListener('touchstart', function (e) {
+            finish(false);
+            if (e.touches.length !== 1 || !canReply()) return;
+            if (e.target.closest && e.target.closest('video, audio, a, input, textarea')) return;
+            var row = e.target.closest ? e.target.closest(rowSelector) : null;
+            if (!row || !row.getAttribute('data-k')) return;
+            var t = e.touches[0];
+            st = { row: row, wrap: row.firstElementChild, x: t.clientX, y: t.clientY, swiping: false, hit: false, ico: null };
+        }, { passive: true });
+
+        box.addEventListener('touchmove', function (e) {
+            if (!st) return;
+            var t = e.touches[0], dx = t.clientX - st.x, dy = t.clientY - st.y;
+            if (!st.swiping) {
+                if (Math.abs(dy) > 8 && Math.abs(dy) >= Math.abs(dx)) { finish(false); return; }   // gulir biasa
+                if (dx < SWIPE_START || dx < Math.abs(dy) * 1.5) return;
+                st.swiping = true;
+                st.ico = document.createElement('span');
+                st.ico.className = 'kons-swipe-ico';
+                st.ico.innerHTML = '<i class="fas fa-reply"></i>';
+                st.row.appendChild(st.ico);
+                if (st.wrap) st.wrap.style.transition = 'none';
+            }
+            var dist = Math.max(0, Math.min(dx - SWIPE_START, SWIPE_MAX));
+            if (st.wrap) st.wrap.style.transform = 'translateX(' + dist + 'px)';
+            var p = Math.min(1, dist / SWIPE_HIT);
+            st.ico.style.opacity = String(p);
+            st.ico.style.transform = 'scale(' + (0.6 + 0.4 * p) + ')';
+            var hit = dist >= SWIPE_HIT;
+            if (hit !== st.hit) {
+                st.hit = hit;
+                st.ico.classList.toggle('hit', hit);
+                if (hit && navigator.vibrate) { try { navigator.vibrate(10); } catch (err) {} }
+            }
+        }, { passive: true });
+
+        box.addEventListener('touchend', function () {
+            if (!st) return;
+            var go = st.swiping && st.hit && st.row.isConnected;
+            var key = st.row.getAttribute('data-k');
+            finish(true);
+            if (go) onReply(key);
+        }, { passive: true });
+        box.addEventListener('touchcancel', function () { finish(true); }, { passive: true });
+    }
+
+    window._hidzReply = {
+        PREVIEW_MAX: PREVIEW_MAX, clip: clip, describe: describe, preview: preview, quote: quote,
+        showBar: showBar, hideBar: hideBar, jump: jump, bindSwipe: bindSwipe
+    };
+})();
+</script>
+
+<!-- ============================================================
      FITUR KONSELING — daftar percakapan + balas real-time.
      Modul terpisah & mandiri, tidak menyentuh logika user/maintenance/
      pengumuman yang sudah ada. Skema Firebase sama persis dengan yang
@@ -5486,6 +5708,8 @@
     var _activeReadRef    = null; // ref status "readAtUser" percakapan aktif (buat centang biru)
     var _menuKey    = null;
     var _reactKey   = null;   // pesan yang lagi dibuka picker reaksi emoji-nya
+    var _replyTo    = null;   // pesan yang sedang dibalas: { id, sender, kind, text }
+    var _forceBottom = false; // layar turun ke paling bawah di render berikutnya
     var _typingTimer = null;
     var _readAtUser  = 0;   // kapan terakhir USER baca percakapan aktif ini
 
@@ -5830,6 +6054,11 @@
             wrap.innerHTML = '<div class="kons-empty"><i class="fas fa-comments"></i><p>Belum ada pesan.</p></div>';
             return;
         }
+        /* Layar hanya ikut turun kalau memang sedang di paling bawah (atau baru dibuka / habis kirim);
+           kalau sedang membaca pesan lama, posisinya dibiarkan supaya tidak melompat. */
+        var nearBottom = (wrap.scrollHeight - wrap.scrollTop - wrap.clientHeight) < 80;
+        var keepTop = wrap.scrollTop;
+        var wasEmpty = !wrap.querySelector('.kons-row');
         var html = '', lastDay = '', lastSender = null;
         visible.forEach(function (k) {
             var m = _activeMsgs[k];
@@ -5839,7 +6068,57 @@
             lastSender = m.sender;
         });
         wrap.innerHTML = html;
-        wrap.scrollTop = wrap.scrollHeight;
+        wrap.scrollTop = (nearBottom || wasEmpty || _forceBottom) ? wrap.scrollHeight : keepTop;
+        _forceBottom = false;
+    }
+
+    /* ================= BALAS PESAN ================= */
+    function userNameOf() {
+        return (_convMeta[_activeUid] && _convMeta[_activeUid].username) || _activeUsername || _activeUid || 'User';
+    }
+    function replyNameOf(sender) { return sender === 'admin' ? 'Kamu' : userNameOf(); }
+
+    /* Kutipan di dalam bubble. Kalau pesan aslinya masih ada di layar, isinya diambil dari sana
+       (jadi ikut berubah menjadi "Pesan ini telah dihapus" kalau dihapus untuk semua); kalau
+       tidak, yang dipakai salinan yang tersimpan di pesan balasan. */
+    function quoteOf(m, solo) {
+        var r = m.reply;
+        if (!r || typeof r !== 'object' || typeof r.id !== 'string') return '';
+        var kind = r.kind, text = r.text, sender = r.sender;
+        var live = _activeMsgs[r.id];
+        if (live) {
+            if (live.delAll) { kind = 'deleted'; text = ''; }
+            else { var d = window._hidzReply.describe(live); kind = d.kind; text = d.text; }
+            sender = live.sender;
+        }
+        return window._hidzReply.quote({ id: r.id, name: replyNameOf(sender), kind: kind, text: text, solo: solo });
+    }
+
+    window._konsAdminReplyTo = function (key) {
+        var m = _activeMsgs[key];
+        if (!m || m.delAll || !_activeUid) return;
+        var d = window._hidzReply.describe(m);
+        _replyTo = { id: key, sender: m.sender, kind: d.kind, text: d.text };
+        window._hidzReply.showBar('konsAdminReplyBar', { name: replyNameOf(m.sender), kind: d.kind, text: d.text });
+        var inp = document.getElementById('konsChatTextInput');
+        if (inp) { try { inp.focus({ preventScroll: true }); } catch (e) { inp.focus(); } }
+    };
+    window._konsAdminCancelReply = function () {
+        _replyTo = null;
+        window._hidzReply.hideBar('konsAdminReplyBar');
+    };
+    window._konsAdminReplyFromMenu = function () {
+        var key = _menuKey;
+        window._konsAdminCloseMsgMenu();
+        if (key) window._konsAdminReplyTo(key);
+    };
+    /* Pesan yang sedang dibalas dihapus / disembunyikan: batalkan balasannya */
+    function checkReplyAlive() {
+        if (!_replyTo) return;
+        var m = _activeMsgs[_replyTo.id];
+        if (m && !m.delAll && !(m.delFor && m.delFor.admin)) return;
+        window._konsAdminCancelReply();
+        showToast('Pesan yang kamu balas sudah dihapus');
     }
 
     /* Label nama pengirim di atas pesan (gaya WA), cuma muncul di pesan
@@ -5865,7 +6144,7 @@
         var label = showLabel ? senderLabel(m) : '';
 
         if (m.delAll) {
-            return '<div class="kons-row ' + rowClass + '"><div class="kons-bubble-wrap">' + label +
+            return '<div class="kons-row ' + rowClass + '" data-k="' + escAdmin(key) + '"><div class="kons-bubble-wrap">' + label +
                 '<div class="kons-bubble deleted"><i class="fas fa-ban" style="margin-right:5px;"></i>Pesan ini telah dihapus</div>' +
                 '<div class="kons-bubble-meta"><span class="kons-bubble-time">' + timeLabel + '</span>' +
                 '<button type="button" class="kons-bubble-more" title="Opsi" onclick="window._konsAdminOpenMsgMenu(\'' + key + '\')"><i class="fas fa-ellipsis"></i></button>' +
@@ -5873,18 +6152,19 @@
         }
 
         var body;
+        var quote = quoteOf(m, m.type === 'sticker');
         if (m.type === 'text') {
-            body = '<div class="kons-bubble">' + escAdmin(m.text).replace(/\n/g, '<br>') + '</div>';
+            body = '<div class="kons-bubble">' + quote + escAdmin(m.text).replace(/\n/g, '<br>') + '</div>';
         } else if (m.type === 'sticker') {
-            body = '<div class="kons-bubble sticker-bubble">' + m.text + '</div>';
+            body = quote + '<div class="kons-bubble sticker-bubble">' + m.text + '</div>';
         } else if (m.type === 'image') {
-            body = '<div class="kons-bubble"><img class="kons-img" src="' + escAdmin(m.url) + '" loading="lazy" onclick="window.open(\'' + escAdmin(m.url) + '\',\'_blank\')">' +
+            body = '<div class="kons-bubble">' + quote + '<img class="kons-img" src="' + escAdmin(m.url) + '" loading="lazy" onclick="window.open(\'' + escAdmin(m.url) + '\',\'_blank\')">' +
                 (m.text ? '<div class="kons-caption">' + escAdmin(m.text) + '</div>' : '') + '</div>';
         } else if (m.type === 'video') {
-            body = '<div class="kons-bubble"><video class="kons-video" src="' + escAdmin(m.url) + '" controls playsinline></video>' +
+            body = '<div class="kons-bubble">' + quote + '<video class="kons-video" src="' + escAdmin(m.url) + '" controls playsinline></video>' +
                 (m.text ? '<div class="kons-caption">' + escAdmin(m.text) + '</div>' : '') + '</div>';
         } else {
-            body = '<div class="kons-bubble"><a class="kons-file-card" href="' + escAdmin(m.url) + '" target="_blank" rel="noopener">' +
+            body = '<div class="kons-bubble">' + quote + '<a class="kons-file-card" href="' + escAdmin(m.url) + '" target="_blank" rel="noopener">' +
                 '<div class="kons-file-ico"><i class="fas ' + fileIcon(m.name) + '"></i></div>' +
                 '<div class="kons-file-info"><div class="kons-file-name">' + escAdmin(m.name || 'File') + '</div><div class="kons-file-size">' + fmtSize(m.size) + '</div></div>' +
                 '</a></div>';
@@ -5893,12 +6173,13 @@
         var meta = '<div class="kons-bubble-meta">' +
             '<span class="kons-bubble-time">' + timeLabel + '</span>' +
             ticksHtml(m) +
+            '<button type="button" class="kons-reply-btn" title="Balas" onclick="window._konsAdminReplyTo(\'' + key + '\')"><i class="fas fa-reply"></i></button>' +
             '<button type="button" class="kons-react-btn" title="Reaksi" onclick="window._konsAdminOpenReactPicker(\'' + key + '\')"><i class="fas fa-face-smile"></i></button>' +
             '<button type="button" class="kons-bubble-more" title="Opsi" onclick="window._konsAdminOpenMsgMenu(\'' + key + '\')"><i class="fas fa-ellipsis"></i></button>' +
             '</div>' +
             reactionsHtml(m);
 
-        return '<div class="kons-row ' + rowClass + '"><div class="kons-bubble-wrap">' + label + body + meta + '</div></div>';
+        return '<div class="kons-row ' + rowClass + '" data-k="' + escAdmin(key) + '"><div class="kons-bubble-wrap">' + label + body + meta + '</div></div>';
     }
 
     /* Badge reaksi emoji (👍❤️😂) di bawah bubble — tiap sisi (admin/user)
@@ -5950,7 +6231,11 @@
         var text = (inp.value || '').trim();
         if (!text || !_activeUid) return;
         inp.value = '';
-        pushAdminMsg({ sender: 'admin', type: 'text', text: text, time: Date.now() });
+        var msg = { sender: 'admin', type: 'text', text: text, time: Date.now() };
+        if (_replyTo) msg.reply = { id: _replyTo.id, sender: _replyTo.sender, kind: _replyTo.kind, text: _replyTo.text };
+        _forceBottom = true;
+        pushAdminMsg(msg);
+        window._konsAdminCancelReply();
         clearTimeout(_typingTimer);
         firebase.database().ref(KONS_TYPING_REF + '/' + _activeUid + '/admin').remove().catch(function () {});
     };
@@ -5978,6 +6263,8 @@
         _menuKey = key;
         var delAllBtn = document.getElementById('konsAdminDeleteAllBtn');
         if (delAllBtn) delAllBtn.style.display = (!m.delAll && m.sender === 'admin') ? 'flex' : 'none';
+        var replyBtn = document.getElementById('konsAdminReplyBtn');
+        if (replyBtn) replyBtn.style.display = m.delAll ? 'none' : 'flex';
         var menu = document.getElementById('konsAdminMsgMenu');
         if (menu) menu.classList.add('show');
     };
@@ -5997,7 +6284,7 @@
         var m = _activeMsgs[_menuKey];
         if (!m || m.sender !== 'admin' || m.delAll) { window._konsAdminCloseMsgMenu(); return; }
         firebase.database().ref(KONS_MSG_REF + '/' + _activeUid + '/' + _menuKey).update({
-            delAll: true, text: '', url: '', name: ''
+            delAll: true, text: '', url: '', name: '', reply: null
         }).catch(function (err) { showToast('Gagal menghapus pesan (' + _fbErrShort(err) + ')', 'err'); });
         window._konsAdminCloseMsgMenu();
     };
@@ -6059,6 +6346,8 @@
 
         var overlay = document.getElementById('konsChatOverlay');
         if (overlay) overlay.classList.add('show');
+        window._konsAdminCancelReply();
+        _forceBottom = true;
         renderChatMsgs();
 
         if (typeof window._hidzWatchPhoto === 'function') window._hidzWatchPhoto(userId);
@@ -6082,8 +6371,8 @@
                 /* Chat lagi kebuka & ada pesan baru masuk -> langsung tandai terbaca */
                 firebase.database().ref(KONS_META_REF + '/' + userId + '/readAtAdmin').set(Date.now()).catch(function () {});
             }, onErr);
-            _activeRef.on('child_changed', function (snap) { _activeMsgs[snap.key] = snap.val(); renderChatMsgs(); }, onErr);
-            _activeRef.on('child_removed', function (snap) { delete _activeMsgs[snap.key]; renderChatMsgs(); }, onErr);
+            _activeRef.on('child_changed', function (snap) { _activeMsgs[snap.key] = snap.val(); renderChatMsgs(); checkReplyAlive(); }, onErr);
+            _activeRef.on('child_removed', function (snap) { delete _activeMsgs[snap.key]; renderChatMsgs(); checkReplyAlive(); }, onErr);
 
             /* Pantau kapan user terakhir baca balasan admin (centang biru) */
             if (_activeReadRef) _activeReadRef.off();
@@ -6110,6 +6399,7 @@
         if (overlay) overlay.classList.remove('show');
         window._konsAdminCloseMsgMenu();
         window._konsAdminCloseReactPicker();
+        window._konsAdminCancelReply();
         if (_activeRef)       { _activeRef.off(); _activeRef = null; }
         if (_activeReadRef)   { _activeReadRef.off(); _activeReadRef = null; }
         if (_activeTypingRef) { _activeTypingRef.off(); _activeTypingRef = null; }
@@ -6170,6 +6460,18 @@
         if (isOpen && (uid === _activeUid || uid === (window._hidzAdminUid || 'admin_hidz_protected'))) renderChatMsgs();
     });
 
+    /* Ketuk kutipan -> lompat ke pesan aslinya; geser bubble ke kanan -> balas */
+    (function () {
+        var box = document.getElementById('konsChatMessages');
+        if (!box) return;
+        box.addEventListener('click', function (e) {
+            var q = e.target.closest ? e.target.closest('.kons-quote') : null;
+            if (!q) return;
+            window._hidzReply.jump(box, q.getAttribute('data-qid'), function () { showToast('Pesan aslinya sudah tidak ada di percakapan ini'); });
+        });
+        window._hidzReply.bindSwipe(box, '.kons-row', function () { return !!_activeUid; }, function (key) { window._konsAdminReplyTo(key); });
+    })();
+
     /* Refresh titik online/last-seen begitu presence akun manapun berubah —
        daftar percakapan, picker, & header chat aktif semua ikut ter-update
        tanpa perlu reload/buka-tutup halaman. */
@@ -6221,6 +6523,7 @@
     var _offsetRef    = null;
     var _srvOffset    = 0;       // selisih jam perangkat dengan jam server Firebase
     var _menuKey      = null;
+    var _replyTo      = null;    // pesan yang sedang dibalas: { id, uid, name, text }
     var _hideMe       = {};      // pushKey -> disembunyikan untuk admin di perangkat ini
     var _forceBottom  = false;   // setelah kirim pesan, layar selalu turun ke paling bawah
     var _renderQueued = false;
@@ -6316,6 +6619,53 @@
             '</div>';
     }
 
+    /* ---------- balas pesan ---------- */
+    /* Kutipan di dalam bubble. Kalau pesan aslinya masih ada di layar, isinya diambil dari sana
+       (jadi ikut berubah menjadi "Pesan ini telah dihapus" kalau dihapus untuk semua); kalau
+       tidak, yang dipakai salinan yang tersimpan di pesan balasan. */
+    function quoteOf(m) {
+        var r = m.reply;
+        if (!r || typeof r !== 'object' || typeof r.id !== 'string') return '';
+        var kind = 'text', text = r.text, uid = r.uid, name = r.name;
+        var live = _msgs[r.id];
+        if (live) {
+            if (live.delAll === true) { kind = 'deleted'; text = ''; }
+            else { text = live.text; }
+            uid = live.uid;
+            name = live.name;
+        }
+        return window._hidzReply.quote({
+            id: r.id, kind: kind, text: window._hidzReply.clip(text),
+            name: uid === adminUid() ? 'Kamu' : (name || 'User')
+        });
+    }
+    window._gcAdminReplyTo = function (key) {
+        var m = _msgs[key];
+        if (!m || m.delAll === true) return;
+        var Reply = window._hidzReply;
+        _replyTo = { id: key, uid: m.uid, name: m.name || 'User', text: Reply.clip(m.text) };
+        Reply.showBar('gcAdminReplyBar', { name: m.uid === adminUid() ? 'Kamu' : _replyTo.name, kind: 'text', text: _replyTo.text });
+        var inp = byId('gcAdminInput');
+        if (inp) { try { inp.focus({ preventScroll: true }); } catch (e) { inp.focus(); } }
+    };
+    window._gcAdminCancelReply = function () {
+        _replyTo = null;
+        window._hidzReply.hideBar('gcAdminReplyBar');
+    };
+    window._gcAdminReplyFromMenu = function () {
+        var key = _menuKey;
+        window._gcAdminCloseMenu();
+        if (key) window._gcAdminReplyTo(key);
+    };
+    /* Pesan yang sedang dibalas dihapus / disembunyikan: batalkan balasannya */
+    function checkReplyAlive() {
+        if (!_replyTo) return;
+        var m = _msgs[_replyTo.id];
+        if (m && m.delAll !== true && !_hideMe[_replyTo.id]) return;
+        window._gcAdminCancelReply();
+        showToast('Pesan yang kamu balas sudah dihapus');
+    }
+
     /* ---------- jendela chat ---------- */
     function messageHtml(k, m, prev) {
         var mine = (m.uid === adminUid());
@@ -6334,11 +6684,12 @@
         }
         /* Pesan dari akun lain ditampilkan lengkap (jam:menit:detik + tanggal), pesan admin cukup jam:menit */
         var time = mine ? fmt('fmtTime', m.ts) : fmt('fmtFullTime', m.ts);
-        return '<div class="kons-row ' + (mine ? 'me' : 'them') + '"><div class="kons-bubble-wrap">' + label +
+        return '<div class="kons-row ' + (mine ? 'me' : 'them') + '" data-k="' + escAdmin(k) + '"><div class="kons-bubble-wrap">' + label +
             (m.delAll === true
                 ? '<div class="kons-bubble deleted"><i class="fas fa-ban" style="margin-right:5px;"></i>Pesan ini telah dihapus</div>'
-                : '<div class="kons-bubble">' + escAdmin(m.text) + '</div>') +
+                : '<div class="kons-bubble">' + quoteOf(m) + escAdmin(m.text) + '</div>') +
             '<div class="kons-bubble-meta"><span class="kons-bubble-time">' + time + '</span>' +
+            (m.delAll === true ? '' : '<button type="button" class="kons-reply-btn" title="Balas" data-key="' + escAdmin(k) + '" onclick="window._gcAdminReplyTo(this.getAttribute(\'data-key\'))"><i class="fas fa-reply"></i></button>') +
             '<button type="button" class="kons-bubble-more" title="Opsi" data-key="' + escAdmin(k) + '" onclick="window._gcAdminOpenMenu(this.getAttribute(\'data-key\'))"><i class="fas fa-ellipsis"></i></button>' +
             '</div></div></div>';
     }
@@ -6396,6 +6747,7 @@
         if (ov) ov.classList.remove('show');
         _open = false;
         window._gcAdminCloseMenu();
+        window._gcAdminCancelReply();
         renderEntry();
     };
 
@@ -6415,10 +6767,12 @@
         var m = snap.val();
         if (!m || typeof m.text !== 'string' || typeof m.ts !== 'number') return;
         _msgs[snap.key] = m;
+        checkReplyAlive();
         scheduleRender();
     }
     function onRemoved(snap) {
         delete _msgs[snap.key];
+        checkReplyAlive();
         scheduleRender();
     }
     function onFail(err) {
@@ -6466,12 +6820,15 @@
         /* Pesan langsung tampil (Firebase memasangnya di layar sebelum server membalas); kalau ditolak,
            teksnya dikembalikan ke kolom ketik */
         var ts = Date.now() + _srvOffset;
+        var replyTo = _replyTo;
+        var record = { uid: adminUid(), name: ADMIN_NAME, role: 'admin', text: text, ts: ts };
+        if (replyTo) record.reply = { id: replyTo.id, uid: replyTo.uid, name: replyTo.name, text: replyTo.text };
         if (inp) inp.value = '';
         _forceBottom = true;
-        firebase.database().ref(GC_REF + '/' + newKey(ts)).set({
-            uid: adminUid(), name: ADMIN_NAME, role: 'admin', text: text, ts: ts
-        }).catch(function (err) {
+        window._gcAdminCancelReply();
+        firebase.database().ref(GC_REF + '/' + newKey(ts)).set(record).catch(function (err) {
             if (inp && !inp.value) inp.value = text;
+            if (replyTo && !_replyTo) window._gcAdminReplyTo(replyTo.id);
             showToast('Gagal mengirim pesan (' + _fbErrShort(err) + ')', 'err');
         });
     };
@@ -6482,6 +6839,8 @@
         _menuKey = key;
         var allBtn = byId('gcAdminDeleteAllBtn');
         if (allBtn) allBtn.style.display = (m.delAll === true) ? 'none' : 'flex';
+        var replyBtn = byId('gcAdminReplyBtn');
+        if (replyBtn) replyBtn.style.display = (m.delAll === true) ? 'none' : 'flex';
         var menu = byId('gcAdminMsgMenu');
         if (menu) menu.classList.add('show');
     };
@@ -6497,6 +6856,7 @@
         if (!key) return;
         _hideMe[key] = true;
         saveHidden();
+        checkReplyAlive();
         scheduleRender();
     };
     /* Hilang untuk semua orang: isi dikosongkan dan semua layar menampilkan "Pesan ini telah dihapus" */
@@ -6505,7 +6865,7 @@
         window._gcAdminCloseMenu();
         var m = key && _msgs[key];
         if (!m || m.delAll === true) return;
-        firebase.database().ref(GC_REF + '/' + key).update({ delAll: true, text: '' }).catch(function (err) {
+        firebase.database().ref(GC_REF + '/' + key).update({ delAll: true, text: '', reply: null }).catch(function (err) {
             showToast('Gagal menghapus pesan (' + _fbErrShort(err) + ')', 'err');
         });
     };
@@ -6542,6 +6902,18 @@
 
     /* Foto akun yang baru berubah ikut diperbarui di jendela yang sedang terbuka */
     window.addEventListener('hidz:photo-updated', function () { if (_open) scheduleRender(); });
+
+    /* Ketuk kutipan -> lompat ke pesan aslinya; geser bubble ke kanan -> balas */
+    (function () {
+        var box = byId('gcAdminMessages');
+        if (!box) return;
+        box.addEventListener('click', function (e) {
+            var q = e.target.closest ? e.target.closest('.kons-quote') : null;
+            if (!q) return;
+            window._hidzReply.jump(box, q.getAttribute('data-qid'), function () { showToast('Pesan aslinya sudah tidak ada di layar'); });
+        });
+        window._hidzReply.bindSwipe(box, '.kons-row', function () { return true; }, function (key) { window._gcAdminReplyTo(key); });
+    })();
 
     /* Waktu relatif ("5 menit lalu") di kartu ikut berjalan walau tidak ada pesan baru */
     setInterval(function () { if (document.visibilityState === 'visible') renderEntry(); }, 60000);
