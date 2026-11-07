@@ -42,7 +42,7 @@ jalan seperti biasa — yang tidak aktif hanya notifikasi Chrome-nya.
   sudah dibuat — sudah pernah login atau belum, durasi masih jalan atau sudah habis. Pesannya
   menunggu di antrean tiap akun (sekaligus jadi riwayatnya), jadi akun yang belum pernah login
   melihatnya saat login pertama. Notifikasi maintenance hanya masuk riwayat, tanpa kartu pop-up.
-- **Akun baru** yang dibuat dari panel admin langsung mendapat salinan notifikasi project baru dan
+- **Akun baru** yang dibuat dari panel admin (atau Panel VIP di HidzProject) langsung mendapat salinan notifikasi project baru dan
   voucher yang masih berlaku (voucher yang sudah dihapus, berakhir, atau kuotanya habis dilewati;
   maintenance tidak disalin). Salinannya ikut tertarik kalau riwayat atau voucher-nya dihapus.
 - Mengurangi durasi tidak mengirim notifikasi.
