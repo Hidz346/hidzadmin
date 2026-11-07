@@ -7,6 +7,7 @@ var securityGuard = require('../_lib/security');
 var firebaseAuth = require('../_lib/firebase-auth');
 var pw = require('../_lib/password');
 var resetPassword = require('../_lib/reset-password');
+var push = require('../_lib/push');
 
 module.exports = async function (req, res) {
     if (!(await securityGuard.guard(req, res))) return;
@@ -87,5 +88,10 @@ module.exports = async function (req, res) {
         res.status(200).json({ ok: false, error: true });
         return;
     }
+
+    /* Akun baru juga berhak tahu notifikasi yang masih berlaku (project baru, voucher aktif). Gagal di sini
+       tidak boleh menggagalkan pembuatan akun yang sudah tersimpan. */
+    if (out.result && out.result.ok && out.result.user) await push.seedNewAccount(out.result.user.id);
+
     res.status(200).json(out.result);
 };
