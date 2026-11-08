@@ -1353,6 +1353,46 @@
         }
         .kons-reply-x:active { transform:translate(2px,2px); }
 
+        /* ===== CHAT GLOBAL: tag (@) akun & pesan yang ditujukan ke admin ===== */
+        .gc-mention { font-weight:800; color:var(--cyan); background:rgba(0,229,255,.12); padding:0 3px; }
+        .kons-row.me .gc-mention { color:#fff; background:rgba(255,255,255,.22); }
+        .gc-mention.me, .kons-row.me .gc-mention.me { background:var(--pink); color:#09090f; padding:0 4px; border:1.5px solid var(--bd); }
+        .kons-row.for-me .kons-bubble { box-shadow:3px 3px 0 var(--pink); }
+        .gc-for-me {
+            display:inline-flex; align-items:center; gap:5px; margin:0 0 6px; padding:1px 7px;
+            background:var(--pink); color:#09090f; border:1.5px solid var(--bd);
+            font-size:9.5px; font-weight:900; letter-spacing:.5px; text-transform:uppercase; line-height:1.5;
+        }
+        .gc-at-pill {
+            margin-left:auto; background:var(--pink); color:#09090f;
+            font-size:10px; font-weight:900; padding:2px 7px; border:1.5px solid var(--bd); flex-shrink:0;
+        }
+        .gc-at-pill + .kons-unread-pill { margin-left:6px; }
+        .cnt-badge.gc-hot.gc-at { background:var(--pink); color:#09090f; }
+        .gc-mention-anchor { position:relative; flex-shrink:0; height:0; }
+        .gc-mention-pop {
+            display:none; position:absolute; left:10px; right:10px; bottom:6px; z-index:6;
+            max-height:212px; overflow-y:auto; overscroll-behavior:contain;
+            background:var(--sur); border:2px solid var(--bd); box-shadow:3px 3px 0 var(--bd);
+        }
+        .gc-mention-pop.show { display:block; }
+        .gc-mention-item {
+            display:flex; align-items:center; gap:10px; width:100%; padding:8px 10px;
+            background:none; border:0; border-bottom:1.5px solid rgba(156,163,175,.25);
+            color:var(--text); font:inherit; font-size:13px; font-weight:700; text-align:left; cursor:pointer;
+        }
+        .gc-mention-item:last-child { border-bottom:0; }
+        .gc-mention-item.active, .gc-mention-item:active { background:var(--sur2); }
+        .gc-mention-ava {
+            width:28px; height:28px; flex-shrink:0; overflow:hidden;
+            display:flex; align-items:center; justify-content:center;
+            background:var(--purple); color:#fff; font-size:12px; font-weight:900;
+            border:2px solid var(--bd); border-radius:50%;
+        }
+        .gc-mention-ava img { width:100%; height:100%; object-fit:cover; display:block; }
+        .gc-mention-name { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .gc-mention-note { padding:10px 12px; font-size:12px; font-weight:600; color:var(--tsec); }
+
         /* Pengguna yang memilih "kurangi gerakan": animasi masuk dimatikan */
         @media (prefers-reduced-motion: reduce) {
             .panel-hdr, .panel-logo, .badge-res, .server-card, .stat-card, .cnt-badge,
@@ -2558,6 +2598,7 @@
             <p>Memuat pesan...</p>
         </div>
     </div>
+    <div class="gc-mention-anchor"><div class="gc-mention-pop" id="gcAdminMentionPop" role="listbox" aria-label="Pilih akun untuk ditag"></div></div>
     <div class="kons-reply-bar" id="gcAdminReplyBar">
         <div class="kons-reply-body"><span class="kons-reply-name"></span><span class="kons-reply-text"></span></div>
         <button type="button" class="kons-reply-x" title="Batal membalas" onclick="window._gcAdminCancelReply()"><i class="fas fa-xmark"></i></button>
@@ -6494,6 +6535,258 @@
 </script>
 
 <!-- ============================================================
+     TAG (@) AKUN DI CHAT GLOBAL — dipakai bersama oleh Chat Global
+     (HIDZPROJECT) dan Chat Global (HIDZADMIN): menulis @nama dari daftar
+     akun VIP & ADMIN, menampilkan @nama sebagai tanda di dalam pesan, dan
+     menandai pesan yang ditujukan ke akun ini (dibalas atau ditag).
+     Modul terpisah, tidak menyentuh logika lain.
+     ============================================================ -->
+<script>
+(function () {
+    'use strict';
+
+    var WORD       = /[A-Za-z0-9_]/;
+    var MAX_TAGS   = 8;      // jumlah akun yang boleh ditag dalam satu pesan (sama dengan server)
+    var MAX_ROWS   = 30;     // baris maksimal di daftar pilihan
+    var TOKEN      = /(^|\s)@([^\s@]{0,40})$/;
+
+    function esc(str) {
+        return String(str == null ? '' : str)
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+
+    /* Posisi "@nama" yang berdiri sendiri (bukan bagian dari kata lain, mis. alamat email atau @namaLain) */
+    function indexOfTag(text, name, from) {
+        var needle = '@' + name;
+        var i = from || 0;
+        while ((i = text.indexOf(needle, i)) !== -1) {
+            var before = i > 0 ? text.charAt(i - 1) : '';
+            var after  = text.charAt(i + needle.length);
+            if ((!before || !WORD.test(before)) && (!after || !WORD.test(after))) return i;
+            i += 1;
+        }
+        return -1;
+    }
+
+    /* Teks pesan jadi HTML aman, dengan @nama dari daftar `mentions` diberi tanda. Tanda untuk akun
+       sendiri (meUid) dibuat lebih menonjol. Isi pesan tetap di-escape seluruhnya. */
+    function html(text, mentions, meUid) {
+        text = String(text == null ? '' : text);
+        var spans = [];
+        (Array.isArray(mentions) ? mentions.slice(0, MAX_TAGS * 2) : []).forEach(function (t) {
+            if (!t || typeof t.name !== 'string' || !t.name || t.name.length > 64) return;
+            var at = indexOfTag(text, t.name, 0);
+            while (at !== -1) {
+                spans.push({ s: at, e: at + 1 + t.name.length, uid: t.uid });
+                at = indexOfTag(text, t.name, at + 1 + t.name.length);
+            }
+        });
+        if (!spans.length) return esc(text);
+        spans.sort(function (a, b) { return a.s - b.s || (b.e - b.s) - (a.e - a.s); });
+        var out = '', pos = 0;
+        spans.forEach(function (sp) {
+            if (sp.s < pos) return;
+            out += esc(text.slice(pos, sp.s)) +
+                '<span class="gc-mention' + (meUid && sp.uid === meUid ? ' me' : '') + '">' + esc(text.slice(sp.s, sp.e)) + '</span>';
+            pos = sp.e;
+        });
+        return out + esc(text.slice(pos));
+    }
+
+    /* Pesan ini ditujukan ke akun meUid? 'mention' (ditag), 'reply' (membalas pesannya), atau '' */
+    function kindFor(m, meUid) {
+        if (!m || !meUid || m.delAll === true || m.uid === meUid) return '';
+        if (Array.isArray(m.mentions) && m.mentions.some(function (t) { return t && t.uid === meUid; })) return 'mention';
+        if (m.reply && typeof m.reply === 'object' && m.reply.uid === meUid) return 'reply';
+        return '';
+    }
+
+    /* Label kecil di dalam gelembung pesan yang ditujukan ke akun ini */
+    function forMeHtml(kind) {
+        if (kind === 'mention') return '<div class="gc-for-me"><i class="fas fa-at"></i>Menyebut kamu</div>';
+        if (kind === 'reply')   return '<div class="gc-for-me"><i class="fas fa-reply"></i>Membalas kamu</div>';
+        return '';
+    }
+
+    /* Nada pendek untuk pesan yang ditujukan ke akun ini (tanpa berkas suara). Boleh gagal diam-diam:
+       sebagian browser menahan suara sebelum ada ketukan di halaman. */
+    function ping() {
+        try {
+            var Ctx = window.AudioContext || window.webkitAudioContext;
+            if (!Ctx) return;
+            var ctx = new Ctx();
+            var t0 = ctx.currentTime;
+            [784, 988, 1319].forEach(function (freq, i) {
+                var osc = ctx.createOscillator(), gain = ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(freq, t0 + i * 0.09);
+                gain.gain.setValueAtTime(0, t0 + i * 0.09);
+                gain.gain.linearRampToValueAtTime(0.2, t0 + i * 0.09 + 0.015);
+                gain.gain.exponentialRampToValueAtTime(0.001, t0 + i * 0.09 + 0.14);
+                osc.connect(gain); gain.connect(ctx.destination);
+                osc.start(t0 + i * 0.09);
+                osc.stop(t0 + i * 0.09 + 0.16);
+            });
+            setTimeout(function () { try { ctx.close(); } catch (e) {} }, 600);
+        } catch (e) {}
+    }
+
+    /* Daftar pilihan akun yang muncul saat mengetik "@" di kolom pesan (seperti grup WhatsApp).
+       opt: { input, pop, members() -> { list: [{uid,name,role}], status: 'ok'|'loading'|'error' },
+              refresh(), selfUid(), photo(uid) -> url, enabled(), onFull() } */
+    function picker(opt) {
+        var picked = {};          // nama -> uid, untuk akun yang dipilih dari daftar
+        var shown  = [];
+        var active = 0;
+        var isOpen = false;
+        var input  = opt.input, pop = opt.pop;
+
+        function tokenAt() {
+            var v = input.value;
+            var caret = input.selectionStart;
+            if (caret == null) caret = v.length;
+            var m = TOKEN.exec(v.slice(0, caret));
+            if (!m) return null;
+            return { start: caret - m[2].length - 1, caret: caret, query: m[2] };
+        }
+        function others() {
+            var me = opt.selfUid ? opt.selfUid() : '';
+            return (opt.members().list || []).filter(function (u) { return u && u.uid && u.name && u.uid !== me; });
+        }
+        function close() {
+            isOpen = false;
+            shown = [];
+            if (pop) { pop.classList.remove('show'); pop.innerHTML = ''; }
+        }
+        function row(u, i) {
+            var url = opt.photo ? opt.photo(u.uid) : '';
+            var ava = url
+                ? '<img src="' + esc(url) + '" alt="">'
+                : esc(u.name.charAt(0).toUpperCase());
+            var role = (u.role === 'vip' || u.role === 'admin') ? '<span class="gc-role gc-admin-role ' + u.role + '">' + u.role.toUpperCase() + '</span>' : '';
+            return '<button type="button" class="gc-mention-item' + (i === active ? ' active' : '') + '" data-i="' + i + '" role="option">' +
+                '<span class="gc-mention-ava">' + ava + '</span>' +
+                '<span class="gc-mention-name">' + esc(u.name) + '</span>' + role + '</button>';
+        }
+        function render(query) {
+            var q = query.toLowerCase();
+            var all = others();
+            var starts = [], has = [];
+            all.forEach(function (u) {
+                var n = u.name.toLowerCase();
+                if (!q || n.indexOf(q) === 0) starts.push(u);
+                else if (n.indexOf(q) !== -1) has.push(u);
+            });
+            var byName = function (a, b) { return a.name.toLowerCase() < b.name.toLowerCase() ? -1 : 1; };
+            shown = starts.sort(byName).concat(has.sort(byName)).slice(0, MAX_ROWS);
+            if (active >= shown.length) active = 0;
+
+            var status = opt.members().status;
+            if (!shown.length) {
+                if (status === 'loading' && !all.length) {
+                    pop.innerHTML = '<div class="gc-mention-note">Memuat daftar akun...</div>';
+                } else if (status === 'error' && !all.length) {
+                    pop.innerHTML = '<div class="gc-mention-note">Daftar akun belum bisa dimuat</div>';
+                } else { close(); return; }
+            } else {
+                pop.innerHTML = shown.map(row).join('');
+            }
+            isOpen = true;
+            pop.classList.add('show');
+            var cur = pop.querySelector('.gc-mention-item.active');
+            if (cur && cur.scrollIntoView) { try { cur.scrollIntoView({ block: 'nearest' }); } catch (e) {} }
+        }
+        function update() {
+            if (opt.enabled && !opt.enabled()) { close(); return; }
+            var t = tokenAt();
+            if (!t) { close(); return; }
+            if (!isOpen) active = 0;
+            if (opt.refresh) opt.refresh();
+            render(t.query);
+        }
+        function pick(i) {
+            var u = shown[i];
+            var t = tokenAt();
+            if (!u || !t) { close(); return; }
+            var v = input.value;
+            var ins = '@' + u.name + ' ';
+            var next = v.slice(0, t.start) + ins + v.slice(t.caret);
+            if (input.maxLength > 0 && next.length > input.maxLength) {
+                close();
+                if (opt.onFull) opt.onFull();
+                return;
+            }
+            input.value = next;
+            var pos = t.start + ins.length;
+            try { input.setSelectionRange(pos, pos); } catch (e) {}
+            picked[u.name] = u.uid;
+            close();
+            try { input.focus({ preventScroll: true }); } catch (e) { input.focus(); }
+        }
+
+        input.addEventListener('input', update);
+        input.addEventListener('click', update);
+        input.addEventListener('keyup', function (e) {
+            if (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'Home' || e.key === 'End') update();
+        });
+        input.addEventListener('blur', function () { setTimeout(close, 120); });
+        /* Fase tangkap: papan ketik dipakai memilih akun, bukan mengirim pesan */
+        input.addEventListener('keydown', function (e) {
+            if (!isOpen || e.isComposing) return;
+            var stop = function () { e.preventDefault(); e.stopImmediatePropagation(); };
+            if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+                if (!shown.length) return;
+                stop();
+                active = (active + (e.key === 'ArrowDown' ? 1 : shown.length - 1)) % shown.length;
+                render((tokenAt() || { query: '' }).query);
+            } else if (e.key === 'Enter' || e.key === 'Tab') {
+                if (!shown.length) return;
+                stop();
+                pick(active);
+            } else if (e.key === 'Escape') {
+                stop();
+                close();
+            }
+        }, true);
+        /* mousedown ditahan supaya kolom pesan tidak kehilangan fokus (papan ketik HP tetap terbuka) */
+        pop.addEventListener('mousedown', function (e) { e.preventDefault(); });
+        pop.addEventListener('click', function (e) {
+            var b = e.target.closest ? e.target.closest('.gc-mention-item') : null;
+            if (b) pick(parseInt(b.getAttribute('data-i'), 10));
+        });
+
+        return {
+            update: function () { if (isOpen) update(); },
+            close: close,
+            isOpen: function () { return isOpen; },
+            /* Akun yang ditag dalam `text`: yang dipilih dari daftar, ditambah yang diketik lengkap sebagai @nama */
+            collect: function (text) {
+                var out = [], seen = {};
+                function add(uid, name) {
+                    if (!uid || !name || seen[uid] || out.length >= MAX_TAGS) return;
+                    if (indexOfTag(text, name, 0) === -1) return;
+                    seen[uid] = true;
+                    out.push({ uid: uid, name: name });
+                }
+                Object.keys(picked).forEach(function (name) { add(picked[name], name); });
+                others().forEach(function (u) { add(u.uid, u.name); });
+                return out;
+            },
+            restore: function (list) {
+                (Array.isArray(list) ? list : []).forEach(function (t) { if (t && t.name && t.uid) picked[t.name] = t.uid; });
+            },
+            reset: function () { picked = {}; close(); }
+        };
+    }
+
+    window._hidzMention = {
+        html: html, kindFor: kindFor, forMeHtml: forMeHtml, indexOfTag: indexOfTag, ping: ping, picker: picker
+    };
+})();
+</script>
+
+<!-- ============================================================
      FITUR CHAT GLOBAL (ADMIN) - memantau, membalas, dan menghapus pesan
      Chat Global HidzProject secara real-time. Skema Firebase sama dengan
      yang dipakai HidzProject: hidz_global_chat/messages/{id}. Admin menulis
@@ -6524,6 +6817,7 @@
     var _srvOffset    = 0;       // selisih jam perangkat dengan jam server Firebase
     var _menuKey      = null;
     var _replyTo      = null;    // pesan yang sedang dibalas: { id, uid, name, text }
+    var _mention      = null;    // pemilih akun untuk tag (@) di kolom pesan
     var _hideMe       = {};      // pushKey -> disembunyikan untuk admin di perangkat ini
     var _forceBottom  = false;   // setelah kirim pesan, layar selalu turun ke paling bawah
     var _renderQueued = false;
@@ -6577,6 +6871,15 @@
         });
         return n;
     }
+    /* Pesan belum dibaca yang membalas atau menyebut (@) admin */
+    function unreadMentions() {
+        var me = adminUid(), n = 0;
+        Object.keys(_msgs).forEach(function (k) {
+            var m = _msgs[k];
+            if (m.ts > _seenTs && !_hideMe[k] && window._hidzMention.kindFor(m, me)) n++;
+        });
+        return n;
+    }
     function markSeen() {
         var me = adminUid(), latest = _seenTs;
         Object.keys(_msgs).forEach(function (k) {
@@ -6591,9 +6894,12 @@
         var wrap = byId('gcAdminEntry');
         var badge = byId('gcAdminBadge');
         var unread = unreadCount();
+        var atCount = unreadMentions();
         if (badge) {
             badge.textContent = unread > 99 ? '99+' : unread;
             badge.classList.toggle('gc-hot', unread > 0);
+            badge.classList.toggle('gc-at', atCount > 0);
+            badge.title = atCount > 0 ? 'Ada yang menyebut atau membalas kamu' : '';
         }
         if (!wrap) return;
 
@@ -6611,6 +6917,7 @@
                 '<div style="flex:1;min-width:0;">' +
                     '<div class="user-top" style="margin-bottom:2px;">' +
                         '<div class="u-name">Chat Global</div>' +
+                        (atCount > 0 ? '<span class="gc-at-pill" title="Ada yang menyebut atau membalas kamu">@</span>' : '') +
                         (unread > 0 ? '<span class="kons-unread-pill">' + (unread > 99 ? '99+' : unread) + '</span>' : '') +
                     '</div>' +
                     '<div class="kons-conv-preview">' + escAdmin(preview) + '</div>' +
@@ -6684,10 +6991,11 @@
         }
         /* Pesan dari akun lain ditampilkan lengkap (jam:menit:detik + tanggal), pesan admin cukup jam:menit */
         var time = mine ? fmt('fmtTime', m.ts) : fmt('fmtFullTime', m.ts);
-        return '<div class="kons-row ' + (mine ? 'me' : 'them') + '" data-k="' + escAdmin(k) + '"><div class="kons-bubble-wrap">' + label +
+        var forMe = window._hidzMention.kindFor(m, adminUid());   // 'mention' / 'reply' kalau pesan ini ditujukan ke admin
+        return '<div class="kons-row ' + (mine ? 'me' : 'them') + (forMe ? ' for-me' : '') + '" data-k="' + escAdmin(k) + '"><div class="kons-bubble-wrap">' + label +
             (m.delAll === true
                 ? '<div class="kons-bubble deleted"><i class="fas fa-ban" style="margin-right:5px;"></i>Pesan ini telah dihapus</div>'
-                : '<div class="kons-bubble">' + quoteOf(m) + escAdmin(m.text) + '</div>') +
+                : '<div class="kons-bubble">' + window._hidzMention.forMeHtml(forMe) + quoteOf(m) + window._hidzMention.html(m.text, m.mentions, adminUid()) + '</div>') +
             '<div class="kons-bubble-meta"><span class="kons-bubble-time">' + time + '</span>' +
             (m.delAll === true ? '' : '<button type="button" class="kons-reply-btn" title="Balas" data-key="' + escAdmin(k) + '" onclick="window._gcAdminReplyTo(this.getAttribute(\'data-key\'))"><i class="fas fa-reply"></i></button>') +
             '<button type="button" class="kons-bubble-more" title="Opsi" data-key="' + escAdmin(k) + '" onclick="window._gcAdminOpenMenu(this.getAttribute(\'data-key\'))"><i class="fas fa-ellipsis"></i></button>' +
@@ -6748,6 +7056,7 @@
         _open = false;
         window._gcAdminCloseMenu();
         window._gcAdminCancelReply();
+        if (_mention) _mention.close();
         renderEntry();
     };
 
@@ -6759,7 +7068,16 @@
         _msgs[snap.key] = m;
         /* Bunyi hanya untuk pesan baru dari akun lain saat jendela chat sedang tertutup */
         if (isNew && _loaded && !_open && m.uid !== adminUid() && m.ts > _seenTs && window._hidzChatShared) {
-            window._hidzChatShared.playSound();
+            /* Balasan/tag untuk admin: nada tersendiri + kabar singkat; pesan lain tetap nada biasa */
+            var kind = window._hidzMention.kindFor(m, adminUid());
+            var muted = false;
+            try { muted = localStorage.getItem('hidz_kons_muted') === '1'; } catch (e) {}
+            if (kind) {
+                if (!muted) window._hidzMention.ping();
+                showToast((m.name || 'Seseorang') + (kind === 'mention' ? ' menyebut kamu' : ' membalas pesanmu') + ' di Chat Global', 'ok');
+            } else {
+                window._hidzChatShared.playSound();
+            }
         }
         scheduleRender();
     }
@@ -6811,6 +7129,19 @@
         return String(ts).padStart(13, '0') + '-' + Math.random().toString(36).slice(2, 8).padEnd(6, '0');
     }
 
+    /* Notifikasi Chrome untuk akun yang dibalas/ditag. Pesan sudah terkirim, jadi kegagalan di sini diam saja
+       (server memeriksa sendiri pesannya dan hanya mengirim kalau memang ada yang perlu dikabari). */
+    function notifyChat(id) {
+        try {
+            if (typeof _adminFetch !== 'function') return;
+            _adminFetch('/api/admin/maintenance', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'chat-notify', id: id })
+            }).catch(function () {});
+        } catch (e) {}
+    }
+
     window._gcAdminSend = function () {
         var inp = byId('gcAdminInput');
         var text = cleanText(inp ? inp.value : '');
@@ -6821,13 +7152,19 @@
            teksnya dikembalikan ke kolom ketik */
         var ts = Date.now() + _srvOffset;
         var replyTo = _replyTo;
+        var tags = _mention ? _mention.collect(text) : [];
         var record = { uid: adminUid(), name: ADMIN_NAME, role: 'admin', text: text, ts: ts };
         if (replyTo) record.reply = { id: replyTo.id, uid: replyTo.uid, name: replyTo.name, text: replyTo.text };
+        if (tags.length) record.mentions = tags.map(function (t) { return { uid: t.uid, name: t.name }; });
+        var key = newKey(ts);
         if (inp) inp.value = '';
+        if (_mention) _mention.reset();
         _forceBottom = true;
         window._gcAdminCancelReply();
-        firebase.database().ref(GC_REF + '/' + newKey(ts)).set(record).catch(function (err) {
-            if (inp && !inp.value) inp.value = text;
+        firebase.database().ref(GC_REF + '/' + key).set(record).then(function () {
+            if (record.reply || record.mentions) notifyChat(key);
+        }, function (err) {
+            if (inp && !inp.value) { inp.value = text; if (_mention) _mention.restore(tags); }
             if (replyTo && !_replyTo) window._gcAdminReplyTo(replyTo.id);
             showToast('Gagal mengirim pesan (' + _fbErrShort(err) + ')', 'err');
         });
@@ -6913,6 +7250,29 @@
             window._hidzReply.jump(box, q.getAttribute('data-qid'), function () { showToast('Pesan aslinya sudah tidak ada di layar'); });
         });
         window._hidzReply.bindSwipe(box, '.kons-row', function () { return true; }, function (key) { window._gcAdminReplyTo(key); });
+    })();
+
+    /* Menu tag (@): akun VIP yang masih aktif, langsung dari daftar akun admin (ikut berubah begitu ada akun baru) */
+    (function () {
+        var input = byId('gcAdminInput'), pop = byId('gcAdminMentionPop');
+        if (!input || !pop) return;
+        _mention = window._hidzMention.picker({
+            input: input, pop: pop,
+            members: function () {
+                var list = [];
+                getUsers().forEach(function (u) {
+                    if (!u || !u.id || !u.username || (u.role !== 'vip' && u.role !== 'admin') || isExpired(u)) return;
+                    list.push({ uid: u.id, name: u.id === adminUid() ? ADMIN_NAME : u.username, role: u.role });
+                });
+                return { list: list, status: 'ok' };
+            },
+            selfUid: adminUid,
+            photo: function (uid) {
+                if (typeof window._hidzWatchPhoto === 'function') window._hidzWatchPhoto(uid);
+                return (typeof window._hidzPhotoUrl === 'function') ? window._hidzPhotoUrl(uid) : '';
+            },
+            onFull: function () { showToast('Pesan sudah mencapai batas ' + MAX_TEXT + ' karakter', 'err'); }
+        });
     })();
 
     /* Waktu relatif ("5 menit lalu") di kartu ikut berjalan walau tidak ada pesan baru */

@@ -129,6 +129,12 @@ module.exports = async function (req, res) {
         return;
     }
 
+    /* Notifikasi Chrome untuk pesan admin di Chat Global yang membalas / menyebut akun lain */
+    if (action === 'chat-notify') {
+        res.status(200).json({ ok: true, pushed: await push.notifyChat(body.id) });
+        return;
+    }
+
     var current = await db.fetchPath(MREF);
     var knownProgress = (current && typeof current.progress === 'number') ? current.progress : 0;
 

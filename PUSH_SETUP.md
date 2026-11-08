@@ -26,6 +26,7 @@ jalan seperti biasa — yang tidak aktif hanya notifikasi Chrome-nya.
 3. Isi **Environment Variable** project HidzProject di Vercel:
 
        VAPID_PUBLIC_KEY   = (sama persis dengan di HidzAdmin)
+       VAPID_PRIVATE_KEY  = (sama persis dengan di HidzAdmin; dipakai untuk notifikasi balasan/tag Chat Global)
 
 4. Salin isi `databaserules.json` ke Firebase Realtime Database → Rules → Publish.
    Yang baru: `hidz_notifications` dan `hidz_push_subs`.
@@ -51,3 +52,8 @@ jalan seperti biasa — yang tidak aktif hanya notifikasi Chrome-nya.
   halamannya sendiri, jadi kabar ini dikirim manual setelah project barunya tayang.
   Penerimanya semua akun user/VIP (admin dilewati). Pengirimannya numpang di `api/admin/maintenance.js` (action `project-new`),
   jadi jumlah Serverless Function tidak bertambah.
+- **Balasan/tag di Chat Global**: saat admin membalas pesan seseorang atau men-tag (@) akun di Chat Global,
+  HidzAdmin memanggil `action: 'chat-notify'` di `api/admin/maintenance.js` dan akun itu mendapat
+  notifikasi Chrome (ketuk -> membuka Chat Global). Server memeriksa sendiri pesannya: harus pesan admin,
+  masih baru (kurang dari 2 menit), dan penerimanya maksimal 10 akun; pesan biasa tidak mengirim apa-apa.
+  Tanpa kunci VAPID, pesan tetap terkirim dan hanya notifikasi Chrome-nya yang dilewati.

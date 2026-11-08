@@ -49,6 +49,7 @@ try { webpush = require('web-push'); } catch (e) { webpush = null; }
 var SUBS_PATH  = 'hidz_push_subs';
 var INBOX_PATH = 'hidz_notifications';
 var LOG_PATH   = 'hidz_notification_log';
+var CHAT_PATH  = 'hidz_global_chat/messages';
 var VOUCHER_PATH = 'hidz_vouchers';
 var ADMIN_ID   = 'admin_hidz_protected';
 
@@ -58,6 +59,9 @@ var ADMIN_ID   = 'admin_hidz_protected';
 var ID_PATTERN = /^[A-Za-z0-9_-]{1,128}$/;
 
 var LOG_ID_PATTERN = /^l_[0-9]{10,16}_[0-9a-f]{6}$/;
+var CHAT_MESSAGE_ID = /^[0-9]{13}-[a-z0-9]{6}$/;
+var CHAT_FRESH_MS   = 120000;   /* hanya pesan Chat Global yang baru saja dikirim yang boleh memicu notifikasi */
+var CHAT_URL        = './?gc=1';
 /* Penanda opsional di tiap pesan antrean ("voucher:HEMAT20") supaya satu kelompok pesan bisa ditarik
    sekaligus lewat withdrawByRef(), mis. saat voucher-nya dihapus sebelum waktunya. */
 var REF_PATTERN = /^[A-Za-z0-9:_-]{1,80}$/;
@@ -196,7 +200,8 @@ async function sendAll(targets, note, tag, ttl) {
                 title: note.title,
                 body:  note.body,
                 tag:   t.tag || tag,
-                type:  note.type || 'info'
+                type:  note.type || 'info',
+                url:   note.url
             });
             return sendOne(t.path, t.sub, payload, ttl);
         }));
@@ -412,6 +417,50 @@ async function announce(note) {
     }
 }
 
+/* Notifikasi Chrome untuk pesan ADMIN di Chat Global yang membalas pesan seseorang atau menyebut (@) akun VIP.
+   Pesan admin ditulis langsung ke Firebase dari panel, jadi panel memanggil ini sesudahnya (action 'chat-notify').
+   Pesan dibaca ulang dari database: hanya pesan milik admin yang baru dikirim yang diproses, penerimanya
+   diambil dari pesan itu sendiri, bukan dari kiriman browser. Akun yang dibalas/ditag tidak mendapat kartu
+   di Riwayat Notifikasi (itu untuk kabar penting dari admin), hanya Web Push ke device-nya.
+   Balikan: jumlah push yang terkirim (0 kalau tidak ada yang perlu dikirim atau gagal — tidak pernah melempar error). */
+async function notifyChat(id) {
+    try {
+        if (typeof id !== 'string' || !CHAT_MESSAGE_ID.test(id)) return 0;
+        var msg = await db.fetchPath(CHAT_PATH + '/' + id);
+        if (!msg || msg.uid !== ADMIN_ID || msg.delAll === true || typeof msg.text !== 'string') return 0;
+        if (Math.abs(Date.now() - Number(msg.ts)) > CHAT_FRESH_MS) return 0;
+
+        var kinds = {};
+        if (msg.reply && typeof msg.reply === 'object' && msg.reply.uid) kinds[msg.reply.uid] = 'reply';
+        (Array.isArray(msg.mentions) ? msg.mentions : []).forEach(function (t) {
+            if (t && t.uid) kinds[t.uid] = 'mention';
+        });
+        var uids = Object.keys(kinds).filter(function (uid) { return uid !== ADMIN_ID && ID_PATTERN.test(uid); }).slice(0, 10);
+        if (!uids.length || !pushReady()) return 0;
+
+        var subs = await Promise.all(uids.map(function (uid) { return db.fetchPath(SUBS_PATH + '/' + uid); }));
+        var pushed = 0;
+        for (var i = 0; i < uids.length; i++) {
+            var devices = subs[i];
+            if (!devices || typeof devices !== 'object') continue;
+            var targets = Object.keys(devices).filter(function (d) { return ID_PATTERN.test(d); }).map(function (deviceId) {
+                return { path: SUBS_PATH + '/' + uids[i] + '/' + deviceId, sub: devices[deviceId] };
+            });
+            var body = String(msg.text);
+            if (body.length > 120) body = body.slice(0, 119).replace(/[\ud800-\udbff]$/, '').replace(/\s+$/, '') + '\u2026';
+            pushed += await sendAll(targets, {
+                title: String(msg.name || 'Hidz') + (kinds[uids[i]] === 'mention' ? ' menyebut kamu di Chat Global' : ' membalas pesanmu di Chat Global'),
+                body: body,
+                type: 'chat',
+                url: CHAT_URL
+            }, 'hidz-gc-' + id, 3600);
+        }
+        return pushed;
+    } catch (e) {
+        return 0;
+    }
+}
+
 /* Penanda kelompok sebuah catatan riwayat. Catatan voucher yang ditulis sebelum ada field `ref` dikenali
    dari judulnya ("Voucher VIP Baru: KODE"). */
 function refOfLog(entry) {
@@ -623,6 +672,7 @@ async function removeAllHistory() {
 
 module.exports = {
     notifyUser: notifyUser,
+    notifyChat: notifyChat,
     announce: announce,
     seedNewAccount: seedNewAccount,
     listHistory: listHistory,
