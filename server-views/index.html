@@ -1205,7 +1205,7 @@
     var widgetId = null, cachedSiteKey = (gate.getAttribute("data-sitekey") || "").trim();
     var scriptLoading = false, released = false, releaseTimer = null;
     window._hzTurnstileToken = ""; window._hzTurnstilePass = "";
-    document.getElementById("hzgHost").textContent = location.hostname || gate.getAttribute("data-host");
+    document.getElementById("hzgHost").textContent = gate.getAttribute("data-host") || location.hostname;
 
     function toHex(str) {
         var s = String(str || ""), out = "";
@@ -1259,7 +1259,7 @@
             callback: function (t) { if (!released) verifyWithServer(t); },
             "expired-callback": function () { if (!released) { window._hzTurnstileToken = ""; window._hzTurnstilePass = ""; setNote("Verifikasi kedaluwarsa, silakan klik ulang.", true); } },
             "timeout-callback": function () { if (!released) { setNote("Waktu verifikasi habis, silakan ulangi.", true); retryEl.hidden = false; } },
-            "error-callback": function () { if (!released) { setNote("Gagal memuat widget Turnstile atau Site Key belum sesuai domain.", true); retryEl.hidden = false; } }
+            "error-callback": function () { if (!released && !/\.vercel\.app$/i.test(location.hostname)) { setNote("Gagal memuat widget Turnstile atau Site Key belum sesuai domain.", true); retryEl.hidden = false; } }
         });
     }
     function resolveSiteKey(cb) {
