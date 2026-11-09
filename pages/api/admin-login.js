@@ -5,9 +5,9 @@
    lewat db.verifyAdmin(), jadi script yang nembak endpoint ini langsung
    tanpa pernah buka gerbang di browser tetap kena kunci. */
 
-var db = require('./_lib/db');
-var firebaseAuth = require('./_lib/firebase-auth');
-var securityGuard = require('./_lib/security');
+var db = require('../../lib/db');
+var firebaseAuth = require('../../lib/firebase-auth');
+var securityGuard = require('../../lib/security');
 
 module.exports = async function (req, res) {
     if (!(await securityGuard.guard(req, res))) return;
@@ -36,7 +36,7 @@ module.exports = async function (req, res) {
 
 /* === HIDZ_TURNSTILE_GUARD === */
 const _hzOrigLoginHandler = module.exports;
-const _hzTurnstileLib = require("./_lib/turnstile");
+const _hzTurnstileLib = require("../../lib/turnstile");
 module.exports = async function (req, res) {
     if (req.method === "POST") {
         if (await _hzTurnstileLib.handleTurnstileGateActions(req, res)) return;

@@ -7871,5 +7871,26 @@
 })();
 </script>
 
-</body>
-</html>
+<script id="hzAdminNextPatch">
+(function(){
+  function bootRT(){
+    if(typeof firebase==="undefined"||!firebase.apps.length||!firebase.auth){setTimeout(bootRT,800);return;}
+    firebase.auth().onAuthStateChanged(function(u){
+      if(!u)return;
+      u.getIdTokenResult(false).then(function(r){
+        if(!r||!r.claims||r.claims.admin!==true)return;
+        firebase.database().ref("hidz_blocked_devices").off();
+        firebase.database().ref("hidz_blocked_devices").on("value",function(snap){
+          var val=snap.val()||{},flat=[];
+          Object.keys(val).forEach(function(uid){var d=val[uid]||{};Object.keys(d).forEach(function(k){if(d[k]&&d[k].blockedAt)flat.push({blockedAt:d[k].blockedAt});});});
+          _blockedDevicesFlat=flat;if(typeof renderStatChartBlocked==="function")renderStatChartBlocked();
+        });
+        if(typeof _adminSyncUsers==="function")_adminSyncUsers();
+        if(typeof watchLoginAttempts==="function")watchLoginAttempts();
+        if(typeof _loadNotifLog==="function")_loadNotifLog();
+      });
+    });
+  }
+  bootRT();
+})();
+</script></body></html>

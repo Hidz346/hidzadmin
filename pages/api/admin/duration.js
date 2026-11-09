@@ -1,7 +1,7 @@
-var db = require('../_lib/db');
-var securityGuard = require('../_lib/security');
-var firebaseAuth = require('../_lib/firebase-auth');
-var push = require('../_lib/push');
+var db = require('../../../lib/db');
+var securityGuard = require('../../../lib/security');
+var firebaseAuth = require('../../../lib/firebase-auth');
+var push = require('../../../lib/push');
 
 function msToLabel(ms) {
     if (ms === null || ms === undefined) return 'UNLIMITED';

@@ -1,9 +1,9 @@
 /* Security dashboard + security-event administration. */
-var db = require('../_lib/db');
-var securityGuard = require('../_lib/security');
-var firebaseAuth = require('../_lib/firebase-auth');
-var security = require('../_lib/security');
-var edgeFirewall = require('../_lib/vercel-firewall');
+var db = require('../../../lib/db');
+var securityGuard = require('../../../lib/security');
+var firebaseAuth = require('../../../lib/firebase-auth');
+var security = require('../../../lib/security');
+var edgeFirewall = require('../../../lib/vercel-firewall');
 
 var PAGE_SIZE_DEFAULT = 20;
 var PAGE_SIZE_MAX = 100;

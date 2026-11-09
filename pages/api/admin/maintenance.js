@@ -1,11 +1,11 @@
 /* Semua perubahan mode maintenance dari panel Site Control lewat sini. */
 
-var db = require('../_lib/db');
-var securityGuard = require('../_lib/security');
-var firebaseAuth = require('../_lib/firebase-auth');
-var push = require('../_lib/push');
-var projectNew = require('../_lib/project-new');
-var adminVipVouchers = require('../_lib/admin-vip-vouchers');
+var db = require('../../../lib/db');
+var securityGuard = require('../../../lib/security');
+var firebaseAuth = require('../../../lib/firebase-auth');
+var push = require('../../../lib/push');
+var projectNew = require('../../../lib/project-new');
+var adminVipVouchers = require('../../../lib/admin-vip-vouchers');
 
 var MREF = 'hidz_maintenance_mode';
 var DEFAULT_DURATION_MS = 24 * 3600000;

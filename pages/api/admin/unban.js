@@ -3,9 +3,9 @@
    dipertahankan, sisanya ditandai diblokir. Status banned selalu dihapus
    di akhir supaya device yang sah langsung normal lagi. */
 
-var db = require('../_lib/db');
-var securityGuard = require('../_lib/security');
-var firebaseAuth = require('../_lib/firebase-auth');
+var db = require('../../../lib/db');
+var securityGuard = require('../../../lib/security');
+var firebaseAuth = require('../../../lib/firebase-auth');
 
 module.exports = async function (req, res) {
     if (!(await securityGuard.guard(req, res))) return;

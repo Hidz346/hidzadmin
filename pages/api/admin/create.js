@@ -2,12 +2,12 @@
    server: cek username duplikat & tulis akun baru dilakukan dalam satu
    napas terhadap data server TERBARU. */
 
-var db = require('../_lib/db');
-var securityGuard = require('../_lib/security');
-var firebaseAuth = require('../_lib/firebase-auth');
-var pw = require('../_lib/password');
-var resetPassword = require('../_lib/reset-password');
-var push = require('../_lib/push');
+var db = require('../../../lib/db');
+var securityGuard = require('../../../lib/security');
+var firebaseAuth = require('../../../lib/firebase-auth');
+var pw = require('../../../lib/password');
+var resetPassword = require('../../../lib/reset-password');
+var push = require('../../../lib/push');
 
 module.exports = async function (req, res) {
     if (!(await securityGuard.guard(req, res))) return;

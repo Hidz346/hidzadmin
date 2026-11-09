@@ -7,9 +7,9 @@
    - Sudah pending/expired  -> dibiarkan apa adanya
    logoutAt diisi waktu yang sama untuk semua akun, loginAt tidak disentuh. */
 
-var db = require('../_lib/db');
-var securityGuard = require('../_lib/security');
-var firebaseAuth = require('../_lib/firebase-auth');
+var db = require('../../../lib/db');
+var securityGuard = require('../../../lib/security');
+var firebaseAuth = require('../../../lib/firebase-auth');
 
 module.exports = async function (req, res) {
     if (!(await securityGuard.guard(req, res))) return;

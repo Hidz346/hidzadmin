@@ -2,8 +2,8 @@
  * It is intentionally rate-limited and writes only through the server-side
  * Firebase credential. It does not grant access to any protected database node.
  */
-var db = require('./_lib/db');
-var securityGuard = require('./_lib/security');
+var db = require('../../lib/db');
+var securityGuard = require('../../lib/security');
 
 function text(v, max) { return typeof v === 'string' ? v.slice(0, max) : ''; }
 
