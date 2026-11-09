@@ -1595,6 +1595,9 @@ Riwayat <b id="nlogDeleteTitle">-</b> akan dihapus, termasuk dari riwayat notifi
 <button type="button" onclick="window._konsAdminSetReaction('\u{1F44D}')">&#128077;</button>
 <button type="button" onclick="window._konsAdminSetReaction('\u{2764}\u{FE0F}')">&#10084;&#65039;</button>
 <button type="button" onclick="window._konsAdminSetReaction('\u{1F602}')">&#128514;</button>
+<div style="position:relative;width:52px;height:52px;flex-shrink:0;">
+        <input type="text" id="konsAdminReactInput" style="width:100%;height:100%;background:var(--sur2);border:2px solid var(--bd);font-size:22px;color:var(--text);outline:none;text-align:center;padding:0;border-radius:0;box-shadow:none;transition:all .15s;" placeholder="+" maxlength="12" autocomplete="off" onfocus="this.style.borderColor='var(--cyan)';this.style.boxShadow='2px 2px 0 var(--cyan)';" onblur="this.style.borderColor='var(--bd)';this.style.boxShadow='none';" oninput="if(this.value.trim()){window._konsAdminSetReaction(this.value.trim());this.value='';}">
+    </div>
 <button type="button" class="kons-react-cancel" onclick="window._konsAdminCloseReactPicker()">Batal</button>
 </div>
 </div>
@@ -4730,7 +4733,7 @@ if (r.admin) counts[r.admin] = (counts[r.admin] || 0) + 1;
 if (r.user)  counts[r.user]  = (counts[r.user]  || 0) + 1;
 var html = '<div class="kons-reactions">';
 Object.keys(counts).forEach(function (emoji) {
-html += '<span class="kons-reaction-chip">' + emoji + (counts[emoji] > 1 ? '<b>' + counts[emoji] + '</b>' : '') + '</span>';
+html += '<span class="kons-reaction-chip">' + escAdmin(emoji) + (counts[emoji] > 1 ? '<b>' + counts[emoji] + '</b>' : '') + '</span>';
 });
 return html + '</div>';
 }
