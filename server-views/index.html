@@ -42,16 +42,16 @@ html.hzg-lock { background: #fff; }
 <meta name="theme-color" content="#09090f">
 <link rel="icon" href="https://www.gobox.my.id/file/vVUoB.png">
 <link rel="apple-touch-icon" href="https://www.gobox.my.id/file/vVUoB.png">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700;800;900&family=Orbitron:wght@500;700;900&display=swap" rel="stylesheet">
+<link rel="preload" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'"><noscript><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"></noscript>
+<link rel="preload" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700;800;900&family=Orbitron:wght@500;700;900&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'"><noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700;800;900&family=Orbitron:wght@500;700;900&display=swap"></noscript>
 <script>
 function _fbCdnFallback(file) {
-document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/8.10.0/' + file + '.js"><\/script>');
+document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/' + file + '-compat.min.js"><\/script>');
 }
 </script>
-<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js" onerror="_fbCdnFallback('firebase-app')"></script>
-<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js" onerror="_fbCdnFallback('firebase-database')"></script>
-<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js" onerror="_fbCdnFallback('firebase-auth')"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js" onerror="_fbCdnFallback('firebase-app')"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js" onerror="_fbCdnFallback('firebase-database')"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js" onerror="_fbCdnFallback('firebase-auth')"></script>
 <script>
 if (typeof firebase === 'undefined') {
 document.write(
