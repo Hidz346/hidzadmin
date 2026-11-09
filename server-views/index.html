@@ -1590,10 +1590,12 @@ Riwayat <b id="nlogDeleteTitle">-</b> akan dihapus, termasuk dari riwayat notifi
 <button type="button" onclick="window._konsAdminDeleteForMe()"><i class="fas fa-trash"></i> Hapus untuk saya</button>
 <button type="button" id="konsAdminDeleteAllBtn" onclick="window._konsAdminDeleteForEveryone()"><i class="fas fa-trash-can"></i> Hapus untuk semua</button>
 <button type="button" onclick="window._konsAdminCloseMsgMenu()">Batal</button>
-</div>
-<input type="text" id="konsAdminReactHiddenInput" maxlength="12" style="position:fixed; top:50vh; left:50vw; opacity:0; pointer-events:none; width:1px; height:1px; z-index:-1;" autocomplete="off" oninput="if(this.value.trim()){window._konsAdminSetReaction(this.value.trim());this.value=;this.blur();}">
-</div>
-<div class="kons-chat-overlay" id="gcAdminOverlay">
+                </div>
+                <input type="text" id="konsAdminReactHiddenInput" maxlength="12" style="position:fixed; top:50vh; left:50vw; opacity:0; pointer-events:none; width:1px; height:1px; z-index:-1;" autocomplete="off" oninput="if(this.value.trim()){window._konsAdminSetReaction(this.value.trim());this.value=;this.blur();}">
+            </div>
+
+    <!-- CHAT GLOBAL — jendela chat full-screen -->
+    <div class="kons-chat-overlay" id="gcAdminOverlay">
 <div class="kons-chat-hdr">
 <button type="button" class="kons-back-btn" onclick="window.closeGlobalChatAdmin()" title="Kembali">
 <i class="fas fa-arrow-left"></i>
@@ -4808,12 +4810,12 @@ delAll: true, text: '', url: '', name: '', reply: null
 window._konsAdminCloseMsgMenu();
 };
 window._konsAdminOpenReactPicker = function (key) {
-        var m = _activeMsgs[key];
-        if (!m || m.delAll) return;
-        _reactKey = key;
-        var inp = document.getElementById(konsAdminReactHiddenInput);
-        if (inp) { inp.value = ; inp.focus(); }
-    };
+                var m = _activeMsgs[key];
+                if (!m || m.delAll) return;
+                _reactKey = key;
+                var inp = document.getElementById(konsAdminReactHiddenInput);
+                if (inp) { inp.value = ; inp.focus(); }
+            };
 window._konsAdminCloseReactPicker = function () {
 _reactKey = null;
 var picker = document.getElementById('konsAdminReactPicker');
