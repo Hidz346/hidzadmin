@@ -1,0 +1,495 @@
+
+
+    <!-- HEADER -->
+    <div class="panel-hdr">
+        <div class="panel-logo">
+            <img src="https://www.gobox.my.id/file/vVUoB.png" alt="HidzProject" onerror="this.style.display='none';this.parentElement.textContent='👑'">
+        </div>
+        <div class="panel-title">HIDZ - DEV</div>
+        <div class="panel-desc">Panel khusus reseller &mdash; Generate user access</div>
+        <span class="badge-res">RESELLER</span>
+    </div>
+
+    <!-- SERVER STATUS -->
+    <div class="server-card">
+        <div class="server-row">
+            <i class="fas fa-server" style="font-size:22px;color:var(--cyan);"></i>
+            <div>
+                <div class="srv-lbl">Server Status</div>
+                <div class="srv-status"><div class="srv-dot"></div>ONLINE</div>
+            </div>
+        </div>
+        <div class="srv-clock" id="clock">00.00.00</div>
+    </div>
+
+    <!-- STATS -->
+    <div class="stats-row">
+        <div class="stat-card">
+            <div class="stat-lbl">Total Akun</div>
+            <div class="stat-val" id="stTotal">0</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-lbl">Active</div>
+            <div class="stat-val g" id="stActive">0</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-lbl">Belum Login</div>
+            <div class="stat-val y" id="stPending">0</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-lbl">Expired</div>
+            <div class="stat-val r" id="stExpired">0</div>
+        </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- GENERATE ACCESS -->
+    <div class="card">
+        <div class="sec-hdr">
+            <div class="sec-title">Generate Access <span class="sec-spark">&#9734;</span></div>
+        </div>
+
+        <div class="f-lbl">Username</div>
+        <input type="text"     class="f-inp" id="newUser" placeholder="Masukkan username baru" autocomplete="off">
+
+        <div class="f-lbl">Password</div>
+        <div class="f-pw-wrap">
+            <input type="password" class="f-inp" id="newPass" placeholder="Masukkan password" autocomplete="new-password">
+            <button type="button" class="f-pw-toggle" onclick="toggleNewPassVis()" title="Lihat password"><i class="fas fa-eye" id="newPassEyeIcon"></i></button>
+        </div>
+
+        <div class="f-lbl">Durasi Akses</div>
+        <div class="dur-row">
+            <input type="number" class="f-inp" id="durVal" value="1" min="1" placeholder="1">
+            <select class="f-sel" id="durUnit" onchange="toggleDurVal()">
+                <option value="detik">DETIK</option>
+                <option value="menit">MENIT</option>
+                <option value="jam">JAM</option>
+                <option value="hari" selected>HARI</option>
+                <option value="minggu">MINGGU</option>
+                <option value="bulan">BULAN</option>
+                <option value="tahun">TAHUN</option>
+                <option value="unlimited">UNLIMITED</option>
+            </select>
+        </div>
+
+        <div class="f-lbl">Limit Device</div>
+        <div class="dev-limit-row" id="devLimitRow">
+            <button type="button" class="dev-btn active" data-val="1" onclick="setDevLimit(1)">1 Device</button>
+            <button type="button" class="dev-btn" data-val="2" onclick="setDevLimit(2)">2 Device</button>
+            <button type="button" class="dev-btn" data-val="0" onclick="setDevLimit(0)">Unlimited</button>
+        </div>
+
+        <div class="f-lbl">Role</div>
+        <div class="dev-limit-row" id="roleLimitRow" style="grid-template-columns:1fr 1fr;">
+            <button type="button" class="dev-btn active" data-role="user" onclick="setRole('user')">USER</button>
+            <button type="button" class="dev-btn" data-role="vip" onclick="setRole('vip')">VIP</button>
+        </div>
+
+        <button class="btn-create" id="createAccessBtn" data-bk="create-access" onclick="createAccess()">
+            <i class="fas fa-user-plus" style="margin-right:8px;"></i>CREATE ACCESS
+        </button>
+    </div>
+
+    <!-- DATABASE USERS -->
+    <div class="card">
+        <div class="sec-hdr">
+            <div class="sec-title">Database Users <span class="sec-spark">&#9734;</span></div>
+            <div style="display:flex;align-items:center;gap:8px;">
+                <button type="button" class="icon-sm-btn" onclick="exportUsersCSV()" title="Export CSV"><i class="fas fa-file-export"></i></button>
+                <button type="button" class="icon-sm-btn" onclick="exportUsersJSON()" title="Export JSON"><i class="fas fa-file-code"></i></button>
+                <div class="cnt-badge" id="userCount">0</div>
+            </div>
+        </div>
+        <div class="user-search-wrap">
+            <i class="fas fa-search"></i>
+            <input type="text" id="userSearchInput" placeholder="Cari username / role..." oninput="filterUsers(this.value)" autocomplete="off">
+        </div>
+        <select id="userSortSelect" class="f-sel" style="width:100%;margin-bottom:13px;" onchange="setUserSort(this.value)">
+            <option value="newest">Urutkan: Terbaru Dibuat</option>
+            <option value="oldest">Urutkan: Terlama Dibuat</option>
+            <option value="name">Urutkan: Nama (A-Z)</option>
+            <option value="expiry">Urutkan: Durasi Tersisa (Terdekat)</option>
+        </select>
+        <div id="userList">
+            <div class="empty-state">
+                <i class="fas fa-user-slash" style="font-size:22px;margin-bottom:8px;display:block;opacity:.35;"></i>
+                Belum ada user terdaftar.
+            </div>
+        </div>
+        <div id="hidzSecurityTableRow">
+            <button id="hidzSecurityTableBtn" type="button" onclick="window._hidzOpenSecurity()" title="Buka monitor keamanan">
+                <span class="dot"></span>
+                <i class="fas fa-shield-halved"></i>
+                <span>Keamanan</span>
+                <span class="sec-count" id="hidzSecurityCount">0</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- STATISTIK -->
+    <div class="card">
+        <div class="sec-hdr">
+            <div class="sec-title">Statistik <span class="sec-spark">&#128202;</span></div>
+        </div>
+        <div class="stat-chart-block">
+            <div class="stat-chart-lbl">Login Harian &mdash; 7 Hari Terakhir</div>
+            <canvas id="statChartLogins" class="stat-canvas" height="140"></canvas>
+        </div>
+        <div class="stat-chart-block">
+            <div class="stat-chart-lbl">Perangkat Diblokir &mdash; 8 Minggu Terakhir</div>
+            <canvas id="statChartBlocked" class="stat-canvas" height="140"></canvas>
+        </div>
+    </div>
+
+    <!-- KONSELING -->
+    <div class="card">
+        <div class="sec-hdr">
+            <div class="sec-title">Konseling <span class="sec-spark">&#128172;</span></div>
+            <div style="display:flex;align-items:center;gap:8px;">
+                <button type="button" class="icon-sm-btn" id="konsMuteBtn" onclick="window._konsToggleMute()" title="Bisukan/nyalakan notifikasi suara (Konseling & Chat Global)"><i class="fas fa-volume-high"></i></button>
+                <button type="button" class="icon-sm-btn" onclick="window.openKonsPicker()" title="Mulai percakapan baru"><i class="fas fa-plus"></i></button>
+                <div class="cnt-badge" id="konsAdminBadge">0</div>
+            </div>
+        </div>
+        <p style="font-size:11px;color:var(--tsec);line-height:1.7;margin-bottom:13px;">
+            Chat real-time dari halaman Konseling di <b style="color:var(--text);">HidzProject</b>. Ketuk salah satu akun buat baca &amp; balas pesannya, atau ketuk <i class="fas fa-plus" style="margin:0 2px;"></i> buat mulai chat duluan ke akun manapun.
+        </p>
+        <div id="konsConvList">
+            <div class="empty-state">
+                <i class="fas fa-comments" style="font-size:22px;margin-bottom:8px;display:block;opacity:.35;"></i>
+                Belum ada percakapan konseling.
+            </div>
+        </div>
+    </div>
+
+    <!-- CHAT GLOBAL -->
+    <div class="card">
+        <div class="sec-hdr">
+            <div class="sec-title">Chat Global <span class="sec-spark">&#127760;</span></div>
+            <div class="cnt-badge" id="gcAdminBadge">0</div>
+        </div>
+        <p style="font-size:11px;color:var(--tsec);line-height:1.7;margin-bottom:13px;">
+            Ruang obrolan bersama <b style="color:var(--text);">VIP</b> &amp; <b style="color:var(--text);">ADMIN</b> di <b style="color:var(--text);">HidzProject</b>, real-time. Ketuk di bawah buat membaca, membalas, atau menghapus pesan (satu per satu maupun semuanya).
+        </p>
+        <div id="gcAdminEntry">
+            <div class="empty-state">
+                <i class="fas fa-globe" style="font-size:22px;margin-bottom:8px;display:block;opacity:.35;"></i>
+                Memuat Chat Global...
+            </div>
+        </div>
+    </div>
+
+    <!-- SITE MAINTENANCE CONTROL -->
+    <div class="card">
+        <div class="sec-hdr">
+            <div class="sec-title">Site Control <span class="sec-spark">&#9889;</span></div>
+        </div>
+        <div class="maint-status-bar s-online" id="maintStatusBar">
+            <div class="maint-pulse-dot"></div>
+            <span id="maintStatusTxt">ONLINE</span>
+        </div>
+        <p style="font-size:11px;color:var(--tsec);line-height:1.7;margin-bottom:13px;">
+            Kontrol mode tampilan <b style="color:var(--text);">HidzProject</b> secara real-time via Firebase.<br>
+            <span style="color:var(--green);font-weight:800;">&#9632; ON</span> &nbsp;= Halaman berjalan normal &nbsp;|&nbsp;
+            <span style="color:var(--red);font-weight:800;">&#9632; MAINTENANCE</span> = Halaman perbaikan tampil.
+        </p>
+
+        <div class="f-lbl" style="margin-bottom:6px;">Durasi Maintenance</div>
+        <div class="durgrid-3col" id="maintDurGrid">
+            <div class="durgrid-cell"><input type="number" class="f-inp" id="maintTahun" value="0" min="0"><label>TAHUN</label></div>
+            <div class="durgrid-cell"><input type="number" class="f-inp" id="maintBulan" value="0" min="0"><label>BULAN</label></div>
+            <div class="durgrid-cell"><input type="number" class="f-inp" id="maintHari"  value="0" min="0"><label>HARI</label></div>
+            <div class="durgrid-cell"><input type="number" class="f-inp" id="maintJam"   value="1" min="0"><label>JAM</label></div>
+            <div class="durgrid-cell"><input type="number" class="f-inp" id="maintMenit" value="0" min="0"><label>MENIT</label></div>
+            <div class="durgrid-cell"><input type="number" class="f-inp" id="maintDetik" value="0" min="0"><label>DETIK</label></div>
+        </div>
+        <label class="dur-unlimited-check">
+            <input type="checkbox" id="maintUnlimited" onchange="toggleMaintDurVal()"> DURASI UNLIMITED
+        </label>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+            <button class="btn-site btn-s-on is-active" id="btnSiteOn" onclick="setSiteMode(false)">
+                <i class="fas fa-circle-dot" style="margin-right:6px;"></i>ON
+            </button>
+            <button class="btn-site btn-s-maint is-inactive" id="btnSiteMaint" onclick="setSiteMode(true)">
+                <i class="fas fa-wrench" style="margin-right:6px;"></i>MAINTENANCE
+            </button>
+        </div>
+
+        <button class="btn-site btn-s-update" id="btnSiteUpdate" onclick="requestMaintUpdate()" disabled>
+            <i class="fas fa-arrows-rotate" style="margin-right:6px;"></i>UPDATE MAINTENANCE
+        </button>
+        <p style="font-size:10px;color:var(--tmut);line-height:1.6;margin-top:6px;">
+            <i class="fas fa-hourglass-half" style="color:var(--cyan);margin-right:4px;"></i>
+            <span id="maintRemainTxt">Aktif saat mode MAINTENANCE berjalan.</span>
+        </p>
+        <div style="margin-top:14px;">
+            <div class="f-lbl" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                <span>Progress Perbaikan</span>
+                <span id="maintProgressLabel" style="color:var(--cyan);font-size:13px;">72%</span>
+            </div>
+            <input type="range" min="0" max="100" value="72" id="maintProgressSlider" class="progress-slider" oninput="setMaintProgress(this.value)">
+            <p style="font-size:10px;color:var(--tmut);line-height:1.6;margin-top:6px;">
+                Tersinkron real-time ke halaman maintenance yang dilihat user.
+            </p>
+        </div>
+        <div style="margin-top:10px;">
+            <button class="btn-create" style="background:linear-gradient(135deg,#f59e0b,#d97706);box-shadow:6px 6px 0 var(--bd);" data-bk="force-relogin" onclick="forceReloginAll()">
+                <i class="fas fa-key" style="margin-right:8px;"></i>FORCE RESET
+            </button>
+            <p style="font-size:10px;color:var(--tsec);line-height:1.6;margin-top:8px;">
+                <i class="fas fa-info-circle" style="color:var(--lime);margin-right:4px;"></i>
+                Semua pengguna yang sedang login akan otomatis logut dan wajib login ulang. Username & password mereka tetap sama.
+            </p>
+        </div>
+        <div style="margin-top:14px;">
+            <button class="btn-create" style="background:linear-gradient(135deg,#dc2626,#7f1d1d);box-shadow:6px 6px 0 var(--bd);" onclick="openDeleteAllModal()">
+                <i class="fas fa-trash-alt" style="margin-right:8px;"></i>DELETE ALL USER &amp; DATABASE
+            </button>
+            <p style="font-size:10px;color:var(--tsec);line-height:1.6;margin-top:8px;">
+                <i class="fas fa-info-circle" style="color:var(--red);margin-right:4px;"></i>
+                Menghapus SEMUA akun user (aktif maupun belum aktif) dari database & Firebase. Akun admin tidak terhapus. Tindakan ini tidak bisa dibatalkan.
+            </p>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="sec-hdr">
+            <div class="sec-title">Promo Banner <span class="sec-spark">&#127881;</span></div>
+        </div>
+        <div class="promo-status-bar p-off" id="promoStatusBar">
+            <div class="maint-pulse-dot"></div>
+            <span id="promoStatusTxt">NONAKTIF</span>
+        </div>
+        <p style="font-size:11px;color:var(--tsec);line-height:1.7;margin-bottom:13px;">
+            Banner promo muncul di <b style="color:var(--text);">HidzProject</b> setiap kali user buka web, login, atau login ulang &mdash; hilang otomatis begitu waktu di bawah habis.
+        </p>
+
+        <div class="f-lbl">Judul Promo</div>
+        <input type="text" class="f-inp" id="promoTitleInp" placeholder="mis. Diskon 50% Hari Ini!" maxlength="60">
+
+        <div class="f-lbl">Deskripsi</div>
+        <textarea class="f-inp" id="promoDescInp" rows="3" placeholder="Tuliskan detail promonya di sini..." maxlength="300"></textarea>
+
+        <div class="f-lbl">URL Logo/Gambar <span style="text-transform:none;opacity:.6;">(kosongkan utk logo default)</span></div>
+        <input type="text" class="f-inp" id="promoImageInp" placeholder="https://...">
+
+        <div class="f-lbl">Teks Tombol</div>
+        <input type="text" class="f-inp" id="promoBtnTextInp" placeholder="Lanjut" maxlength="20">
+
+        <div class="f-lbl">Link Tombol <span style="text-transform:none;opacity:.6;">(opsional)</span></div>
+        <input type="text" class="f-inp" id="promoBtnLinkInp" placeholder="https://...">
+
+        <div class="f-lbl">Promo Berakhir Pada</div>
+        <input type="datetime-local" class="f-inp" id="promoEndsInp" step="1">
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:2px;">
+            <button class="btn-site btn-p-on is-inactive" id="btnPromoOn" onclick="setPromoActive(true)">
+                <i class="fas fa-bullhorn" style="margin-right:6px;"></i>AKTIFKAN
+            </button>
+            <button class="btn-site btn-p-off is-active" id="btnPromoOff" onclick="setPromoActive(false)">
+                <i class="fas fa-eye-slash" style="margin-right:6px;"></i>NONAKTIFKAN
+            </button>
+        </div>
+        <button class="btn-create" style="margin-top:12px;" data-bk="promo-save" onclick="savePromoAnnouncement()">
+            <i class="fas fa-save" style="margin-right:8px;"></i>SIMPAN PROMO
+        </button>
+    </div>
+
+    <!-- INFO & UPDATE PENGUMUMAN (Feed) -->
+    <div class="card">
+        <div class="sec-hdr">
+            <div class="sec-title">Info &amp; Update <span class="sec-spark">&#128226;</span></div>
+            <div class="cnt-badge" id="annFeedCount">0</div>
+        </div>
+        <p style="font-size:11px;color:var(--tsec);line-height:1.7;margin-bottom:13px;">
+            Daftar pengumuman update, fitur, atau project baru. Muncul lewat icon logo di header HidzProject secara real-time.
+        </p>
+
+        <div class="f-lbl">Judul</div>
+        <input type="text" class="f-inp" id="annFeedTitleInp" placeholder="mis. Fitur Baru: Mode Gelap" maxlength="80">
+
+        <div class="f-lbl">Isi Pengumuman</div>
+        <textarea class="f-inp" id="annFeedContentInp" rows="4" placeholder="Tuliskan detail update/fitur/project barunya..." maxlength="1000"></textarea>
+
+        <button class="btn-create" id="annFeedSubmitBtn" data-bk="ann-submit" onclick="submitAnnFeed()">
+            <i class="fas fa-plus" style="margin-right:8px;"></i>TAMBAHKAN PENGUMUMAN
+        </button>
+        <button class="danger-modal-cancel" id="annFeedCancelBtn" style="display:none;width:100%;margin-top:10px;padding:13px 6px;" onclick="cancelEditAnnFeed()">
+            BATAL EDIT
+        </button>
+
+        <div id="annFeedList" style="margin-top:14px;">
+            <div class="empty-state">
+                <i class="fas fa-bullhorn" style="font-size:22px;margin-bottom:8px;display:block;opacity:.35;"></i>
+                Belum ada pengumuman.
+            </div>
+        </div>
+    </div>
+
+    <!-- PROJECT BARU (kabar ke semua akun) -->
+    <div class="card">
+        <div class="sec-hdr">
+            <div class="sec-title">Project Baru <span class="sec-spark">&#128640;</span></div>
+        </div>
+        <p style="font-size:11px;color:var(--tsec);line-height:1.7;margin-bottom:13px;">
+            Kabari <b style="color:var(--text);">semua akun</b> bahwa ada project baru di <b style="color:var(--text);">HidzProject</b>. Akun yang sedang online langsung melihat pesannya di dalam halaman, akun lain lewat notifikasi Chrome. Kirim setelah project barunya tayang.
+        </p>
+
+        <div class="f-lbl">Nama Project</div>
+        <input type="text" class="f-inp" id="projNewNameInp" placeholder="mis. HidzBypass" maxlength="60" autocomplete="off">
+
+        <div class="f-lbl">Deskripsi Singkat <span style="text-transform:none;opacity:.6;">(opsional)</span></div>
+        <textarea class="f-inp" id="projNewDescInp" rows="2" placeholder="mis. Resolver link publik, sekali tempel langsung jadi." maxlength="140"></textarea>
+
+        <button class="btn-create" id="projNewSendBtn" onclick="requestProjectNew()">
+            <i class="fas fa-paper-plane" style="margin-right:8px;"></i>KIRIM NOTIFIKASI
+        </button>
+    </div>
+
+    <!-- RIWAYAT NOTIFIKASI (semua kabar yang pernah dikirim ke akun) -->
+    <div class="card">
+        <div class="sec-hdr">
+            <div class="sec-title">Riwayat Notifikasi <span class="sec-spark">&#128236;</span></div>
+            <div class="cnt-badge" id="nlogCount">0</div>
+        </div>
+        <p style="font-size:11px;color:var(--tsec);line-height:1.7;margin-bottom:4px;">
+            Notifikasi yang sudah dikirim, terbaru di atas. Di HIDZPROJECT, tiap notifikasi masuk ke riwayat penerimanya dan terhapus sendiri saat masa berlakunya habis. Menghapus riwayat di sini juga <b style="color:var(--text);">menghapusnya dari riwayat notifikasi HIDZPROJECT</b> semua penerimanya, yang sudah dibaca maupun belum. Notifikasi Chrome yang sudah masuk ke perangkat tidak bisa ditarik.
+        </p>
+        <div id="nlogList">
+            <div class="empty-state">Memuat riwayat...</div>
+        </div>
+        <button type="button" class="btn-clear-all" id="nlogDelAllBtn" style="display:none;" onclick="requestNlogDeleteAll()">
+            <i class="fas fa-trash-alt" style="margin-right:6px;"></i>HAPUS SEMUA RIWAYAT
+        </button>
+    </div>
+
+
+    <!-- ADD VOUCHER VIP & RIWAYAT VOUCHER -->
+    <div class="card" id="vipVoucherAdminCard">
+        <div class="sec-hdr">
+            <div class="sec-title">Add Voucher VIP <span class="sec-spark">&#127915;</span></div>
+            <div class="cnt-badge" id="vchActiveCount">0</div>
+        </div>
+        <p style="font-size:11px;color:var(--tsec);line-height:1.65;margin-bottom:13px;">
+            Buat voucher diskon untuk satu, beberapa, atau semua paket VIP di <b style="color:var(--text);">HidzProject</b>, untuk semua orang atau dibatasi jumlah orangnya. Harga akhir otomatis divalidasi minimal Rp 1.000 (batas minimum QRIS).
+        </p>
+
+        <div class="f-lbl">Kode Voucher (4–20 Huruf/Angka)</div>
+        <input type="text" class="f-inp" id="vchCodeInp" placeholder="mis. PROMOVIP50" maxlength="20" style="text-transform:uppercase;" autocomplete="off">
+
+        <div class="f-lbl">Pilih Paket VIP <span id="vchPlanCount" style="color:var(--cyan);letter-spacing:0;"></span></div>
+        <div class="dev-limit-row" id="vchPlanGrid" style="grid-template-columns:1fr 1fr;margin-bottom:8px;"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:13px;">
+            <button type="button" class="btn-extend" style="margin-top:0;" onclick="window._vchPickAllPlans(true)">PILIH SEMUA</button>
+            <button type="button" class="btn-extend" style="margin-top:0;" onclick="window._vchPickAllPlans(false)">KOSONGKAN</button>
+        </div>
+
+        <div class="f-lbl">Tipe Potongan Harga</div>
+        <div class="dev-limit-row" id="vchTypeRow" style="grid-template-columns:1fr 1fr;">
+            <button type="button" class="dev-btn active" id="vchTypePctBtn" onclick="window._vchSetType('percent')">DISKON PERSEN (%)</button>
+            <button type="button" class="dev-btn" id="vchTypeCusBtn" onclick="window._vchSetType('custom')">HARGA AKHIR (RP)</button>
+        </div>
+
+        <div id="vchPctWrap">
+            <div class="f-lbl">Persentase Diskon (1% – 99%) untuk semua paket terpilih</div>
+            <input type="number" class="f-inp" id="vchPctInp" value="20" min="1" max="99" oninput="window._vchUpdatePreview()">
+        </div>
+        <div id="vchCusWrap" style="display:none;">
+            <div class="f-lbl">Harga Akhir Setelah Diskon per Paket (Rp)</div>
+            <div id="vchCusList" style="margin-bottom:13px;"></div>
+        </div>
+
+        <div id="vchCalcPreview" style="background:var(--sur2);border:2px solid var(--bd);padding:10px 12px;margin-bottom:13px;font-size:11.5px;font-weight:700;color:var(--cyan);">
+            Pratinjau: Harga normal Rp 3.000 &rarr; Harga akhir Rp 2.400 (-20%)
+        </div>
+
+        <div class="f-lbl">Batas Orang yang Bisa Memakai Voucher</div>
+        <div class="dev-limit-row" id="vchLimitRow" style="grid-template-columns:1fr 1fr;margin-bottom:8px;">
+            <button type="button" class="dev-btn active" id="vchLimAllBtn" onclick="window._vchSetLimit(false)">SEMUA ORANG</button>
+            <button type="button" class="dev-btn" id="vchLimNBtn" onclick="window._vchSetLimit(true)">BATASI JUMLAH</button>
+        </div>
+        <div id="vchLimWrap" style="display:none;">
+            <input type="number" class="f-inp" id="vchLimInp" value="3" min="1" max="1000" step="1" inputmode="numeric" placeholder="Jumlah orang, mis. 3" style="margin-bottom:8px;" oninput="window._vchUpdatePreview()">
+        </div>
+        <p id="vchLimHint" style="font-size:10.5px;color:var(--tsec);line-height:1.6;margin:0 0 13px;"></p>
+
+        <div class="f-lbl">Voucher Berakhir Pada</div>
+        <input type="datetime-local" class="f-inp" id="vchExpInp" step="1">
+
+        <button type="button" class="btn-create" id="vchSubmitBtn" data-bk="vch-save" onclick="window._vchSaveNew(false)">
+            <i class="fas fa-ticket-alt" style="margin-right:8px;"></i>SIMPAN VOUCHER
+        </button>
+
+        <div class="divider" style="margin:18px 0 14px;"></div>
+        <div class="sec-hdr">
+            <div class="sec-title" style="font-size:11.5px;">Daftar Voucher <span class="sec-spark">&#9734;</span></div>
+        </div>
+        <div id="vchListBox"><div class="empty-state">Memuat voucher...</div></div>
+        <button type="button" class="btn-clear-all" id="vchDelAllBtn" style="display:none;" onclick="window._vchDeleteAll()">
+            <i class="fas fa-trash-alt" style="margin-right:6px;"></i>HAPUS SEMUA VOUCHER
+        </button>
+
+        <div class="divider" style="margin:18px 0 14px;"></div>
+        <div class="sec-hdr">
+            <div class="sec-title" style="font-size:11.5px;">Riwayat Voucher <span class="sec-spark">&#128338;</span></div>
+            <div class="cnt-badge" id="vchHistCount">0</div>
+        </div>
+        <div id="vchHistoryBox"><div class="empty-state">Belum ada riwayat voucher.</div></div>
+        <button type="button" class="btn-clear-all" id="vchHistDelAllBtn" style="display:none;" onclick="window._vchHistDeleteAll()">
+            <i class="fas fa-trash-alt" style="margin-right:6px;"></i>HAPUS SEMUA RIWAYAT
+        </button>
+    </div>
+
+    <!-- RIWAYAT UPGRADE VIP & VERIFIKASI BUKTI -->
+    <div class="card" id="vipOrdersAdminCard">
+        <div class="sec-hdr">
+            <div class="sec-title">Riwayat Upgrade VIP <span class="sec-spark">&#128081;</span></div>
+            <div class="cnt-badge" id="vipOrdCount">0</div>
+        </div>
+        <p style="font-size:11px;color:var(--tsec);line-height:1.65;margin-bottom:12px;">
+             pantau transaksi QRIS VIP secara real-time dan cek keaslian Kode Verifikasi HMAC dari bukti transaksi pelanggan.
+        </p>
+
+        <div class="f-lbl">Verifikasi Kode Bukti Transaksi (HMAC)</div>
+        <div style="display:grid;grid-template-columns:1fr auto;gap:8px;margin-bottom:12px;">
+            <input type="text" class="f-inp" id="vipVerifyCodeInp" placeholder="HZV-XXXXXXXXXXXXXXXX" style="margin-bottom:0;text-transform:uppercase;" autocomplete="off">
+            <button type="button" class="dev-btn active" style="padding:0 14px;" data-bk="vip-verify" data-bl="" onclick="window._vipVerifyReceiptCode()">CEK KODE</button>
+        </div>
+        <div id="vipVerifyResultBox" style="display:none;margin-bottom:13px;"></div>
+
+        <div class="user-search-wrap">
+            <i class="fas fa-search"></i>
+            <input type="text" id="vipOrdSearchInp" placeholder="Cari ID order / username / paket..." oninput="window._vipFilterOrders(this.value)" autocomplete="off">
+        </div>
+        <select id="vipOrdStatusSel" class="f-sel" style="width:100%;margin-bottom:12px;" onchange="window._vipSetOrderFilter(this.value)">
+            <option value="ALL">Semua Status</option>
+            <option value="SUCCESS">SUCCESS (Berhasil)</option>
+            <option value="PENDING">PENDING (Menunggu Bayar)</option>
+            <option value="EXPIRED">EXPIRED (Kedaluwarsa)</option>
+            <option value="CANCELLED">CANCELLED (Dibatalkan)</option>
+            <option value="LATE_PAYMENT">LATE_PAYMENT (Bayar Terlambat)</option>
+        </select>
+        <div id="vipOrdListBox"><div class="empty-state">Memuat transaksi VIP...</div></div>
+        <button type="button" class="btn-clear-all" id="vipOrdDelAllBtn" style="display:none;" onclick="window._vipDeleteAll()"></button>
+    </div>
+
+    <!-- SECURITY ALERTS -->
+    <div class="sec-alert-card">
+        <div class="sec-hdr">
+            <div class="sec-title" style="border-color:var(--red);color:var(--red);">
+                <i class="fas fa-shield-alt"></i>
+                Security Alerts <span class="sec-spark">&#9888;</span>
+            </div>
+            <div class="cnt-badge" id="alertCount" style="color:var(--red);border-color:rgba(239,68,68,.4);box-shadow:2px 2px 0 rgba(239,68,68,.4);">0</div>
+        </div>
+        <div id="alertList">
+            <div class="no-alerts">
+                <i class="fas fa-check-circle" style="color:var(--green);margin-right:6px;"></i>
+                Tidak ada percobaan login mencurigakan.
+            </div>
+        </div>
+    </div>
+
