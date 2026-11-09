@@ -1591,8 +1591,7 @@ Riwayat <b id="nlogDeleteTitle">-</b> akan dihapus, termasuk dari riwayat notifi
         <button type="button" id="konsAdminDeleteAllBtn" onclick="window._konsAdminDeleteForEveryone()"><i class="fas fa-trash-can"></i> Hapus untuk semua</button>
         <button type="button" onclick="window._konsAdminCloseMsgMenu()">Batal</button>
     </div>
-    <input type="text" id="konsAdminReactHiddenInput" maxlength="12" style="position:fixed; top:50vh; left:50vw; opacity:0; pointer-events:none; width:1px; height:1px; z-index:-1;" autocomplete="off" oninput="if(this.value.trim()){window._konsAdminSetReaction(this.value.trim());this.value='';this.blur();}">
-</div>
+    </div>
 
     <!-- CHAT GLOBAL — jendela chat full-screen -->
     <div class="kons-chat-overlay" id="gcAdminOverlay">
@@ -1616,8 +1615,16 @@ Riwayat <b id="nlogDeleteTitle">-</b> akan dihapus, termasuk dari riwayat notifi
 </div>
 </div>
 <div class="gc-mention-anchor"><div class="gc-mention-pop" id="gcAdminMentionPop" role="listbox" aria-label="Pilih akun untuk ditag"></div></div>
-<input type="text" id="gcReactHiddenInput" maxlength="12" style="position:fixed; top:50vh; left:50vw; opacity:0; pointer-events:none; width:1px; height:1px; z-index:-1;" autocomplete="off" oninput="if(this.value.trim()){window._gcSetReaction(this.value.trim());this.value='';this.blur();}">
-                <div class="kons-reply-bar" id="gcAdminReplyBar">
+<div class="kons-react-picker" id="gcAdminReactPicker">
+        <button type="button" onclick="window._gcAdminSetReaction('\u{1F44D}')">&#128077;</button>
+        <button type="button" onclick="window._gcAdminSetReaction('\u{2764}\u{FE0F}')">&#10084;&#65039;</button>
+        <button type="button" onclick="window._gcAdminSetReaction('\u{1F602}')">&#128514;</button>
+        <div style="position:relative;width:52px;height:52px;flex-shrink:0;">
+            <input type="text" style="width:100%;height:100%;background:var(--sur2);border:2px solid var(--bd);font-size:24px;color:var(--text);outline:none;text-align:center;padding:0;border-radius:0;box-shadow:none;transition:transform .15s, box-shadow .15s, border-color .15s;cursor:pointer;" placeholder="+" maxlength="12" autocomplete="off" onfocus="this.style.borderColor='var(--cyan)';this.style.boxShadow='2px 2px 0 var(--cyan)';" onblur="this.style.borderColor='var(--bd)';this.style.boxShadow='none';" oninput="if(this.value.trim()){window._gcAdminSetReaction(this.value.trim());this.value='';this.blur();}">
+        </div>
+        <button type="button" class="kons-react-cancel" onclick="window._gcAdminCloseReactPicker()">Batal</button>
+    </div>
+    <div class="kons-reply-bar" id="gcAdminReplyBar">
 <div class="kons-reply-body"><span class="kons-reply-name"></span><span class="kons-reply-text"></span></div>
 <button type="button" class="kons-reply-x" title="Batal membalas" onclick="window._gcAdminCancelReply()"><i class="fas fa-xmark"></i></button>
 </div>
@@ -5366,30 +5373,29 @@ window._gcAdminCancelReply();
 showToast('Pesan yang kamu balas sudah dihapus');
 }
 function messageHtml(k, m, prev) {
-var mine = (m.uid === adminUid());
-var role = (m.role === 'vip' || m.role === 'admin') ? m.role : '';
-var lead = !prev || prev.uid !== m.uid || (m.ts - prev.ts) > GROUP_MS;
-var label = '';
-if (lead) {
-var url = (typeof window._hidzPhotoUrl === 'function') ? window._hidzPhotoUrl(m.uid) : '';
-if (typeof window._hidzWatchPhoto === 'function') window._hidzWatchPhoto(m.uid);
-label = '<div class="kons-sender-lbl' + (role === 'admin' ? ' is-admin' : '') + '">' +
-(url ? '<img class="kons-sender-avatar role-' + (role || 'user') + '" src="' + escAdmin(url) + '" alt="">' : '') +
-escAdmin(m.name || 'User') +
-(role ? '<span class="gc-admin-role ' + role + '">' + role.toUpperCase() + '</span>' : '') +
-'</div>';
-}
-var time = mine ? fmt('fmtTime', m.ts) : fmt('fmtFullTime', m.ts);
-var forMe = window._hidzMention.kindFor(m, adminUid());   // 'mention' / 'reply' kalau pesan ini ditujukan ke admin
-return '<div class="kons-row ' + (mine ? 'me' : 'them') + (forMe ? ' for-me' : '') + '" data-k="' + escAdmin(k) + '"><div class="kons-bubble-wrap">' + label +
-(m.delAll === true
-? '<div class="kons-bubble deleted"><i class="fas fa-ban" style="margin-right:5px;"></i>Pesan ini telah dihapus</div>'
-: '<div class="kons-bubble">' + window._hidzMention.forMeHtml(forMe) + quoteOf(m) + window._hidzMention.html(m.text, m.mentions, adminUid()) + '</div>') +
-'<div class="kons-bubble-meta"><span class="kons-bubble-time">' + time + '</span>' +
-(m.delAll === true ? '' : '<button type="button" class="kons-reply-btn" title="Balas" data-key="' + escAdmin(k) + '" onclick="window._gcAdminReplyTo(this.getAttribute(\'data-key\'))"><i class="fas fa-reply"></i></button>') +
-((canSend() && m.delAll !== true) ? '<button type="button" class="kons-react-btn" title="Reaksi" onclick="window._gcOpenReactPicker(\'' + (typeof escGc !== 'undefined' ? escGc(k) : escAdmin(k)) + '\')"><i class="fas fa-face-smile"></i></button>' : '') + '<button type="button" class="kons-bubble-more" title="Opsi" data-key="' + escAdmin(k) + '" onclick="window._gcAdminOpenMenu(this.getAttribute(\'data-key\'))"><i class="fas fa-ellipsis"></i></button>' +
-'</div>' + gcReactionsHtml(m, k) + '</div></div>';
-}
+        var mine = (m.uid === adminUid());
+        var role = (m.role === 'vip' || m.role === 'admin') ? m.role : '';
+        var lead = !prev || prev.uid !== m.uid || (m.ts - prev.ts) > GROUP_MS;
+        var label = '';
+        if (lead) {
+            var url = (typeof window._hidzPhotoUrl === 'function') ? window._hidzPhotoUrl(m.uid) : '';
+            if (typeof window._hidzWatchPhoto === 'function') window._hidzWatchPhoto(m.uid);
+            label = '<div class="kons-sender-lbl' + (role === 'admin' ? ' is-admin' : '') + '">' +
+                (url ? '<img class="kons-sender-avatar role-' + (role || 'user') + '" src="' + escAdmin(url) + '" alt="">' : '') +
+                escAdmin(m.name || 'User') +
+                (role ? '<span class="gc-admin-role ' + role + '">' + role.toUpperCase() + '</span>' : '') + '</div>';
+        }
+        var time = mine ? fmt('fmtTime', m.ts) : fmt('fmtFullTime', m.ts);
+        var forMe = window._hidzMention.kindFor(m, adminUid());
+        var reactBtn = (m.delAll !== true) ? '<button type="button" class="kons-react-btn" title="Reaksi" onclick="window._gcAdminOpenReactPicker(\'' + escAdmin(k) + '\')"><i class="fas fa-face-smile"></i></button>' : '';
+        return '<div class="kons-row ' + (mine ? 'me' : 'them') + (forMe ? ' for-me' : '') + '" data-k="' + escAdmin(k) + '"><div class="kons-bubble-wrap">' + label +
+            (m.delAll === true ? '<div class="kons-bubble deleted"><i class="fas fa-ban" style="margin-right:5px;"></i>Pesan ini telah dihapus</div>' : '<div class="kons-bubble">' + window._hidzMention.forMeHtml(forMe) + quoteOf(m) + window._hidzMention.html(m.text, m.mentions, adminUid()) + '</div>') +
+            '<div class="kons-bubble-meta"><span class="kons-bubble-time">' + time + '</span>' + reactBtn +
+            (m.delAll === true ? '' : '<button type="button" class="kons-reply-btn" title="Balas" data-key="' + escAdmin(k) + '" onclick="window._gcAdminReplyTo(this.getAttribute(\'data-key\'))"><i class="fas fa-reply"></i></button>') +
+            '<button type="button" class="kons-bubble-more" title="Opsi" data-key="' + escAdmin(k) + '" onclick="window._gcAdminOpenMenu(this.getAttribute(\'data-key\'))"><i class="fas fa-ellipsis"></i></button>' +
+            '</div>' + (typeof gcAdminReactionsHtml === 'function' ? gcAdminReactionsHtml(m, k) : '') + '</div></div>';
+    }
+
 function renderMessages(forceBottom) {
 var box = byId('gcAdminMessages');
 if (!box || !_open) return;
@@ -5514,6 +5520,47 @@ body: JSON.stringify({ action: 'chat-notify', id: id })
 }).catch(function () {});
 } catch (e) {}
 }
+function gcAdminReactionsHtml(m, key) {
+        var r = m.reactions; if (!r) return '';
+        var uids = Object.keys(r); if (!uids.length) return '';
+        var html = '<div class="kons-reactions">';
+        var myId = adminUid();
+        uids.forEach(function(uid) {
+            var react = r[uid]; if (!react || !react.emoji) return;
+            var isMe = (uid === myId);
+            var name = isMe ? 'Kamu' : (react.name || 'User');
+            var onClick = isMe ? ' style="cursor:pointer;" title="Ketuk untuk hapus" onclick="window._gcAdminRemoveReact(\''+key+'\')"' : '';
+            html += '<span class="kons-reaction-chip"' + onClick + '>' + escAdmin(react.emoji) + ' <b>' + escAdmin(name) + '</b></span>';
+        });
+        return html + '</div>';
+    }
+    window._gcAdminOpenReactPicker = function(key) {
+        var m = _activeMsgs[key];
+        if (!m || m.delAll) return;
+        window._gcReactKey = key;
+        var picker = document.getElementById('gcAdminReactPicker');
+        if (picker) picker.classList.add('show');
+    };
+    window._gcAdminCloseReactPicker = function() {
+        window._gcReactKey = null;
+        var picker = document.getElementById('gcAdminReactPicker');
+        if (picker) picker.classList.remove('show');
+    };
+    window._gcAdminSetReaction = function(emoji) {
+        var key = window._gcReactKey;
+        var uid = adminUid();
+        if (!key || !uid) return;
+        var name = 'User';
+        name = 'Hidz';
+        firebase.database().ref(GC_REF + '/' + key + '/reactions/' + uid).set({ emoji: emoji, name: name }).catch(function(){});
+        window._gcAdminCloseReactPicker();
+    };
+    window._gcAdminRemoveReact = function(key) {
+        var uid = adminUid();
+        if (!key || !uid) return;
+        firebase.database().ref(GC_REF + '/' + key + '/reactions/' + uid).remove();
+    };
+
 window._gcAdminSend = function () {
 var inp = byId('gcAdminInput');
 var text = cleanText(inp ? inp.value : '');
