@@ -5,6 +5,9 @@ const BAD_BOTS = /(curl\/|wget\/|python-requests|httpx|libwww-perl|scrapy|httrac
 
 export function middleware(req) {
   const { pathname } = req.nextUrl;
+  if (pathname.startsWith('/cdn-cgi/')) {
+    return new NextResponse('{}', { status: 200, headers: { 'Content-Type': 'application/json' } });
+  }
   const ua = req.headers.get('user-agent') || '';
   if (BLOCKED_PATHS.test(pathname)) return new NextResponse('Forbidden', { status: 403 });
   if (!pathname.startsWith('/api/') && BAD_BOTS.test(ua)) return new NextResponse('Forbidden', { status: 403 });

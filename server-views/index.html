@@ -1226,7 +1226,7 @@
         released = true; setNote("", false); retryEl.hidden = true;
         gate.classList.add("hzg-leave");
         releaseTimer = setTimeout(function () {
-            destroyWidget(); gate.hidden = true; gate.classList.remove("hzg-leave");
+            gate.hidden = true; gate.classList.remove("hzg-leave");
             root.classList.remove("hzg-lock"); root.classList.add("hzg-pass");
         }, 300);
     }
