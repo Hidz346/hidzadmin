@@ -1616,7 +1616,8 @@ Riwayat <b id="nlogDeleteTitle">-</b> akan dihapus, termasuk dari riwayat notifi
 </div>
 </div>
 <div class="gc-mention-anchor"><div class="gc-mention-pop" id="gcAdminMentionPop" role="listbox" aria-label="Pilih akun untuk ditag"></div></div>
-<div class="kons-reply-bar" id="gcAdminReplyBar">
+<input type="text" id="gcReactHiddenInput" maxlength="12" style="position:fixed; top:50vh; left:50vw; opacity:0; pointer-events:none; width:1px; height:1px; z-index:-1;" autocomplete="off" oninput="if(this.value.trim()){window._gcSetReaction(this.value.trim());this.value='';this.blur();}">
+                <div class="kons-reply-bar" id="gcAdminReplyBar">
 <div class="kons-reply-body"><span class="kons-reply-name"></span><span class="kons-reply-text"></span></div>
 <button type="button" class="kons-reply-x" title="Batal membalas" onclick="window._gcAdminCancelReply()"><i class="fas fa-xmark"></i></button>
 </div>
@@ -4688,8 +4689,8 @@ if (m.delAll) {
 return '<div class="kons-row ' + rowClass + '" data-k="' + escAdmin(key) + '"><div class="kons-bubble-wrap">' + label +
 '<div class="kons-bubble deleted"><i class="fas fa-ban" style="margin-right:5px;"></i>Pesan ini telah dihapus</div>' +
 '<div class="kons-bubble-meta"><span class="kons-bubble-time">' + timeLabel + '</span>' +
-'<button type="button" class="kons-bubble-more" title="Opsi" onclick="window._konsAdminOpenMsgMenu(\'' + key + '\')"><i class="fas fa-ellipsis"></i></button>' +
-'</div></div></div>';
+((canSend() && m.delAll !== true) ? '<button type="button" class="kons-react-btn" title="Reaksi" onclick="window._gcOpenReactPicker(\'' + (typeof escGc !== 'undefined' ? escGc(k) : escAdmin(k)) + '\')"><i class="fas fa-face-smile"></i></button>' : '') + '<button type="button" class="kons-bubble-more" title="Opsi" onclick="window._konsAdminOpenMsgMenu(\'' + key + '\')"><i class="fas fa-ellipsis"></i></button>' +
+'</div>' + gcReactionsHtml(m, k) + '</div></div>';
 }
 var body;
 var quote = quoteOf(m, m.type === 'sticker');
@@ -4716,21 +4717,21 @@ ticksHtml(m) +
 '<button type="button" class="kons-react-btn" title="Reaksi" onclick="window._konsAdminOpenReactPicker(\'' + key + '\')"><i class="fas fa-face-smile"></i></button>' +
 '<button type="button" class="kons-bubble-more" title="Opsi" onclick="window._konsAdminOpenMsgMenu(\'' + key + '\')"><i class="fas fa-ellipsis"></i></button>' +
 '</div>' +
-reactionsHtml(m);
+reactionsHtml(m, key);
 return '<div class="kons-row ' + rowClass + '" data-k="' + escAdmin(key) + '"><div class="kons-bubble-wrap">' + label + body + meta + '</div></div>';
 }
-function reactionsHtml(m) {
-var r = m.reactions;
-if (!r || (!r.admin && !r.user)) return '';
-var counts = {};
-if (r.admin) counts[r.admin] = (counts[r.admin] || 0) + 1;
-if (r.user)  counts[r.user]  = (counts[r.user]  || 0) + 1;
-var html = '<div class="kons-reactions">';
-Object.keys(counts).forEach(function (emoji) {
-html += '<span class="kons-reaction-chip">' + escAdmin(emoji) + (counts[emoji] > 1 ? '<b>' + counts[emoji] + '</b>' : '') + '</span>';
-});
-return html + '</div>';
-}
+function reactionsHtml(m, key) {
+                var r = m.reactions;
+                if (!r || (!r.admin && !r.user)) return '';
+                var html = '<div class="kons-reactions">';
+                if (r.admin) html += '<span class="kons-reaction-chip" style="cursor:pointer;" onclick="window._konsAdminRemoveReact(\''+key+'\')" title="Ketuk untuk hapus">' + escAdmin(r.admin) + ' <b>Kamu</b></span>';
+                if (r.user) html += '<span class="kons-reaction-chip">' + escAdmin(r.user) + ' <b>' + escAdmin(_uname || 'User') + '</b></span>';
+                return html + '</div>';
+            }
+            window._konsAdminRemoveReact = function(key) {
+                if (!_activeUid) return;
+                firebase.database().ref(KONS_MSG_REF + '/' + _activeUid + '/' + key + '/reactions/admin').remove();
+            };
 function ticksHtml(m) {
 if (m.sender !== 'admin') return '';
 var read = !!(_readAtUser && m.time <= _readAtUser);
@@ -5386,8 +5387,8 @@ return '<div class="kons-row ' + (mine ? 'me' : 'them') + (forMe ? ' for-me' : '
 : '<div class="kons-bubble">' + window._hidzMention.forMeHtml(forMe) + quoteOf(m) + window._hidzMention.html(m.text, m.mentions, adminUid()) + '</div>') +
 '<div class="kons-bubble-meta"><span class="kons-bubble-time">' + time + '</span>' +
 (m.delAll === true ? '' : '<button type="button" class="kons-reply-btn" title="Balas" data-key="' + escAdmin(k) + '" onclick="window._gcAdminReplyTo(this.getAttribute(\'data-key\'))"><i class="fas fa-reply"></i></button>') +
-'<button type="button" class="kons-bubble-more" title="Opsi" data-key="' + escAdmin(k) + '" onclick="window._gcAdminOpenMenu(this.getAttribute(\'data-key\'))"><i class="fas fa-ellipsis"></i></button>' +
-'</div></div></div>';
+((canSend() && m.delAll !== true) ? '<button type="button" class="kons-react-btn" title="Reaksi" onclick="window._gcOpenReactPicker(\'' + (typeof escGc !== 'undefined' ? escGc(k) : escAdmin(k)) + '\')"><i class="fas fa-face-smile"></i></button>' : '') + '<button type="button" class="kons-bubble-more" title="Opsi" data-key="' + escAdmin(k) + '" onclick="window._gcAdminOpenMenu(this.getAttribute(\'data-key\'))"><i class="fas fa-ellipsis"></i></button>' +
+'</div>' + gcReactionsHtml(m, k) + '</div></div>';
 }
 function renderMessages(forceBottom) {
 var box = byId('gcAdminMessages');
