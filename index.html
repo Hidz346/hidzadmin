@@ -2,7 +2,7 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <!-- ══ HIDZ GATE · verifikasi manusia (Cloudflare Turnstile Resmi) ══ -->
+    <!-- ══ HIDZ GATE · verifikasi manusia (Cloudflare Turnstile Resmi — 30 Menit) ══ -->
 <div id="hzGate" role="dialog" aria-modal="true" aria-labelledby="hzgTitle" data-host="hidzadmim.web.id" data-sitekey="" data-verify-url="/api/admin-login">
     <div class="hzg-main">
         <div class="hzg-site">
@@ -22,6 +22,8 @@
 <script>
 (function () {
     "use strict";
+    var PASS_KEY = "hidz_turnstile_pass_v1";
+    var TTL_MS = 30 * 60 * 1000;
     var root = document.documentElement, gate = document.getElementById("hzGate");
     if (!gate) { root.classList.remove("hzg-lock"); return; }
     var mountEl = document.getElementById("hzgTurnstile"), noteEl = document.getElementById("hzgNote"), retryEl = document.getElementById("hzgRetry");
@@ -50,7 +52,8 @@
         released = true; setNote("", false); retryEl.hidden = true;
         gate.classList.add("hzg-leave");
         releaseTimer = setTimeout(function () {
-            destroyWidget(); gate.hidden = true; gate.classList.remove("hzg-leave"); root.classList.remove("hzg-lock");
+            destroyWidget(); gate.hidden = true; gate.classList.remove("hzg-leave");
+            root.classList.remove("hzg-lock"); root.classList.add("hzg-pass");
         }, 300);
     }
     function verifyWithServer(rawToken) {
@@ -59,7 +62,12 @@
         fetch(verifyUrl, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "verify-turnstile", turnstileToken: hexToken }) })
             .then(function (r) { return r.json(); })
             .then(function (res) {
-                if (res && res.ok) { window._hzTurnstilePass = res.turnstilePass || ""; setTimeout(release, 300); return; }
+                if (res && res.ok) {
+                    window._hzTurnstilePass = res.turnstilePass || "";
+                    try { localStorage.setItem(PASS_KEY, JSON.stringify({ pass: window._hzTurnstilePass, exp: Date.now() + TTL_MS })); } catch (e) {}
+                    setTimeout(release, 300);
+                    return;
+                }
                 window._hzTurnstileToken = ""; window._hzTurnstilePass = "";
                 setNote((res && res.message) || "Verifikasi keamanan ditolak server. Silakan ulangi.", true); retryEl.hidden = false;
                 if (widgetId !== null && window.turnstile) { try { window.turnstile.reset(widgetId); } catch (e) {} }
@@ -102,17 +110,29 @@
         s.onerror = function () { scriptLoading = false; mountEl.innerHTML = ""; setNote("Gagal memuat script Cloudflare Turnstile.", true); retryEl.hidden = false; };
         document.head.appendChild(s);
     }
-    function lock() {
+    function lock(forceNew) {
+        if (forceNew) { try { localStorage.removeItem(PASS_KEY); } catch (e) {} }
+        else {
+            try {
+                var saved = JSON.parse(localStorage.getItem(PASS_KEY) || "null");
+                if (saved && saved.pass && saved.exp && Date.now() < saved.exp) {
+                    window._hzTurnstilePass = saved.pass;
+                    released = true; gate.hidden = true;
+                    root.classList.remove("hzg-lock"); root.classList.add("hzg-pass");
+                    return;
+                }
+            } catch (e) {}
+        }
         clearTimeout(releaseTimer); released = false; window._hzTurnstileToken = ""; window._hzTurnstilePass = "";
         setNote("", false); retryEl.hidden = true;
         mountEl.innerHTML = '<div class="hzg-loading">Memuat Cloudflare Turnstile...</div>';
-        gate.classList.remove("hzg-leave"); gate.hidden = false; root.classList.add("hzg-lock");
+        root.classList.remove("hzg-pass"); gate.classList.remove("hzg-leave"); gate.hidden = false; root.classList.add("hzg-lock");
         resolveSiteKey(function (k) { ensureScript(function () { renderWidget(k); }); });
     }
-    retryEl.addEventListener("click", lock);
-    window.addEventListener("pageshow", function (e) { if (e.persisted) lock(); });
-    window._hzRelockGate = lock;
-    lock();
+    retryEl.addEventListener("click", function () { lock(true); });
+    window.addEventListener("pageshow", function (e) { if (e.persisted) lock(false); });
+    window._hzRelockGate = function () { lock(true); };
+    lock(false);
 })();
 </script>
 
