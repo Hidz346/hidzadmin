@@ -1082,7 +1082,8 @@ var verifyUrl = gate.getAttribute("data-verify-url") || "/api/login";
 var widgetId = null, cachedSiteKey = (gate.getAttribute("data-sitekey") || "").trim();
 var scriptLoading = false, released = false, releaseTimer = null;
 window._hzTurnstileToken = ""; window._hzTurnstilePass = "";
-document.getElementById("hzgHost").textContent = gate.getAttribute("data-host") || location.hostname;
+var _dh = gate.getAttribute("data-host") || "", _lh = location.hostname || "";
+document.getElementById("hzgHost").textContent = (_dh && _lh.replace(/^www\./i, "") === _dh.replace(/^www\./i, "")) ? _dh : (_lh || _dh);
 function toHex(str) {
 var s = String(str || ""), out = "";
 for (var i = 0; i < s.length; i++) { var h = s.charCodeAt(i).toString(16); out += h.length < 2 ? "0" + h : h; }
@@ -1102,7 +1103,7 @@ if (released) return;
 released = true; setNote("", false); retryEl.hidden = true;
 gate.classList.add("hzg-leave");
 releaseTimer = setTimeout(function () {
-gate.hidden = true; gate.classList.remove("hzg-leave");
+destroyWidget(); gate.hidden = true; gate.classList.remove("hzg-leave");
 root.classList.remove("hzg-lock"); root.classList.add("hzg-pass");
 }, 300);
 }
@@ -1575,7 +1576,16 @@ Riwayat <b id="nlogDeleteTitle">-</b> akan dihapus, termasuk dari riwayat notifi
     <div class="kons-typing-row" id="konsChatTypingRow">
         <span class="kons-typing-bubble"><i class="fas fa-ellipsis"></i> User sedang mengetik...</span>
     </div>
-    <div class="kons-reply-bar" id="konsAdminReplyBar">
+    <div class="kons-react-picker" id="konsAdminReactPicker">
+        <button type="button" onclick="window._konsAdminSetReaction('\u{1F44D}')">&#128077;</button>
+        <button type="button" onclick="window._konsAdminSetReaction('\u{2764}\u{FE0F}')">&#10084;&#65039;</button>
+        <button type="button" onclick="window._konsAdminSetReaction('\u{1F602}')">&#128514;</button>
+        <div style="position:relative;width:52px;height:52px;flex-shrink:0;">
+            <input type="text" style="width:100%;height:100%;background:var(--sur2);border:2px solid var(--bd);font-size:24px;color:var(--text);outline:none;text-align:center;padding:0;border-radius:0;box-shadow:none;transition:transform .15s, box-shadow .15s, border-color .15s;cursor:pointer;" placeholder="+" maxlength="12" autocomplete="off" onfocus="this.style.borderColor='var(--cyan)';this.style.boxShadow='2px 2px 0 var(--cyan)';" onblur="this.style.borderColor='var(--bd)';this.style.boxShadow='none';" oninput="if(this.value.trim()){window._konsAdminSetReaction(this.value.trim());this.value='';this.blur();}">
+        </div>
+        <button type="button" class="kons-react-cancel" onclick="window._konsAdminCloseReactPicker()">Batal</button>
+    </div>
+<div class="kons-reply-bar" id="konsAdminReplyBar">
         <div class="kons-reply-body"><span class="kons-reply-name"></span><span class="kons-reply-text"></span></div>
         <button type="button" class="kons-reply-x" title="Batal membalas" onclick="window._konsAdminCancelReply()"><i class="fas fa-xmark"></i></button>
     </div>
@@ -4696,8 +4706,8 @@ if (m.delAll) {
 return '<div class="kons-row ' + rowClass + '" data-k="' + escAdmin(key) + '"><div class="kons-bubble-wrap">' + label +
 '<div class="kons-bubble deleted"><i class="fas fa-ban" style="margin-right:5px;"></i>Pesan ini telah dihapus</div>' +
 '<div class="kons-bubble-meta"><span class="kons-bubble-time">' + timeLabel + '</span>' +
-((canSend() && m.delAll !== true) ? '<button type="button" class="kons-react-btn" title="Reaksi" onclick="window._gcOpenReactPicker(\'' + (typeof escGc !== 'undefined' ? escGc(k) : escAdmin(k)) + '\')"><i class="fas fa-face-smile"></i></button>' : '') + '<button type="button" class="kons-bubble-more" title="Opsi" onclick="window._konsAdminOpenMsgMenu(\'' + key + '\')"><i class="fas fa-ellipsis"></i></button>' +
-'</div>' + gcReactionsHtml(m, k) + '</div></div>';
+'<button type="button" class="kons-bubble-more" title="Opsi" onclick="window._konsAdminOpenMsgMenu(\'' + key + '\')"><i class="fas fa-ellipsis"></i></button>' +
+'</div></div></div>';
 }
 var body;
 var quote = quoteOf(m, m.type === 'sticker');
@@ -4821,11 +4831,13 @@ window._konsAdminOpenReactPicker = function (key) {
         var m = _activeMsgs[key];
         if (!m || m.delAll) return;
         _reactKey = key;
-        var inp = document.getElementById('konsAdminReactHiddenInput');
-        if (inp) { inp.value = ''; inp.focus(); }
+        var pk = document.getElementById('konsAdminReactPicker');
+        if (pk) pk.classList.add('show');
     };
     window._konsAdminCloseReactPicker = function () {
         _reactKey = null;
+        var pk = document.getElementById('konsAdminReactPicker');
+        if (pk) pk.classList.remove('show');
     };
     window._konsAdminSetReaction = function (emoji) {
         if (!_reactKey || !_activeUid) { window._konsAdminCloseReactPicker(); return; }
