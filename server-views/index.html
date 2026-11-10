@@ -4161,13 +4161,21 @@ setTimeout(function () { ensureFb(cb); }, 700);
 function trackOwnPresence() {
 ensureFb(function () {
 var ref = firebase.database().ref(PRESENCE_REF + '/' + ADMIN_UID);
+/* Admin dianggap online hanya selama panel benar-benar terbuka di layar,
+   bukan sekadar tab yang masih hidup di latar belakang */
+function mark(isOnline) {
+ref.set({ online: isOnline, lastSeen: firebase.database.ServerValue.TIMESTAMP }).catch(function () {});
+}
 firebase.database().ref('.info/connected').on('value', function (snap) {
 if (snap.val() !== true) return;
 ref.onDisconnect().set({ online: false, lastSeen: firebase.database.ServerValue.TIMESTAMP })
-.then(function () {
-ref.set({ online: true, lastSeen: firebase.database.ServerValue.TIMESTAMP });
-}).catch(function () {});
+.then(function () { mark(document.visibilityState !== 'hidden'); })
+.catch(function () {});
 });
+document.addEventListener('visibilitychange', function () {
+mark(document.visibilityState !== 'hidden');
+});
+window.addEventListener('pagehide', function () { mark(false); });
 });
 }
 function watch(uid) {
@@ -4405,7 +4413,22 @@ if (!uid || uid === (window._hidzAdminUid || 'admin_hidz_protected')) return 'ad
 var u = getUsers().filter(function (x) { return x.id === uid; })[0];
 return (u && u.role === 'vip') ? 'vip' : 'user';
 }
+function isAdminUid(uid) {
+return uid === (window._hidzAdminUid || 'admin_hidz_protected');
+}
+/* Nama tampilan satu akun: meta percakapan dulu, lalu daftar user, terakhir id-nya */
+function convUserName(uid) {
+var meta = _convMeta[uid];
+if (meta && meta.username) return meta.username;
+var u = getUsers().filter(function (x) { return x.id === uid; })[0];
+return (u && u.username) || uid || 'User';
+}
+/* Percakapan dianggap ada kalau sudah pernah ada pesan atau masih ada yang belum dibaca */
+function isRealConv(meta) {
+return !!(meta && (meta.lastAt || meta.lastMsg || (meta.unreadAdmin || 0) > 0));
+}
 function lastSeenLabel(uid) {
+if (isAdminUid(uid)) return '';
 var p = (typeof window._hidzPresenceOf === 'function') ? window._hidzPresenceOf(uid) : null;
 if (!p) return '';
 if (p.online) return 'Online';
@@ -4422,7 +4445,7 @@ var icoCls = role === 'admin' ? 'fa-shield-halved' : (role === 'vip' ? 'fa-crown
 return '<div class="kons-avatar-box role-' + role + (opts.lg ? ' lg' : '') + '">' +
 '<img src="' + escAdmin(url) + '" alt="">' +
 (icoCls ? '<span class="kons-role-ico"><i class="fas ' + icoCls + '"></i></span>' : '') +
-(opts.hideDot ? '' : '<span class="kons-dot' + (online ? ' online' : '') + '" title="' + (online ? 'Online' : 'Offline') + '"></span>') +
+(opts.hideDot || role === 'admin' ? '' : '<span class="kons-dot' + (online ? ' online' : '') + '" title="' + (online ? 'Online' : 'Offline') + '"></span>') +
 '</div>';
 }
 window.addEventListener('hidz:panel-ready', function () { renderConvList(); });
@@ -4430,7 +4453,7 @@ function renderConvList() {
 var wrap = document.getElementById('konsConvList');
 var badge = document.getElementById('konsAdminBadge');
 if (!wrap) return;
-var ids = Object.keys(_convMeta).filter(function (id) { return _convMeta[id]; });
+var ids = Object.keys(_convMeta).filter(function (id) { return isRealConv(_convMeta[id]); });
 ids.sort(function (a, b) { return (_convMeta[b].lastAt || 0) - (_convMeta[a].lastAt || 0); });
 var unreadConvCount = 0;
 ids.forEach(function (id) { if ((_convMeta[id].unreadAdmin || 0) > 0) unreadConvCount++; });
@@ -4450,7 +4473,7 @@ html += '<div class="user-item kons-conv-item' + (stCls ? ' ' + stCls : '') + (u
 avatarBoxHtml(id) +
 '<div style="flex:1;min-width:0;">' +
 '<div class="user-top" style="margin-bottom:2px;">' +
-'<div class="u-name">' + escAdmin(meta.username || id) + '</div>' +
+'<div class="u-name">' + escAdmin(convUserName(id)) + '</div>' +
 (unread > 0 ? '<span class="kons-unread-pill">' + unread + '</span>' : '') +
 '</div>' +
 '<div class="kons-conv-preview">' + (meta.lastSender === 'admin' ? '<i class="fas fa-reply" style="margin-right:4px;opacity:.6;"></i>' : '') + escAdmin(meta.lastMsg || '') + '</div>' +
@@ -4649,7 +4672,7 @@ wrap.scrollTop = (nearBottom || wasEmpty || _forceBottom) ? wrap.scrollHeight : 
 _forceBottom = false;
 }
 function userNameOf() {
-return (_convMeta[_activeUid] && _convMeta[_activeUid].username) || _activeUsername || _activeUid || 'User';
+return (_convMeta[_activeUid] && _convMeta[_activeUid].username) || _activeUsername || convUserName(_activeUid);
 }
 function replyNameOf(sender) { return sender === 'admin' ? 'Kamu' : userNameOf(); }
 function quoteOf(m, solo) {
@@ -4693,7 +4716,7 @@ function senderLabel(m) {
 var isAdmin = m.sender === 'admin';
 var name = isAdmin
 ? KONS_ADMIN_NAME
-: ((_convMeta[_activeUid] && _convMeta[_activeUid].username) || _activeUsername || _activeUid || 'User');
+: ((_convMeta[_activeUid] && _convMeta[_activeUid].username) || _activeUsername || convUserName(_activeUid));
 var avatarUid = isAdmin ? (window._hidzAdminUid || 'admin_hidz_protected') : _activeUid;
 var avatarUrl = (typeof window._hidzPhotoUrl === 'function') ? window._hidzPhotoUrl(avatarUid) : '';
 var avatarImg = avatarUrl ? '<img class="kons-sender-avatar role-' + roleOf(avatarUid) + '" src="' + escAdmin(avatarUrl) + '" alt="">' : '';
@@ -4763,7 +4786,7 @@ firebase.database().ref(KONS_MSG_REF + '/' + _activeUid).push(msg).catch(functio
 showToast('Pesan gagal terkirim (' + _fbErrShort(err) + ')', 'err');
 });
 firebase.database().ref(KONS_META_REF + '/' + _activeUid).update({
-username: (_convMeta[_activeUid] && _convMeta[_activeUid].username) || _activeUsername || _activeUid,
+username: (_convMeta[_activeUid] && _convMeta[_activeUid].username) || _activeUsername || convUserName(_activeUid),
 lastMsg: String(msg.text || '').substring(0, 80),
 lastAt: msg.time,
 lastSender: 'admin'
@@ -4870,7 +4893,7 @@ _activeMsgs = {};
 _readAtUser = 0;
 var meta = _convMeta[userId] || {};
 var nameEl = document.getElementById('konsChatName');
-if (nameEl) nameEl.textContent = meta.username || _activeUsername || userId;
+if (nameEl) nameEl.textContent = meta.username || _activeUsername || convUserName(userId);
 var typingRow = document.getElementById('konsChatTypingRow');
 if (typingRow) typingRow.style.display = 'none';
 var overlay = document.getElementById('konsChatOverlay');
@@ -4882,10 +4905,13 @@ if (typeof window._hidzWatchPhoto === 'function') window._hidzWatchPhoto(userId)
 if (typeof window._hidzWatchPresence === 'function') window._hidzWatchPresence(userId);
 renderChatHeaderStatus();
 ensureFb(function () {
+/* Hanya untuk percakapan yang sudah ada: membuka chat kosong tidak boleh membuat node meta baru */
+if (isRealConv(_convMeta[userId])) {
 firebase.database().ref(KONS_META_REF + '/' + userId + '/unreadAdmin').set(0)
 .catch(function (err) { console.error('[Konseling] gagal reset unreadAdmin', err); });
 firebase.database().ref(KONS_META_REF + '/' + userId + '/readAtAdmin').set(Date.now())
 .catch(function (err) { console.error('[Konseling] gagal update status baca', err); });
+}
 if (_activeRef) _activeRef.off();
 _activeRef = firebase.database().ref(KONS_MSG_REF + '/' + userId).limitToLast(300);
 var onErr = function (err) {
@@ -4934,7 +4960,7 @@ window.requestClearKonsChat = function () {
 if (!_activeUid) return;
 var uid   = _activeUid;
 var meta  = _convMeta[uid] || {};
-var uname = meta.username || uid;
+var uname = meta.username || convUserName(uid);
 openDangerModal(
 'Hapus Semua Chat?',
 'Seluruh riwayat percakapan konseling dengan <b>' + escAdmin(uname) + '</b> akan <b>dihapus permanen</b> dari Firebase, termasuk pesan yang sebelumnya sudah dihapus.<br><br>' +
