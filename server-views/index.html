@@ -1355,6 +1355,7 @@ _resetGateFailState();
 try { sessionStorage.setItem(GATE_OK_KEY, '1'); sessionStorage.removeItem(GATE_AUTH_KEY); } catch (e1) {}
 window._adminAuth = { username: username };
 var _ap=document.getElementById('hidzApp');if(_ap&&res.panelHtml)_ap.innerHTML=res.panelHtml;if(typeof renderPlanGrid==='function')renderPlanGrid();if(typeof window._vchSetLimit==='function')window._vchSetLimit(false);if (typeof _adminBoot === 'function') _adminBoot();
+window.dispatchEvent(new CustomEvent('hidz:panel-ready'));
 gateEl.style.display = 'none';
 _openAdminApp();
 }).catch(function () {
@@ -4424,6 +4425,7 @@ return '<div class="kons-avatar-box role-' + role + (opts.lg ? ' lg' : '') + '">
 (opts.hideDot ? '' : '<span class="kons-dot' + (online ? ' online' : '') + '" title="' + (online ? 'Online' : 'Offline') + '"></span>') +
 '</div>';
 }
+window.addEventListener('hidz:panel-ready', function () { renderConvList(); });
 function renderConvList() {
 var wrap = document.getElementById('konsConvList');
 var badge = document.getElementById('konsAdminBadge');
@@ -5310,6 +5312,7 @@ if (m.uid !== me && m.ts > latest) latest = m.ts;
 });
 if (latest !== _seenTs) { _seenTs = latest; saveSeen(); }
 }
+window.addEventListener('hidz:panel-ready', function () { scheduleRender(); });
 function renderEntry() {
 var wrap = byId('gcAdminEntry');
 var badge = byId('gcAdminBadge');
