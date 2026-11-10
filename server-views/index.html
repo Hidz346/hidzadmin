@@ -5412,7 +5412,7 @@ function renderMessages(forceBottom) {
 var box = byId('gcAdminMessages');
 if (!box || !_open) return;
 if (_failed) { box.innerHTML = '<div class="kons-empty"><i class="fas fa-triangle-exclamation"></i><p>Chat Global belum bisa dimuat.<br>Pastikan Rules Firebase sudah di-publish.</p></div>'; return; }
-if (!_loaded) { box.innerHTML = '<div class="kons-empty"><i class="fas fa-spinner fa-spin"></i><p>Memuat pesan...</p></div>'; return; }
+if (!_loaded && !Object.keys(_msgs).length) { box.innerHTML = '<div class="kons-empty"><i class="fas fa-spinner fa-spin"></i><p>Memuat pesan...</p></div>'; return; }
 var keys = sortedKeys();
 if (!keys.length) {
 box.innerHTML = '<div class="kons-empty"><i class="fas fa-comments"></i><p>Belum ada pesan di Chat Global.</p></div>';
@@ -5490,12 +5490,23 @@ delete _msgs[snap.key];
 checkReplyAlive();
 scheduleRender();
 }
+var _retryTimer = null, _retryCount = 0, _failToasted = false;
+function clearRetry() { if (_retryTimer) { clearTimeout(_retryTimer); _retryTimer = null; } }
+function scheduleRetry() {
+if (_retryTimer) return;
+var wait = Math.min(15000, 2000 * Math.pow(2, _retryCount++));
+_retryTimer = setTimeout(function () {
+_retryTimer = null;
+stopListener();
+startListener();
+}, wait);
+}
 function onFail(err) {
 console.error('[Chat Global] gagal membaca pesan:', err);
-var firstFail = !_failed;
 _failed = true;
-if (firstFail && typeof showToast === 'function') showToast('Gagal memuat Chat Global (' + _fbErrShort(err) + ')', 'err');
+if (!_failToasted && typeof showToast === 'function') { _failToasted = true; showToast('Gagal memuat Chat Global (' + _fbErrShort(err) + ')', 'err'); }
 scheduleRender();
+scheduleRetry();
 }
 function startListener() {
 if (_query) return;
@@ -5507,7 +5518,7 @@ _query = database.ref(GC_REF).orderByKey().limitToLast(GC_LIMIT);
 _query.on('child_added', onAdded, onFail);
 _query.on('child_changed', onChanged, onFail);
 _query.on('child_removed', onRemoved, onFail);
-_query.once('value', function () { _loaded = true; _failed = false; scheduleRender(); }, onFail);
+_query.once('value', function () { _loaded = true; _failed = false; _failToasted = false; _retryCount = 0; clearRetry(); scheduleRender(); }, onFail);
 }
 function stopListener() {
 if (_query) { try { _query.off(); } catch (e) {} _query = null; }
@@ -5589,9 +5600,12 @@ if (inp) inp.value = '';
 if (_mention) _mention.reset();
 _forceBottom = true;
 window._gcAdminCancelReply();
+var _slowTimer = setTimeout(function () { showToast('Koneksi lambat, pesan menunggu terkirim', 'err'); }, 8000);
 firebase.database().ref(GC_REF + '/' + key).set(record).then(function () {
+clearTimeout(_slowTimer);
 if (record.reply || record.mentions) notifyChat(key);
 }, function (err) {
+clearTimeout(_slowTimer);
 if (inp && !inp.value) { inp.value = text; if (_mention) _mention.restore(tags); }
 if (replyTo && !_replyTo) window._gcAdminReplyTo(replyTo.id);
 showToast('Gagal mengirim pesan (' + _fbErrShort(err) + ')', 'err');
@@ -5696,14 +5710,18 @@ ensureFb(function () {
 if (!firebase.auth) return;
 firebase.auth().onAuthStateChanged(function (user) {
 stopListener();
+clearRetry(); _retryCount = 0; _failToasted = false;
 if (!user) {
 _msgs = {}; _loaded = false; _failed = false;
 renderEntry();
 return;
 }
-user.getIdTokenResult(true).then(function (result) {
-if (result && result.claims && result.claims.admin === true) startListener();
+user.getIdTokenResult().then(function (result) {
+if (result && result.claims && result.claims.admin === true) { startListener(); return null; }
+return user.getIdTokenResult(true).then(function (fresh) {
+if (fresh && fresh.claims && fresh.claims.admin === true) startListener();
 else console.warn('[Chat Global] sesi Firebase tidak memiliki claim admin.');
+});
 }).catch(function (err) {
 console.error('[Chat Global] gagal memverifikasi token admin:', err);
 });
