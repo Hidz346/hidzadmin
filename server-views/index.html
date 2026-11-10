@@ -29,13 +29,31 @@ html.hzg-lock { background: #fff; }
 #hzGate .hzg-title { margin: 0 0 12px; font-size: clamp(1.375rem, 6.9vw, 1.75rem); font-weight: 700; line-height: 1.25; }
 #hzGate .hzg-text { margin: 0 0 28px; max-width: 34em; color: var(--hzg-muted); font-size: 1rem; line-height: 1.5; }
 #hzGate .hzg-turnstile-wrap, #hzGate #hzgTurnstile { min-height: 65px; display: flex; align-items: center; }
-#hzGate .hzg-loading { display: inline-flex; align-items: center; min-height: 65px; padding: 12px 16px; background: var(--hzg-widget); border: 1px solid var(--hzg-edge); border-radius: 4px; color: var(--hzg-muted); font-size: 14px; }
+#hzGate .hzg-loading { display: flex; align-items: center; gap: 12px; box-sizing: border-box; width: 300px; max-width: 100%; height: 65px; padding: 0 16px; background: var(--hzg-widget); border: 1px solid var(--hzg-edge); border-radius: 4px; color: var(--hzg-muted); font-size: 14px; }
+#hzGate .hzg-spin { flex: none; width: 22px; height: 22px; box-sizing: border-box; border: 3px solid var(--hzg-edge); border-top-color: var(--hzg-muted); border-radius: 50%; animation: hzgSpin 0.9s linear infinite; }
+@keyframes hzgSpin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { #hzGate .hzg-spin { animation-duration: 2.4s; } }
 #hzGate .hzg-note { max-width: 340px; margin: 12px 0 0; color: var(--hzg-muted); font-size: 13px; line-height: 1.45; }
 #hzGate .hzg-note.hzg-err { color: var(--hzg-bad); }
 #hzGate .hzg-retry { margin: 12px 0 0; padding: 8px 14px; width: fit-content; border: 1px solid var(--hzg-edge); border-radius: 4px; background: var(--hzg-widget); color: var(--hzg-text); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
 #hzGate .hzg-foot { flex: none; width: 100%; max-width: 640px; margin: 0 auto; padding: 0 16px calc(20px + env(safe-area-inset-bottom, 0px)); box-sizing: border-box; }
 #hzGate .hzg-foot div { padding-top: 12px; border-top: 1px solid var(--hzg-line); color: var(--hzg-muted); font-size: 12px; line-height: 1.4; }
 </style>
+<link rel="preconnect" href="https://challenges.cloudflare.com" />
+<script>
+(function () {
+/* Mulai mengunduh SDK Turnstile sejak awal head, sebelum body (dan skrip gate) ter-parse.
+   Dilewati kalau masih ada tiket verifikasi yang berlaku. Tidak mengeksekusi apa pun: skrip gate yang memasangnya nanti. */
+try {
+var saved = JSON.parse(localStorage.getItem("hidz_turnstile_pass_v1") || "null");
+if (saved && saved.pass && saved.exp && Date.now() < saved.exp) return;
+} catch (e) {}
+var l = document.createElement("link");
+l.rel = "preload"; l.as = "script";
+l.href = "https://challenges.cloudflare.com/turnstile/v0/api.js?onload=_hzTurnstileOnload&render=explicit";
+document.head.appendChild(l);
+})();
+</script>
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no,viewport-fit=cover">
 <meta name="robots" content="noindex, nofollow, noarchive">
 <title>HIDZ | PANEL</title>
@@ -1054,7 +1072,7 @@ padding: 18px; font-family: system-ui, sans-serif;
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700;800;900&family=Orbitron:wght@500;700;900&display=swap" />
 </head>
 <body>
-<div id="hzGate" role="dialog" aria-modal="true" aria-labelledby="hzgTitle" data-host="hidzadmim.web.id" data-sitekey="" data-verify-url="/api/admin-login">
+<div id="hzGate" role="dialog" aria-modal="true" aria-labelledby="hzgTitle" data-host="hidzadmin.web.id" data-sitekey="" data-verify-url="/api/admin-login">
 <div class="hzg-main">
 <div class="hzg-site">
 <span class="hzg-icon"><img src="https://www.gobox.my.id/file/vVUoB.png" alt="" width="58" height="58" onerror="this.parentNode.classList.add('hzg-noimg');this.remove()"></span>
@@ -1063,7 +1081,7 @@ padding: 18px; font-family: system-ui, sans-serif;
 <h1 class="hzg-title" id="hzgTitle">Melakukan verifikasi keamanan</h1>
 <p class="hzg-text">Situs web menggunakan layanan keamanan untuk melindungi dari bot jahat. Halaman ini ditunjukkan semasa kami memverifikasi bahwa Anda bukan bot.</p>
 <div class="hzg-turnstile-wrap">
-<div id="hzgTurnstile"><div class="hzg-loading">Memuat Cloudflare Turnstile...</div></div>
+<div id="hzgTurnstile"><div class="hzg-loading"><span class="hzg-spin"></span>Melakukan verifikasi...</div></div>
 </div>
 <p class="hzg-note" id="hzgNote" hidden></p>
 <button type="button" class="hzg-retry" id="hzgRetry" hidden>Muat ulang verifikasi</button>
@@ -1176,9 +1194,13 @@ return;
 }
 clearTimeout(releaseTimer); released = false; window._hzTurnstileToken = ""; window._hzTurnstilePass = "";
 setNote("", false); retryEl.hidden = true;
-mountEl.innerHTML = '<div class="hzg-loading">Memuat Cloudflare Turnstile...</div>';
+mountEl.innerHTML = '<div class="hzg-loading"><span class="hzg-spin"></span>Melakukan verifikasi...</div>';
 root.classList.remove("hzg-pass"); gate.classList.remove("hzg-leave"); gate.hidden = false; root.classList.add("hzg-lock");
-resolveSiteKey(function (k) { ensureScript(function () { renderWidget(k); }); });
+/* Site key dan SDK dimuat bersamaan, widget dirender begitu keduanya siap */
+var waiting = 2, siteKey = "";
+function ready() { if (--waiting === 0 && !released) renderWidget(siteKey); }
+resolveSiteKey(function (k) { siteKey = k; ready(); });
+ensureScript(ready);
 }
 retryEl.addEventListener("click", function () { lock(true); });
 window.addEventListener("pageshow", function (e) { if (e.persisted) lock(false); });
