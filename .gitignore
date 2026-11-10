@@ -1,0 +1,17 @@
+# Rahasia & kunci: jangan pernah masuk repo (simpan di Vercel Environment Variables)
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*serviceAccount*.json
+*firebase-adminsdk*.json
+
+# Dependensi & hasil build
+node_modules/
+.next/
+.vercel/
+
+# Lain-lain
+.DS_Store
+*.log
