@@ -7,6 +7,7 @@ var securityGuard = require('../../../lib/security');
 var firebaseAuth = require('../../../lib/firebase-auth');
 var pw = require('../../../lib/password');
 var resetPassword = require('../../../lib/reset-password');
+var credentialRequests = require('../../../lib/credential-requests');
 var push = require('../../../lib/push');
 
 module.exports = async function (req, res) {
@@ -37,6 +38,12 @@ module.exports = async function (req, res) {
        Hobby tidak bertambah. Logikanya ada di _lib/reset-password.js. */
     if (body.action === 'reset-password') {
         await resetPassword.run(body, res);
+        return;
+    }
+
+    /* Terima / tolak permintaan ganti username & password dari pengguna Google/GitHub (HIDZPROJECT). */
+    if (body.action === 'cred-decide') {
+        await credentialRequests.run(body, res);
         return;
     }
 

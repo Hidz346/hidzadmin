@@ -502,6 +502,33 @@ transition:transform .12s, box-shadow .12s;
 box-shadow: 2px 2px 0 var(--cyan);
 }
 .btn-extend:active { transform:translate(2px,2px); box-shadow:0 0 0; }
+.u-prov {
+display:inline-flex; align-items:center; gap:4px; flex:0 0 auto; padding:2px 8px;
+font-size:9px; font-weight:800; text-transform:uppercase; letter-spacing:.4px;
+color:var(--cyan); border:1.5px solid currentColor;
+}
+.u-prov.github { color:#e5e7eb; }
+.u-ident { margin-top:2px; font-size:11px; font-weight:600; color:var(--tsec); overflow-wrap:anywhere; }
+.cr-item.cr-pending  { border-color:var(--yellow); }
+.cr-item.cr-approved { border-color:var(--green); }
+.cr-item.cr-rejected { border-color:var(--red); opacity:.85; }
+.cr-top { display:flex; align-items:center; flex-wrap:wrap; gap:6px 8px; margin-bottom:8px; min-width:0; }
+.cr-flow { display:flex; align-items:center; flex-wrap:wrap; gap:6px; font-weight:800; font-size:14px; margin-bottom:6px; min-width:0; }
+.cr-flow .cr-old { color:var(--tsec); text-decoration:line-through; overflow-wrap:anywhere; }
+.cr-flow .cr-new { overflow-wrap:anywhere; }
+.cr-flow i { color:var(--cyan); font-size:11px; }
+.cr-state { display:inline-block; padding:2px 8px; font-size:9px; font-weight:800; text-transform:uppercase; border:1.5px solid currentColor; }
+.cr-state.pending  { color:var(--yellow); }
+.cr-state.approved { color:var(--green); }
+.cr-state.rejected { color:var(--red); }
+.cr-actions { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:10px; }
+.cr-actions .btn-extend { margin-top:0; }
+.cr-actions .cr-no { color:var(--red); border-color:var(--red); background:rgba(239,68,68,.08); box-shadow:2px 2px 0 var(--red); }
+.cr-actions .cr-yes { color:var(--green); border-color:var(--green); background:rgba(34,197,94,.08); box-shadow:2px 2px 0 var(--green); }
+.cr-actions .cr-yes.armed { background:var(--green); color:#09090f; }
+.cr-reject-box { margin-top:10px; }
+.cr-reject-box .f-inp { margin-bottom:8px; }
+.cr-note { margin-top:6px; font-size:11px; font-weight:600; color:var(--tsec); overflow-wrap:anywhere; }
 .sec-alert-card {
 background: rgba(239,68,68,.06);
 border: 3px solid var(--red);
@@ -1713,6 +1740,13 @@ var _bannedMap = {};
 var _userSearchQuery = '';
 var _userSortMode = 'newest';
 var _knownUserIds = null;
+var _credRequests = [];
+var _knownCredIds = null;
+var _credRejectId = '';
+var _credRejectText = '';
+var _credArmedId = '';
+var _credArmedTimer = null;
+var _credDrawnSig = null;
 (function _fbInit() {
 startClock();
 try {
@@ -1807,8 +1841,148 @@ _knownUserIds = new Set(fbUsers.map(function (u) { return u.id; }));
 if (fbUsers.length > 0) localStorage.setItem(DB_KEY, JSON.stringify(fbUsers));
 _bannedMap = res.banned || {};
 renderUsers();
+_applyCredRequests(res.credRequests);
 })
 .catch(function () {  });
+}
+/* ===== PERMINTAAN GANTI USERNAME / PASSWORD (akun Google & GitHub di HIDZPROJECT) =====
+Datang bersama daftar akun di /api/admin/list (dipoll berkala), jadi permintaan baru muncul tanpa muat
+ulang. Terima/tolak lewat /api/admin/create (action 'cred-decide'); pemilik akun yang sedang menunggu di
+HIDZPROJECT langsung dikabari. */
+function _applyCredRequests(list) {
+if (!Array.isArray(list)) return;
+if (_knownCredIds !== null) {
+list.forEach(function (r) {
+if (r && r.status === 'pending' && !_knownCredIds.has(r.id)) {
+showToast('\uD83D\uDD11 Permintaan ganti akun dari ' + (r.username || 'pengguna'), 'ok');
+}
+});
+}
+_knownCredIds = new Set(list.map(function (r) { return r.id; }));
+_credRequests = list;
+renderCredRequests();
+}
+function _credStateLabel(st) {
+return st === 'approved' ? 'Disetujui' : (st === 'rejected' ? 'Ditolak' : 'Menunggu');
+}
+function renderCredRequests() {
+var box = document.getElementById('credReqList');
+var cnt = document.getElementById('credReqCount');
+if (!box) return;
+var pendingCount = _credRequests.filter(function (r) { return r.status === 'pending'; }).length;
+if (cnt) {
+cnt.textContent = pendingCount;
+cnt.classList.toggle('gc-hot', pendingCount > 0);
+}
+if (!_credRequests.length) {
+if (_credDrawnSig === 'empty' && box.firstChild) return;
+_credDrawnSig = 'empty';
+box.innerHTML = '<div class="empty-state"><i class="fas fa-key" style="font-size:22px;margin-bottom:8px;display:block;opacity:.35;"></i>Belum ada permintaan ganti username / password.</div>';
+return;
+}
+var html = '';
+_credRequests.forEach(function (r) {
+var st = r.status === 'approved' || r.status === 'rejected' ? r.status : 'pending';
+var prov = r.provider === 'github' ? 'github' : 'google';
+var provIcon = prov === 'github' ? 'fab fa-github' : 'fab fa-google';
+var actions = '';
+if (st === 'pending') {
+if (_credRejectId === r.id) {
+actions =
+'<div class="cr-reject-box">' +
+'<div class="f-lbl">Alasan penolakan (opsional)</div>' +
+'<input type="text" class="f-inp" id="credRejectReason" maxlength="140" value="' + escAdmin(_credRejectText) + '" placeholder="Mis. data tidak cocok dengan pemilik akun" autocomplete="off" oninput="_credRejectText = this.value">' +
+'<div class="cr-actions">' +
+'<button type="button" class="btn-extend" onclick="cancelCredReject()">BATAL</button>' +
+'<button type="button" class="btn-extend cr-no" data-bk="cred:' + r.id + ':reject" onclick="decideCredRequest(' + window.hzArg(r.id) + ', \'reject\')"><i class="fas fa-ban" style="margin-right:6px;"></i>TOLAK</button>' +
+'</div></div>';
+} else {
+var armed = _credArmedId === r.id;
+actions =
+'<div class="cr-actions">' +
+'<button type="button" class="btn-extend cr-no" onclick="startCredReject(' + window.hzArg(r.id) + ')"><i class="fas fa-ban" style="margin-right:6px;"></i>TOLAK</button>' +
+'<button type="button" class="btn-extend cr-yes' + (armed ? ' armed' : '') + '" data-bk="cred:' + r.id + ':approve" onclick="decideCredRequest(' + window.hzArg(r.id) + ', \'approve\')"><i class="fas fa-check" style="margin-right:6px;"></i>' + (armed ? 'KETUK LAGI = ACC' : 'TERIMA (ACC)') + '</button>' +
+'</div>';
+}
+}
+html +=
+'<div class="user-item cr-item cr-' + st + '">' +
+'<div class="cr-top">' +
+'<span class="cr-state ' + st + '">' + _credStateLabel(st) + '</span>' +
+'<span class="u-prov ' + prov + '"><i class="' + provIcon + '"></i>' + (prov === 'github' ? 'GitHub' : 'Google') + '</span>' +
+'</div>' +
+'<div class="cr-flow"><span class="cr-old">' + escAdmin(r.username || '-') + '</span><i class="fas fa-arrow-right"></i><span class="cr-new">' + escAdmin(r.newUsername || '-') + '</span></div>' +
+(r.label ? '<div class="u-ident">' + escAdmin(r.label) + '</div>' : '') +
+'<div class="u-expiry"><i class="fas fa-clock" style="margin-right:4px;opacity:.5;"></i>Diajukan: ' + fmtDate(r.createdAt) + '</div>' +
+(st !== 'pending' && r.decidedAt ? '<div class="u-expiry"><i class="fas fa-gavel" style="margin-right:4px;opacity:.5;"></i>' + _credStateLabel(st) + ': ' + fmtDate(r.decidedAt) + '</div>' : '') +
+(r.reason ? '<div class="cr-note">Alasan: ' + escAdmin(r.reason) + '</div>' : '') +
+(st === 'pending' ? '<div class="cr-note">Password baru sudah disimpan aman oleh sistem dan tidak ditampilkan di sini.</div>' : '') +
+actions +
+'</div>';
+});
+if (html === _credDrawnSig && box.firstChild) return;
+_credDrawnSig = html;
+box.innerHTML = html;
+paintBusy(box);
+}
+function startCredReject(id) {
+_credRejectId = id;
+_credRejectText = '';
+_credArmedId = '';
+renderCredRequests();
+var inp = document.getElementById('credRejectReason');
+if (inp) inp.focus();
+}
+function cancelCredReject() {
+_credRejectId = '';
+_credRejectText = '';
+renderCredRequests();
+}
+function decideCredRequest(id, decision) {
+/* Terima = dua ketukan (sekali ketuk hanya "mengunci"), supaya tidak ter-ACC karena salah pencet. */
+if (decision === 'approve' && _credArmedId !== id) {
+_credArmedId = id;
+clearTimeout(_credArmedTimer);
+_credArmedTimer = setTimeout(function () { _credArmedId = ''; renderCredRequests(); }, 4000);
+renderCredRequests();
+return;
+}
+var key = 'cred:' + id + ':' + decision;
+if (_busyKeys[key]) return;
+clearTimeout(_credArmedTimer);
+_credArmedId = '';
+setBusy(key, true);
+_adminFetch('/api/admin/create', {
+method: 'POST',
+headers: { 'Content-Type': 'application/json' },
+body: JSON.stringify({ action: 'cred-decide', requestId: id, decision: decision, reason: decision === 'reject' ? _credRejectText : '' })
+})
+.then(function (r) { return r.json(); })
+.then(function (res) {
+setBusy(key, false);
+if (!res || !res.ok) {
+var why = res && res.reason;
+showToast(why === 'username_taken' ? 'Username baru sudah dipakai akun lain. Tolak permintaan ini.'
+: why === 'account_missing' ? 'Akun pemohon sudah dihapus. Tolak permintaan ini.'
+: why === 'protected' ? 'Akun admin tidak bisa diubah lewat permintaan.'
+: why === 'already_decided' ? 'Permintaan ini sudah diputuskan.'
+: why === 'not_found' ? 'Permintaan tidak ditemukan.'
+: why === 'invalid_request' ? 'Data permintaan tidak valid. Tolak permintaan ini.'
+: 'Gagal memproses, coba lagi.', 'err');
+if (why === 'already_decided' || why === 'not_found') _adminSyncUsers();
+return;
+}
+_lastLocalMutationAt = Date.now();
+if (_credRejectId === id) { _credRejectId = ''; _credRejectText = ''; }
+_credRequests = _credRequests.map(function (r) { return r.id === id && res.request ? res.request : r; });
+renderCredRequests();
+showToast(decision === 'approve' ? '\u2714 Disetujui, akun diperbarui' : '\u2714 Permintaan ditolak', 'ok');
+if (decision === 'approve') _adminSyncUsers();
+})
+.catch(function () {
+setBusy(key, false);
+showToast('Gagal terhubung ke server, coba lagi.', 'err');
+});
 }
 var _adminSyncTimer = null;
 document.addEventListener('visibilitychange', function () {
@@ -2169,7 +2343,11 @@ delBtn +
 '<div class="user-top">' +
 '<span class="u-name">'+escAdmin(u.username)+'</span>' +
 '<span class="u-role '+roleKey+'">'+roleTxt+'</span>' +
+(u.googleEmail ? '<span class="u-prov"><i class="fab fa-google"></i>Google</span>' : '') +
+(u.githubLogin ? '<span class="u-prov github"><i class="fab fa-github"></i>GitHub</span>' : '') +
 '</div>' +
+(u.googleEmail ? '<div class="u-ident">'+escAdmin(u.googleEmail)+'</div>' : '') +
+(u.githubLogin ? '<div class="u-ident">@'+escAdmin(u.githubLogin)+'</div>' : '') +
 '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">' +
 '<span class="u-status '+(exp?'u-exp':(pending?'u-pending':'u-ok'))+'"><i class="fas fa-circle" style="font-size:5px;margin-right:3px;"></i>'+(exp?'EXPIRED':(loggedOut?'LOGOUT':(pending?'BELUM AKTIF':'ACTIVE')))+'</span>' +
 '<span class="u-remain">'+remain+'</span>' +
@@ -3007,6 +3185,7 @@ duration_added: ['Durasi Ditambah', 'var(--green)'],
 role_upgraded:  ['Upgrade VIP',     'var(--yellow)'],
 maintenance:    ['Maintenance',     'var(--red)'],
 project_new:    ['Project Baru',    'var(--cyan)'],
+credential_request: ['Ganti Akun',  'var(--cyan)'],
 voucher_new:    ['Voucher Baru',    'var(--pink)']
 };
 var _nlogItems    = [];

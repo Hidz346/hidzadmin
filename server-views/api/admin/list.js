@@ -1,6 +1,7 @@
 var db = require('../../../lib/db');
 var securityGuard = require('../../../lib/security');
 var firebaseAuth = require('../../../lib/firebase-auth');
+var credentialRequests = require('../../../lib/credential-requests');
 
 module.exports = async function (req, res) {
     if (!(await securityGuard.guard(req, res))) return;
@@ -83,7 +84,11 @@ module.exports = async function (req, res) {
         });
     }
 
-    res.status(200).json({ ok: true, users: sanitizedList, banned: banned });
+    /* Permintaan ganti username/password dari pengguna Google/GitHub ikut dikirim di panggilan yang sama
+       (panel dipoll berkala), supaya tidak perlu endpoint tambahan. Gagal membaca tidak boleh menahan daftar akun. */
+    var credRequests = await credentialRequests.listAll();
+
+    res.status(200).json({ ok: true, users: sanitizedList, banned: banned, credRequests: credRequests || [] });
 };
 
 if(typeof module.exports==="function")module.exports.default=module.exports;
